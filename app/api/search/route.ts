@@ -1,0 +1,2 @@
+import {NextRequest,NextResponse} from 'next/server';import {strapi} from '@/lib/strapi';
+export async function GET(req:NextRequest){const q=req.nextUrl.searchParams.get('q')?.trim()||'';if(!q)return NextResponse.json({data:[]});try{const [f,n]=await Promise.all([strapi(`/formations?filters[title][$containsi]=${encodeURIComponent(q)}&populate=*`),strapi(`/actualites?filters[title][$containsi]=${encodeURIComponent(q)}&populate=*`)]);return NextResponse.json({formations:f,actualites:n})}catch(e){return NextResponse.json({error:'Recherche indisponible'},{status:502})}}
