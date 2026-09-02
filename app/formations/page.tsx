@@ -28,7 +28,7 @@ const departmentCards = [
     ],
     debouches: [
       'Administrateur système et réseaux',
-      'Ingénieur support infrastructure numérique',
+      'Spécialiste support infrastructure numérique',
       'Administrateur de bases de données',
       'Consultant réseau et cybersécurité',
       'Développeur d’applications réparties',
@@ -46,7 +46,7 @@ const departmentCards = [
       'Assistant réalisateur / réalisateur junior',
       'Monteur vidéo',
       'Chef opérateur / cadreur',
-      'Technicien son / ingénieur du son',
+      'Technicien son / spécialiste audio',
       'Producteur audiovisuel / gestion de contenu multimédia',
     ],
   },
@@ -96,7 +96,7 @@ const modalContent = {
     summary: 'Des compétences techniques dans les systèmes, les données, les réseaux et la cybersécurité.',
     debouches: [
       'Administrateur système et réseau',
-      'Ingénieur support infrastructure',
+      'Spécialiste support infrastructure',
       'Analyste sécurité informatique',
       'Administrateur de bases de données',
       'Développeur applications réparties',
@@ -178,7 +178,7 @@ const modalContent = {
     summary: 'Des compétences en IA, analyse de données et automatisation des tâches intelligentes.',
     debouches: [
       'Data analyst',
-      'Ingénieur IA / machine learning',
+      'Spécialiste IA / machine learning',
       'Analyste de données',
       'Automatisation de processus intelligents',
     ],
@@ -208,7 +208,7 @@ const modalContent = {
     summary: 'Certification orientée vers l’analyse de données, la modélisation et l’automatisation.',
     debouches: [
       'Data scientist junior',
-      'Ingénieur IA',
+      'Spécialiste IA',
       'Analyste de données',
       'Spécialiste automatisation intelligente',
     ],
@@ -218,7 +218,7 @@ const modalContent = {
     summary: 'Certification sur les objets connectés et la gestion intelligente des réseaux.',
     debouches: [
       'Technicien IoT',
-      'Ingénieur systèmes connectés',
+      'Spécialiste systèmes connectés',
       'Responsable maintenance équipements connectés',
       'Intégrateur réseaux de capteurs',
     ],

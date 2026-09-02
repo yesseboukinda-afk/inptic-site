@@ -41,6 +41,13 @@ export default function ChatBot() {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const openChat = () => setIsOpen(true);
+
+    window.addEventListener('open-inptic-chat', openChat);
+    return () => window.removeEventListener('open-inptic-chat', openChat);
+  }, []);
+
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 

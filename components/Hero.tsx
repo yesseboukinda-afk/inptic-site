@@ -1,6 +1,7 @@
 'use client';
 
 import { Search, ArrowRight, Bot, Box, FileText, GraduationCap } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 
 const quickActions = [
@@ -101,8 +102,8 @@ export default function Hero() {
               aria-label="Niveau d'études"
             >
               <option value="">Niveau</option>
+              <option value="dts">DTS</option>
               <option value="licence">Licence</option>
-              <option value="ingenieur">Ingénieur</option>
             </select>
 
             <button
@@ -125,22 +126,41 @@ export default function Hero() {
         {quickActions.map(({ label, icon: Icon, ariaLabel }) => {
           const isSelected = selectedAction === label;
 
-          return (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setSelectedAction(label)}
-              className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/70 ${
-                isSelected
-                  ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
-                  : 'text-white hover:bg-white/10'
-              }`}
-              aria-label={ariaLabel}
-            >
-              <Icon size={20} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
-              <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{label}</span>
-            </button>
-          );
+              return label === 'Visite 3D' || label === 'Candidature' ? (
+              <Link
+                key={label}
+                href={label === 'Visite 3D' ? '/visite-3d' : '/admissions/depot'}
+                className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/70 ${
+                  isSelected
+                    ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
+                    : 'text-white hover:bg-white/10'
+                }`}
+                aria-label={ariaLabel}
+              >
+                <Icon size={20} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
+                <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{label}</span>
+              </Link>
+            ) : (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  setSelectedAction(label);
+                  if (label === 'INPTIC-Bot') {
+                    window.dispatchEvent(new Event('open-inptic-chat'));
+                  }
+                }}
+                className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/70 ${
+                  isSelected
+                    ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
+                    : 'text-white hover:bg-white/10'
+                }`}
+                aria-label={ariaLabel}
+              >
+                <Icon size={20} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
+                <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{label}</span>
+              </button>
+            );
         })}
       </div>
 

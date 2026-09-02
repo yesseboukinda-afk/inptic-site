@@ -1,3 +1,5 @@
+import PressNewsFeed from '@/components/PressNewsFeed';
+
 export default function Contact() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -82,6 +84,7 @@ export default function Contact() {
                 Les journalistes et partenaires peuvent nous contacter pour obtenir des informations sur
                 les programmes, les événements, les partenariats et les initiatives de l’Institut.
               </p>
+              <PressNewsFeed />
             </div>
           </aside>
         </div>

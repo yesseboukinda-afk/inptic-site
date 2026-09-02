@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Admissions() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -100,9 +102,9 @@ export default function Admissions() {
               <p className="text-sm uppercase tracking-[0.2em] text-blue-200">Restez informé</p>
               <h3 className="mt-2 text-3xl font-bold">Préparez votre candidature dès aujourd’hui</h3>
             </div>
-            <button className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500">
+            <Link href="/admissions/depot" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500">
               Déposer mon dossier
-            </button>
+            </Link>
           </div>
         </div>
       </section>
