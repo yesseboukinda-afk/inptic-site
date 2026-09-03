@@ -1,8 +1,60 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+type SearchItem = {
+  id?: number | string;
+  title?: string;
+  name?: string;
+  description?: string;
+};
+
+type SearchResults = {
+  formations: { data?: SearchItem[] } | SearchItem[];
+  actualites: { data?: SearchItem[] } | SearchItem[];
+};
+
+function getItems(value: { data?: SearchItem[] } | SearchItem[] | undefined): SearchItem[] {
+  return Array.isArray(value) ? value : value?.data || [];
+}
+
 export default function Recherche() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const currentQuery = new URLSearchParams(window.location.search).get('q')?.trim() || '';
+    setQuery(currentQuery);
+
+    if (!currentQuery) {
+      setResults(null);
+      return;
+    }
+
+    let active = true;
+    setIsLoading(true);
+    fetch(`/api/search?q=${encodeURIComponent(currentQuery)}`)
+      .then((response) => response.json())
+      .then((data: SearchResults) => {
+        if (active) setResults(data);
+      })
+      .catch(() => {
+        if (active) setResults({ formations: [], actualites: [] });
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
-        <div className="absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105" style={{ backgroundImage: "url('/banniere/3.jpg')" }} aria-hidden="true" />
+        <div className="hero-image-reveal absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105" style={{ backgroundImage: "url('/banniere/3.jpg')" }} aria-hidden="true" />
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
                     <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
@@ -14,6 +66,38 @@ export default function Recherche() {
           </p>
         </div>
       </section>
+
+      {query && (
+        <section className="mx-auto max-w-6xl px-4 py-10 md:px-8" aria-live="polite">
+          <h2 className="text-2xl font-black text-slate-900">Résultats pour « {query} »</h2>
+          {isLoading ? (
+            <p className="mt-4 text-slate-600">Recherche en cours...</p>
+          ) : (
+            <div className="mt-6 grid gap-8 md:grid-cols-2">
+              {[
+                { title: 'Formations', items: getItems(results?.formations), href: '/formations' },
+                { title: 'Actualités', items: getItems(results?.actualites), href: '/actualites' },
+              ].map((group) => (
+                <div key={group.title}>
+                  <h3 className="text-lg font-bold text-slate-900">{group.title}</h3>
+                  {group.items.length ? (
+                    <div className="mt-3 space-y-3">
+                      {group.items.map((item, index) => (
+                        <a key={item.id || index} href={group.href} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-400 hover:shadow-sm">
+                          <p className="font-semibold text-slate-900">{item.title || item.name || 'Résultat'}</p>
+                          {item.description && <p className="mt-1 text-sm text-slate-600">{item.description}</p>}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">Aucun résultat trouvé.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
         <div className="grid gap-8 md:grid-cols-2">

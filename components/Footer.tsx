@@ -1,4 +1,31 @@
+ 'use client';
+
+import { FormEvent, useEffect, useState } from 'react';
+
 export default function Footer() {
+  const [email, setEmail] = useState('');
+  const [newsletterMessage, setNewsletterMessage] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  useEffect(() => {
+    setIsSubscribed(Boolean(localStorage.getItem('inptic-newsletter-email')));
+  }, []);
+
+  const handleNewsletterSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setNewsletterMessage('Veuillez saisir une adresse e-mail valide.');
+      return;
+    }
+
+    localStorage.setItem('inptic-newsletter-email', normalizedEmail);
+    setEmail('');
+    setIsSubscribed(true);
+    setNewsletterMessage('Inscription confirmée. Merci !');
+  };
+
   return (
     <footer className="bg-slate-950 text-slate-200">
       <div className="container-x px-4 py-12 md:px-0">
@@ -44,14 +71,23 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">Newsletter</h3>
             <p className="mt-4 text-sm leading-6 text-slate-300">Restez informé de nos actualités.</p>
-            <div className="mt-3 flex items-stretch gap-2 sm:flex-row">
+            <form className="mt-3 flex items-stretch gap-2 sm:flex-row" onSubmit={handleNewsletterSubmit}>
               <input
+                type="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setNewsletterMessage('');
+                }}
                 className="w-full rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-[#D4AF37]"
                 placeholder="Votre email"
                 aria-label="Votre email"
+                disabled={isSubscribed}
+                required
               />
               <button
-                type="button"
+                type="submit"
+                disabled={isSubscribed}
                 className="mobile-icon-action inline-flex h-[48px] shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#c89d2c] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
                 aria-label="S’inscrire à la newsletter"
                 title="S’inscrire à la newsletter"
@@ -60,9 +96,14 @@ export default function Footer() {
                   <path d="M4 4h16v16H4z" />
                   <path d="m22 6-10 7L2 6" />
                 </svg>
-                <span className="btn-label">S’inscrire</span>
+                <span className="btn-label">{isSubscribed ? 'Inscrit' : 'S’inscrire'}</span>
               </button>
-            </div>
+            </form>
+            {newsletterMessage && (
+              <p className="mt-2 text-xs text-[#F4D06F]" role="status" aria-live="polite">
+                {newsletterMessage}
+              </p>
+            )}
           </div>
         </div>
 

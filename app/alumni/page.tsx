@@ -3,7 +3,7 @@ export default function Alumni() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
         <div
-          className="absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105"
+          className="hero-image-reveal absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105"
           style={{ backgroundImage: "url('/banniere/1.jpg')" }}
           aria-hidden="true"
         />

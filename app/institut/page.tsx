@@ -3,7 +3,7 @@ export default function Institut() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
         <div
-          className="absolute inset-y-0 right-0 z-0 w-1/2 scale-105 bg-cover bg-center brightness-110 saturate-110"
+          className="hero-image-reveal absolute inset-y-0 right-0 z-0 w-1/2 scale-105 bg-cover bg-center brightness-110 saturate-110"
           style={{ backgroundImage: "url('/banniere/DG.jpg')" }}
           aria-hidden="true"
         />

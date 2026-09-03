@@ -2,7 +2,7 @@
 import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { FormEvent, useState, useRef, useEffect } from 'react';
 
 interface MenuItem {
   id: string;
@@ -71,6 +71,8 @@ export default function Header() {
   const [isDirector, setIsDirector] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchNotification, setSearchNotification] = useState('');
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -89,7 +91,6 @@ export default function Header() {
       setIsDarkMode(dark);
     };
 
-    localStorage.removeItem('inptic-theme');
     applyTheme(mediaQuery.matches);
 
     const handleSystemThemeChange = (event: MediaQueryListEvent) => {
@@ -126,7 +127,37 @@ export default function Header() {
   const toggleDarkMode = () => {
     const nextDarkMode = !isDarkMode;
     document.documentElement.classList.toggle('dark', nextDarkMode);
+    localStorage.setItem('inptic-theme', nextDarkMode ? 'dark' : 'light');
     setIsDarkMode(nextDarkMode);
+  };
+
+  const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      const formations = Array.isArray(data?.formations)
+        ? data.formations
+        : data?.formations?.data || [];
+      const actualites = Array.isArray(data?.actualites)
+        ? data.actualites
+        : data?.actualites?.data || [];
+      const count = formations.length + actualites.length;
+
+      setSearchNotification(
+        count
+          ? `${count} résultat${count > 1 ? 's' : ''} trouvé${count > 1 ? 's' : ''} pour « ${query} ».`
+          : `Aucun résultat trouvé pour « ${query} ».`,
+      );
+    } catch {
+      setSearchNotification('La recherche est momentanément indisponible.');
+    } finally {
+      setSearchQuery('');
+      window.setTimeout(() => setSearchNotification(''), 4500);
+    }
   };
 
   const handleLogout = () => {
@@ -167,16 +198,17 @@ export default function Header() {
           </Link>
 
           <div className="ml-auto hidden md:flex items-center gap-4">
-            <div className="hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
+            <form onSubmit={handleSearchSubmit} className="hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
               <input 
                 type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Rechercher..."
                 aria-label="Rechercher sur le site"
                 className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 text-base"
               />
               <Search size={18} className="text-slate-400 flex-shrink-0" aria-hidden="true" />
-            </div>
-
+            </form>
             <button
               onClick={toggleDarkMode}
               aria-label="Basculer le mode sombre"
@@ -514,6 +546,12 @@ export default function Header() {
             )}
           </div>
         </nav>
+      )}
+
+      {searchNotification && (
+        <p className="fixed right-6 top-20 z-[100] max-w-xs rounded-lg border border-blue-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xl dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" role="status" aria-live="polite">
+          {searchNotification}
+        </p>
       )}
     </>
   );
