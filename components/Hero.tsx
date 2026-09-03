@@ -8,7 +8,7 @@ const quickActions = [
   { label: 'INPTIC-Bot', icon: Bot, ariaLabel: 'Chat avec le bot INPTIC' },
   { label: 'Visite 3D', icon: Box, ariaLabel: 'Visiter le campus en 3D' },
   { label: 'Candidature', icon: FileText, ariaLabel: 'Accéder au formulaire de candidature' },
-  { label: 'Plateforme', icon: GraduationCap, ariaLabel: 'Accéder à la plateforme étudiante' },
+  { label: 'Alumni', icon: GraduationCap, ariaLabel: 'Accéder à la plateforme Alumni' },
 ];
 
 const galleryImages = [
@@ -34,7 +34,7 @@ export default function Hero() {
               key={`${image}-${index}`}
               className="relative h-full w-screen shrink-0"
               style={{
-                backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.43), rgba(15, 23, 42, 0.51)), url(${image})`,
+                backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.38), rgba(15, 23, 42, 0.51)), url(${image})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
@@ -126,10 +126,16 @@ export default function Hero() {
         {quickActions.map(({ label, icon: Icon, ariaLabel }) => {
           const isSelected = selectedAction === label;
 
-              return label === 'Visite 3D' || label === 'Candidature' ? (
+              return label === 'Visite 3D' || label === 'Candidature' || label === 'Alumni' ? (
               <Link
                 key={label}
-                href={label === 'Visite 3D' ? '/visite-3d' : '/admissions/depot'}
+                  href={
+                    label === 'Visite 3D'
+                      ? '/visite-3d'
+                      : label === 'Alumni'
+                        ? '/alumni'
+                        : '/admissions/depot'
+                  }
                 className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/70 ${
                   isSelected
                     ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'

@@ -24,6 +24,65 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html.dark body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html.dark .bg-white,
+html.dark .bg-slate-50,
+html.dark .bg-gray-50 {
+  background-color: #172033 !important;
+}
+
+html.dark .bg-slate-100,
+html.dark .bg-gray-100 {
+  background-color: #111827 !important;
+}
+
+html.dark .text-slate-900,
+html.dark .text-gray-900 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+html.dark .text-gray-700 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-gray-600,
+html.dark .text-gray-500 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #94a3b8;
+}
+
+html.dark .hover\:bg-gray-100:hover,
+html.dark .hover\:bg-slate-50:hover {
+  background-color: #334155 !important;
+}
+
 img, svg {
   display: block;
   max-width: 100%;
@@ -58,8 +117,8 @@ a, button, input, select {
 }
 
 .glass {
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(16px);
+  background: rgba(15, 23, 42, 0.233);
+  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 

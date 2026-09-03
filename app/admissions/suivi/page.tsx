@@ -168,7 +168,7 @@ export default function Suivi() {
       ? 'Refusé'
       : 'En attente de validation';
 
-  const currentStepIndex = profile?.status === 'refuse' ? 3 : profile?.status === 'valide' ? 2 : 1;
+  const currentStepIndex = profile?.status === 'valide' || profile?.status === 'refuse' ? 2 : 1;
 
   const updateStoredProfile = (nextProfile: CandidateProfile) => {
     saveProfileSafely(nextProfile);
@@ -280,17 +280,47 @@ export default function Suivi() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <section className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white">
-        <div className="mx-auto max-w-6xl px-4 py-20 md:px-8">
+      <section className="relative isolate overflow-hidden text-white">
+        <div className="absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105" style={{ backgroundImage: "url('/banniere/2.jpg')" }} aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">Admissions</p>
           <h1 className="text-4xl font-black md:text-6xl">Suivi du dossier</h1>
           <p className="mt-5 max-w-3xl text-lg text-blue-50">
             Votre inscription est bien enregistrée. Complétez votre dossier, téléversez les justificatifs, puis suivez son évolution jusqu’à validation.
           </p>
+          <div className="mt-6 inline-flex rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-blue-50">
+            Session 2026-2027 · Dépôt ouvert jusqu’au 18 septembre 2026
+          </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
+        <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Dossier de candidature</p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-900">Étapes de votre demande</h2>
+            </div>
+            <p className="text-sm text-slate-500">Étape {currentStepIndex + 1} sur 3</p>
+          </div>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {[
+              { label: 'Compte candidat', detail: 'Informations personnelles', active: true },
+              { label: 'Dépôt du dossier', detail: 'Formation et justificatifs', active: currentStepIndex >= 1 },
+              { label: 'Traitement', detail: 'Validation par l’administration', active: currentStepIndex >= 2 },
+            ].map((step, index) => (
+              <div key={step.label} className={`flex items-center gap-3 rounded-2xl border p-4 ${step.active ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${step.active ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</span>
+                <div>
+                  <p className={`font-semibold ${step.active ? 'text-blue-800' : 'text-slate-500'}`}>{step.label}</p>
+                  <p className="text-xs text-slate-500">{step.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -348,6 +378,11 @@ export default function Suivi() {
                 </span>
               </div>
 
+              <div className="mt-6 border-b border-slate-200 pb-5">
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">1. Identité du candidat</p>
+                <p className="mt-1 text-sm text-slate-500">Vérifiez les informations utilisées pour votre dossier.</p>
+              </div>
+
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Nom complet</span>
@@ -357,6 +392,11 @@ export default function Suivi() {
                     className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </label>
+
+                <div className="md:col-span-2 border-t border-slate-200 pt-5">
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">2. Parcours et formation demandée</p>
+                  <p className="mt-1 text-sm text-slate-500">Indiquez votre niveau et la filière souhaitée à l’INPTIC.</p>
+                </div>
 
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
@@ -463,6 +503,11 @@ export default function Suivi() {
                     className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </label>
+
+                <div className="md:col-span-2 border-t border-slate-200 pt-5">
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">3. Pièces justificatives</p>
+                  <p className="mt-1 text-sm text-slate-500">Ajoutez les documents nécessaires à l’étude de votre candidature.</p>
+                </div>
 
                 <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
                   <label className="block">

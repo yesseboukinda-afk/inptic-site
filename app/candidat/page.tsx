@@ -408,6 +408,18 @@ export default function Candidat() {
               <span className="btn-label">Inscription au concours</span>
             </button>
           </div>
+
+          <div className="mt-8 rounded-2xl border border-white/15 bg-slate-950/15 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100">Session d'inscription</p>
+            <p className="mt-2 text-lg font-bold">2026-2027</p>
+            <p className="mt-1 text-sm text-blue-50">Ouverte du 03 août au 18 septembre 2026</p>
+          </div>
+
+          <ol className="mt-6 space-y-3 text-sm text-blue-50">
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white font-bold text-blue-700">1</span>Créer votre compte candidat</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">2</span>Compléter le dossier et les pièces</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">3</span>Suivre la validation en ligne</li>
+          </ol>
         </section>
 
         <section className="flex items-center">

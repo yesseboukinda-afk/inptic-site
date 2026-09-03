@@ -10,6 +10,29 @@ interface Message {
   timestamp: Date;
 }
 
+function renderMessage(text: string) {
+  const cleanText = text.replace(/^#{1,3}\s+/gm, '');
+  const parts = cleanText.split(/(\[[^\]]+\]\(\/[^\s)]+\))/g);
+
+  return parts.map((part, index) => {
+    const link = part.match(/^\[([^\]]+)\]\((\/[^\s)]+)\)$/);
+
+    if (!link || link[2].startsWith('//')) {
+      return <span key={index}>{part}</span>;
+    }
+
+    return (
+      <a
+        key={index}
+        href={link[2]}
+        className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900"
+      >
+        {link[1]}
+      </a>
+    );
+  });
+}
+
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +91,14 @@ export default function ChatBot() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: userMessage.text }),
+        body: JSON.stringify({
+          messages: [...messages, userMessage]
+            .slice(-12)
+            .map(({ sender, text }) => ({
+              role: sender === 'user' ? 'user' : 'assistant',
+              content: text,
+            })),
+        }),
       });
 
       const data = await response.json();
@@ -158,7 +188,7 @@ export default function ChatBot() {
                   }`}
                   role={message.sender === 'bot' ? 'status' : 'article'}
                 >
-                  <p className="text-sm leading-relaxed">{message.text}</p>
+                  <p className="whitespace-pre-line text-sm leading-relaxed">{renderMessage(message.text)}</p>
                   <span className={`text-xs ${message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'} mt-1 block`}>
                     {message.timestamp.toLocaleTimeString('fr-FR', {
                       hour: '2-digit',

@@ -1,13 +1,28 @@
 export default function Presentation() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <section className="bg-gradient-to-r from-slate-900 to-blue-800 text-white">
-        <div className="mx-auto max-w-6xl px-4 py-20 md:px-8">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-200">INPTIC Gabon</p>
-          <h1 className="text-4xl font-black md:text-6xl">Présentation</h1>
-          <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            L’INPTIC Gabon est un établissement de référence qui forme les talents du numérique dans une logique d’excellence, d’innovation et d’insertion professionnelle.
-          </p>
+      <section className="relative isolate overflow-hidden text-white">
+        <div
+          className="absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105"
+          style={{ backgroundImage: "url('/banniere/DGA.jpg')" }}
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-0 z-[1]"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.9) 28%, rgba(15, 23, 42, 0.58) 48%, rgba(30, 136, 168, 0.2) 72%, rgba(30, 136, 168, 0.05) 100%)',
+          }}
+          aria-hidden="true"
+        />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <div className="max-w-3xl">
+            <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+            <h1 className="text-4xl font-black md:text-6xl">Présentation</h1>
+            <p className="mt-5 text-lg text-slate-200">
+              L’INPTIC Gabon est un établissement de référence qui forme les talents du numérique dans une logique d’excellence, d’innovation et d’insertion professionnelle.
+            </p>
+          </div>
         </div>
       </section>
 

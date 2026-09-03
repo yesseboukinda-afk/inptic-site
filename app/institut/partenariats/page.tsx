@@ -2,23 +2,27 @@ const partners = [
   { name: 'CNOU', category: 'Institution publique', logo: '/partners/cnou.png', url: 'https://www.cnou.ga/' },
   { name: 'Cisco', category: 'Technologie', logo: '/partners/cisco.png', url: 'https://www.cisco.com/' },
   { name: 'Moov Africa', category: 'Télécommunications', logo: '/partners/moov-africa.jpg', url: 'https://www.moov-africa.ga/' },
-  { name: 'SPIN', category: 'Innovation', logo: '/partners/spin.png', url: 'https://spin-gabon.com/' },
-  { name: 'Comilog', category: 'Industrie', logo: '/partners/comilog.png', url: 'https://www.comilog.com/' },
-  { name: 'Ministère', category: 'Administration', logo: '/partners/minister.png', url: 'https://www.gouvernement.ga/' },
-  { name: 'ANBG', category: 'Institution nationale', logo: '/partners/anbg.png', url: 'https://www.anbg.ga/' },
+  { name: 'SPIN', category: 'Innovation', logo: '/partners/spin.png', url: 'https://spin.ga/' },
+  { name: 'Comilog', category: 'Industrie', logo: '/partners/comilog.png', url: 'https://comilog.eramet.com/' },
+  { name: 'Ministère de l\'économie numérique', category: 'Administration', logo: '/partners/minister.png', url: 'https://economie-numerique.gouv.ga/' },
+  { name: 'ANBG', category: 'Institution nationale', logo: '/partners/anbg.png', url: 'https://anbg.online/' },
   { name: 'Arcep', category: 'Régulation', logo: '/partners/arcep.png', url: 'https://www.arcep.ga/' },
 ];
 
 export default function Partenariats() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <section className="bg-gradient-to-r from-slate-900 to-blue-800 text-white">
-        <div className="mx-auto max-w-6xl px-4 py-20 md:px-8">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-200">INPTIC Gabon</p>
-          <h1 className="text-4xl font-black md:text-6xl">Partenariats</h1>
-          <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            L’INPTIC Gabon s’appuie sur des partenariats solides avec des institutions, des entreprises et des acteurs technologiques afin de renforcer la qualité de la formation, la recherche et l’insertion professionnelle.
-          </p>
+      <section className="relative isolate overflow-hidden text-white">
+        <div className="absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105" style={{ backgroundImage: "url('/banniere/3.jpg')" }} aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.9) 28%, rgba(15, 23, 42, 0.58) 48%, rgba(30, 136, 168, 0.2) 72%, rgba(30, 136, 168, 0.05) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <div className="max-w-3xl">
+            <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+            <h1 className="text-4xl font-black md:text-6xl">Partenariats</h1>
+            <p className="mt-5 text-lg text-slate-200">
+              L’INPTIC Gabon s’appuie sur des partenariats solides avec des institutions, des entreprises et des acteurs technologiques afin de renforcer la qualité de la formation, la recherche et l’insertion professionnelle.
+            </p>
+          </div>
         </div>
       </section>
 

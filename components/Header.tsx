@@ -1,5 +1,5 @@
 'use client';
-import { Search, Moon, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
@@ -70,6 +70,7 @@ export default function Header() {
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -82,6 +83,20 @@ export default function Header() {
 
   useEffect(() => {
     syncAuthState();
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = (dark: boolean) => {
+      document.documentElement.classList.toggle('dark', dark);
+      setIsDarkMode(dark);
+    };
+
+    localStorage.removeItem('inptic-theme');
+    applyTheme(mediaQuery.matches);
+
+    const handleSystemThemeChange = (event: MediaQueryListEvent) => {
+      applyTheme(event.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
 
     const handleStorage = () => syncAuthState();
     const handleAuthChange = () => syncAuthState();
@@ -104,8 +119,15 @@ export default function Header() {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('auth-state-changed', handleAuthChange);
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
     };
   }, [pathname]);
+
+  const toggleDarkMode = () => {
+    const nextDarkMode = !isDarkMode;
+    document.documentElement.classList.toggle('dark', nextDarkMode);
+    setIsDarkMode(nextDarkMode);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('inptic_directeur');
@@ -156,11 +178,12 @@ export default function Header() {
             </div>
 
             <button
+              onClick={toggleDarkMode}
               aria-label="Basculer le mode sombre"
-              className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95"
-              title="Mode sombre"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95"
+              title={isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'}
             >
-              <Moon size={19} aria-hidden="true" />
+              {isDarkMode ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
             </button>
 
             <button

@@ -1,15 +1,30 @@
 export default function Institut() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <section className="text-white" style={{ backgroundImage: 'linear-gradient(135deg, var(--navy) 0%, var(--cyan) 100%)' }}>
-        <div className="mx-auto max-w-6xl px-4 py-20 md:px-8">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-200">INPTIC Gabon</p>
-          <h1 className="text-4xl font-black md:text-6xl">L’Institut</h1>
-          <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            Depuis sa création, l’INPTIC Gabon s’impose comme une référence dans la formation aux
-            métiers du numérique, formant des professionnels compétents, innovants et engagés dans le
-            développement économique du pays.
-          </p>
+      <section className="relative isolate overflow-hidden text-white">
+        <div
+          className="absolute inset-y-0 right-0 z-0 w-1/2 scale-105 bg-cover bg-center brightness-110 saturate-110"
+          style={{ backgroundImage: "url('/banniere/DG.jpg')" }}
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-0 z-[1]"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, rgba(7, 25, 55, 0.96) 0%, rgba(7, 25, 55, 0.72) 38%, rgba(0, 142, 174, 0.28) 70%, rgba(0, 142, 174, 0.08) 100%)',
+          }}
+          aria-hidden="true"
+        />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <div className="max-w-3xl">
+            <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+            <h1 className="text-4xl font-black md:text-6xl">L’Institut</h1>
+            <p className="mt-5 text-lg text-slate-200">
+              Depuis sa création, l’INPTIC Gabon s’impose comme une référence dans la formation aux
+              métiers du numérique, formant des professionnels compétents, innovants et engagés dans le
+              développement économique du pays.
+            </p>
+          </div>
         </div>
       </section>
 
