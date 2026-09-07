@@ -4,7 +4,7 @@ export default function Presentation() {
       <section className="relative isolate overflow-hidden text-white">
         <div
           className="hero-image-reveal absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105"
-          style={{ backgroundImage: "url('/banniere/DGA.jpg')" }}
+          style={{ backgroundImage: "url('/banniere/DGA.webp')" }}
           aria-hidden="true"
         />
         <div
