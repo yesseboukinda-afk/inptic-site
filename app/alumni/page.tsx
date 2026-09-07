@@ -2,9 +2,10 @@ export default function Alumni() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
-        <div
-          className="hero-image-reveal absolute inset-y-0 right-0 z-0 w-3/5 scale-105 bg-cover bg-center brightness-105 saturate-105"
-          style={{ backgroundImage: "url('/banniere/1.webp')" }}
+        <img
+          src="/banniere/1.webp"
+          alt=""
+          className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105"
           aria-hidden="true"
         />
         <div

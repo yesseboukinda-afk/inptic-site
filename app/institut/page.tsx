@@ -2,9 +2,10 @@ export default function Institut() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
-        <div
-          className="hero-image-reveal absolute inset-y-0 right-0 z-0 w-1/2 scale-105 bg-cover bg-center brightness-110 saturate-110"
-          style={{ backgroundImage: "url('/banniere/DG.webp')" }}
+        <img
+          src="/banniere/DG.webp"
+          alt=""
+          className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-1/2 scale-105 object-cover object-center brightness-110 saturate-110"
           aria-hidden="true"
         />
         <div
