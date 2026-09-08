@@ -8,12 +8,13 @@ import {
   BriefcaseBusiness,
 } from "lucide-react";
 const formations = [
-  ["Informatique", "Développement logiciel, systèmes, réseaux et sécurité."],
-  ["Multimédia & Internet", "Création numérique, web, design et audiovisuel."],
-  ["Télécommunications", "Réseaux, systèmes embarqués, IoT et services."],
+  ["Informatique", "Développement logiciel, systèmes, réseaux et sécurité.", "/formations/genie-logiciel"],
+  ["Multimédia & Internet", "Création numérique, web, design et audiovisuel.", "/formations"],
+  ["Télécommunications", "Réseaux, systèmes embarqués, IoT et services.", "/formations/telecoms"],
   [
     "Management & TIC",
     "Gestion de projet, marketing digital et entrepreneuriat.",
+    "/formations",
   ],
 ];
 export default function Home() {
@@ -103,7 +104,7 @@ export default function Home() {
             </a>
           </div>
           <div className="grid md:grid-cols-4 gap-5 mt-6">
-            {formations.map(([t, d]) => (
+            {formations.map(([t, d, href]) => (
               <article
                 key={t}
                 className="bg-white border rounded-2xl p-5 hover:shadow-lg transition"
@@ -113,7 +114,7 @@ export default function Home() {
                 <p className="text-sm text-slate-500 mt-2 min-h-12">{d}</p>
                 <p className="text-xs mt-4">DTS · Licence</p>
                 <a
-                  href={"/formations/" + encodeURIComponent(t.toLowerCase())}
+                  href={href}
                   className="text-blue-600 text-sm font-semibold mt-5 inline-block"
                 >
                   En savoir plus →

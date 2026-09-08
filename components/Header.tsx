@@ -1,6 +1,7 @@
 'use client';
 import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 
@@ -70,6 +71,7 @@ export default function Header() {
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
+  const [staffRole, setStaffRole] = useState<'scolarite' | 'chef_departement' | 'direction_etudes' | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchNotification, setSearchNotification] = useState('');
@@ -79,8 +81,11 @@ export default function Header() {
   const syncAuthState = () => {
     const director = localStorage.getItem('inptic_directeur');
     const student = localStorage.getItem('inptic_user');
+    const staffRaw = localStorage.getItem('inptic_staff');
+    const staff = staffRaw ? JSON.parse(staffRaw) : null;
     setIsDirector(Boolean(director));
     setIsStudent(Boolean(student));
+    setStaffRole(['scolarite', 'chef_departement', 'direction_etudes'].includes(staff?.role) ? staff.role : null);
   };
 
   useEffect(() => {
@@ -165,6 +170,8 @@ export default function Header() {
     localStorage.removeItem('inptic_user');
     setIsDirector(false);
     setIsStudent(false);
+    setStaffRole(null);
+    localStorage.removeItem('inptic_staff');
     window.dispatchEvent(new Event('auth-state-changed'));
     window.location.href = '/candidat';
   };
@@ -190,9 +197,12 @@ export default function Header() {
             className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
             aria-label="INPTIC - Accueil"
           >
-            <img
+            <Image
               src="/logoinptic.png"
               alt="Logo INPTIC"
+              width={170}
+              height={96}
+              priority
               className="h-8 w-auto sm:h-9 md:h-10"
             />
           </Link>
@@ -254,6 +264,26 @@ export default function Header() {
                   <span className="icon-slot" aria-hidden="true">↗</span>
                 </button>
               </>
+            ) : staffRole ? (
+              <>
+                <Link
+                  href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'}
+                  className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95"
+                  aria-label="Espace professionnel"
+                >
+                  <LayoutDashboard size={16} aria-hidden="true" />
+                  <span className="btn-label">{staffRole === 'scolarite' ? 'Scolarité' : staffRole === 'direction_etudes' ? 'Direction des études' : 'Chef de département'}</span>
+                </Link>
+                <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label="Déconnexion"><span className="btn-label">Déconnexion</span><span className="icon-slot" aria-hidden="true">↗</span></button>
+              </>
+            ) : staffRole ? (
+              <div className="mt-4 flex gap-2">
+                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} aria-label="Espace professionnel" className="navbar-icon-only flex-1 bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 active:bg-slate-100 px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" onClick={() => setMobileMenuOpen(false)}>
+                  <LayoutDashboard size={18} aria-hidden="true" />
+                  <span className="btn-label">Espace professionnel</span>
+                </Link>
+                <button onClick={() => { setMobileMenuOpen(false); handleLogout(); }} aria-label="Déconnexion" className="navbar-icon-only flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"><LogOut size={18} aria-hidden="true" /><span className="btn-label">Déconnexion</span></button>
+              </div>
             ) : isStudent ? (
               <>
                 <Link
@@ -315,6 +345,14 @@ export default function Header() {
             role="menuitem"
           >
             Accueil
+          </Link>
+
+          <Link
+            href="/actualites"
+            className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+            role="menuitem"
+          >
+            Actualités
           </Link>
           
           {menuItems.map((item) => (
@@ -424,6 +462,14 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Accueil
+            </Link>
+
+            <Link
+              href="/actualites"
+              className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Actualités
             </Link>
 
             {menuItems.map((item) => (

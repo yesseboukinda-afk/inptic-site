@@ -5,6 +5,9 @@ export default function Alumni() {
         <img
           src="/banniere/1.webp"
           alt=""
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
           className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105"
           aria-hidden="true"
         />
@@ -123,6 +126,15 @@ export default function Alumni() {
           <h2 className="mt-3 text-3xl font-black text-slate-900">Votre parcours continue avec l&apos;INPTIC</h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-600">La page Alumni est l&apos;espace de référence pour valoriser les parcours, créer des liens entre promotions et rapprocher l&apos;institut du monde professionnel.</p>
           <a href="/contact" className="mt-8 inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">Contacter l&apos;INPTIC</a>
+        </div>
+      </section>
+
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-10 text-center md:px-8">
+          <p className="text-sm text-slate-600">Retrouvez les événements et annonces du réseau INPTIC.</p>
+          <a href="/actualites" className="mt-3 inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
+            Voir toutes les actualités
+          </a>
         </div>
       </section>
     </main>

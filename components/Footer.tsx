@@ -1,6 +1,7 @@
  'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Image from 'next/image';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
@@ -32,7 +33,7 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-5">
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center gap-3">
-              <img src="/logoinptic.png" alt="Logo INPTIC" className="h-10 w-auto" />
+              <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} className="h-10 w-auto" />
             </div>
             <p className="max-w-xs text-sm leading-6 text-slate-300">
               Institut National de la poste, des Technologies de l’Information et de la Communication.

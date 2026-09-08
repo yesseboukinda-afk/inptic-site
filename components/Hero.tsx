@@ -2,6 +2,7 @@
 
 import { Search, ArrowRight, Bot, Box, FileText, GraduationCap, X } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 
 const quickActions = [
@@ -250,14 +251,20 @@ export default function Hero() {
             <div
               key={`${image}-${index}`}
               className="relative h-full w-screen shrink-0"
-              style={{
-                backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.38), rgba(15, 23, 42, 0.38)), url(${image})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                filter: 'saturate(1.05) contrast(1.02)',
-              }}
-            />
+            >
+              <Image
+                src={image}
+                alt=""
+                fill
+                priority={index === 0}
+                loading={index === 0 ? undefined : 'lazy'}
+                sizes="100vw"
+                quality={65}
+                className="object-cover object-center saturate-105 contrast-[1.02]"
+                aria-hidden="true"
+              />
+              <div className="absolute inset-0 bg-slate-950/35" aria-hidden="true" />
+            </div>
           ))}
         </div>
       </div>

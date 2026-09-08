@@ -1,8 +1,9 @@
 'use client';
 
-import { Settings, LogOut } from 'lucide-react';
+import { BookOpen, BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, FileCheck2, FileText, GraduationCap, LogOut, Settings, UserRound } from 'lucide-react';
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import StudentPanel, { StudentSection } from '@/components/StudentPanel';
 
 const emptyProfile = {
   name: '',
@@ -43,6 +44,8 @@ export default function VieEtudiante() {
   const [isReady, setIsReady] = useState(false);
   const [profile, setProfile] = useState(emptyProfile);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeSection, setActiveSection] = useState<StudentSection | null>(null);
   const [saved, setSaved] = useState('');
 
   useEffect(() => {
@@ -184,7 +187,7 @@ export default function VieEtudiante() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
-        <img src="/banniere/2.webp" alt="" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <img src="/banniere/2.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
         <div className="container-x px-3 py-10 md:px-0 md:py-16">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -219,79 +222,48 @@ export default function VieEtudiante() {
       </section>
 
       <section className="container-x px-3 py-6 md:px-0 md:py-10">
-        <div className="grid gap-4 md:gap-8 lg:grid-cols-[0.92fr_1.08fr]">
-          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:rounded-3xl md:p-6">
-            <div className="flex flex-col items-center gap-3 text-center md:gap-4">
-              <label
-                className="group relative block h-24 w-24 cursor-pointer overflow-hidden rounded-full border-4 border-white shadow-md ring-2 ring-slate-200 transition hover:scale-[1.01] md:h-28 md:w-28"
-                aria-label="Changer la photo de profil"
-                title="Cliquez pour télécharger une nouvelle photo"
+        <div className={`relative grid gap-4 md:gap-8 ${sidebarCollapsed ? 'lg:grid-cols-[90px_1fr]' : 'lg:grid-cols-[210px_1fr]'}`}>
+          <aside className={`border border-slate-200 bg-white p-4 shadow-sm md:p-6 lg:sticky lg:top-6 lg:self-start ${sidebarCollapsed ? 'lg:h-[558px] lg:w-[90px] lg:p-3' : ''}`}>
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-4">
+              {!sidebarCollapsed && <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-600">Espace étudiant</p>}
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+                aria-label={sidebarCollapsed ? 'Développer le menu étudiant' : 'Réduire le menu étudiant'}
+                title={sidebarCollapsed ? 'Développer le menu' : 'Réduire le menu'}
+                className="ml-auto inline-flex items-center justify-center border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <img
-                  src={profile.photo || defaultAvatar}
-                  alt="Photo de profil"
-                  className="h-full w-full object-cover"
-                />
-                <span className="absolute inset-0 flex items-center justify-center bg-slate-950/50 text-[10px] font-semibold uppercase tracking-[0.12em] text-white opacity-0 transition group-hover:opacity-100">
-                  Photo
-                </span>
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-              </label>
-
-              <div>
-                <p className="text-lg font-bold text-slate-900 md:text-xl">{profile.name || 'Étudiant'}</p>
-                <p className="text-xs text-slate-500 md:text-sm">{profile.email || 'Email non renseigné'}</p>
-              </div>
+                {sidebarCollapsed ? <ChevronRight size={24} aria-hidden="true" /> : <ChevronLeft size={24} aria-hidden="true" />}
+              </button>
             </div>
 
-            <div className="mt-5 space-y-3 text-sm text-slate-600 md:mt-6 md:space-y-4">
-              <div className="rounded-2xl bg-slate-50 p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Niveau</p>
-                <p className="mt-2 font-semibold text-slate-900">{profile.niveau || 'À renseigner'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Parcours</p>
-                <p className="mt-2 font-semibold text-slate-900">{profile.parcours || 'À renseigner'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Promotion</p>
-                <p className="mt-2 font-semibold text-slate-900">{profile.promotion || 'À renseigner'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Établissement</p>
-                <p className="mt-2 font-semibold text-slate-900">{profile.etablissement || 'À renseigner'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Spécialité</p>
-                <p className="mt-2 font-semibold text-slate-900">{profile.specialite || 'À renseigner'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Année</p>
-                <p className="mt-2 font-semibold text-slate-900">{profile.annee || 'À renseigner'}</p>
-              </div>
-            </div>
+            <nav className="mt-4 space-y-1" aria-label="Menu étudiant">
+              {[
+                { label: 'Profil', section: 'profil' as StudentSection, icon: UserRound },
+                { label: 'Cours', section: 'cours' as StudentSection, icon: BookOpen },
+                { label: 'Emploi du temps', section: 'emploi-du-temps' as StudentSection, icon: CalendarDays },
+                { label: 'Diplômes', section: 'diplomes' as StudentSection, icon: GraduationCap },
+                { label: 'Relevés', section: 'releves' as StudentSection, icon: FileText },
+                { label: 'Stages', section: 'stages' as StudentSection, icon: BriefcaseBusiness },
+                { label: 'Attestations', section: 'attestations' as StudentSection, icon: FileCheck2 },
+              ].map(({ label, section, icon: Icon }) => (
+                <button
+                  key={section}
+                  type="button"
+                  onClick={() => setActiveSection(section)}
+                  title={sidebarCollapsed ? label : undefined}
+                  className={`flex items-center gap-3 border-l-2 border-transparent px-2 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-blue-600 hover:bg-blue-50 hover:text-blue-700 ${sidebarCollapsed ? 'justify-center' : ''}`}
+                >
+                  <Icon size={sidebarCollapsed ? 26 : 22} aria-hidden="true" />
+                  {!sidebarCollapsed && <span>{label}</span>}
+                </button>
+              ))}
+            </nav>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:mt-6 md:p-4">
-              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 md:text-xs">Documents</p>
-              {profile.documents.length ? (
-                <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                  {profile.documents.map((document) => (
-                    <li key={`${document.name}-${document.type}`} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
-                      <span className="truncate">{document.name}</span>
-                      <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-700">
-                        {document.type.includes('pdf') ? 'PDF' : 'Fichier'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">Aucun document téléchargé.</p>
-              )}
-            </div>
           </aside>
 
-          <div className="space-y-4 md:space-y-6">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:rounded-3xl md:p-6">
+          <div className="hidden space-y-4 md:space-y-6">
+            <div id="profil" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:rounded-3xl md:p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold text-slate-900 md:text-2xl">Mes informations</h2>
                 <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-700 md:px-3 md:text-xs">
@@ -334,8 +306,76 @@ export default function VieEtudiante() {
               </div>
             </div>
 
+            <section className="border border-slate-200 bg-white p-4 shadow-sm md:p-6" aria-labelledby="student-services-title">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Services étudiants</p>
+                  <h2 id="student-services-title" className="mt-2 text-xl font-bold text-slate-900 md:text-2xl">Mon espace étudiant</h2>
+                </div>
+                <p className="text-sm text-slate-500">Toutes les informations liées à votre parcours.</p>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div id="cours" className="scroll-mt-24 border border-blue-100 bg-blue-50 p-5">
+                  <div className="flex items-center gap-3 text-blue-800">
+                    <BookOpen size={20} aria-hidden="true" />
+                    <h3 className="font-bold">Cours</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">Retrouvez vos cours et votre parcours : {profile.parcours || 'parcours à renseigner'}.</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-blue-700">Programme en préparation</p>
+                </div>
+
+                <div id="emploi-du-temps" className="scroll-mt-24 border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-3 text-slate-800">
+                    <CalendarDays size={20} aria-hidden="true" />
+                    <h3 className="font-bold">Emploi du temps</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">Votre calendrier de cours, examens et événements apparaîtra ici.</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Calendrier non publié</p>
+                </div>
+
+                <div id="diplomes" className="scroll-mt-24 border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-3 text-slate-800">
+                    <GraduationCap size={20} aria-hidden="true" />
+                    <h3 className="font-bold">Diplômes</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">{profile.diplome || 'Aucun diplôme enregistré pour le moment.'}</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">{profile.annee || 'Année à renseigner'}</p>
+                </div>
+
+                <div id="releves" className="scroll-mt-24 border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-3 text-slate-800">
+                    <FileText size={20} aria-hidden="true" />
+                    <h3 className="font-bold">Relevés de notes</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">{profile.documents.some((document) => /releve|notes?/i.test(document.name)) ? 'Votre relevé est disponible dans vos documents.' : 'Aucun relevé de notes disponible pour le moment.'}</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Document PDF recommandé</p>
+                </div>
+
+                <div id="stages" className="scroll-mt-24 border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-3 text-slate-800">
+                    <BriefcaseBusiness size={20} aria-hidden="true" />
+                    <h3 className="font-bold">Stages</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">Suivez vos conventions, lieux de stage et documents de suivi.</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Aucun stage enregistré</p>
+                </div>
+
+                <div id="attestations" className="scroll-mt-24 border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-3 text-slate-800">
+                    <FileCheck2 size={20} aria-hidden="true" />
+                    <h3 className="font-bold">Attestations</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">Téléchargez vos attestations de scolarité, de stage et de réussite lorsqu’elles seront délivrées.</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Aucune attestation disponible</p>
+                </div>
+              </div>
+            </section>
+
             {saved && <p className="text-sm text-green-600">{saved}</p>}
           </div>
+
+          {activeSection && <StudentPanel key={activeSection} section={activeSection} profile={profile} sidebarCollapsed={sidebarCollapsed} onClose={() => setActiveSection(null)} />}
         </div>
       </section>
 

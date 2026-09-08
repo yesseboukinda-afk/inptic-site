@@ -9,6 +9,34 @@ const toBase64Data = (value: string) => {
 
 const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'document';
 
+export async function GET() {
+  if (!supabaseAdmin) {
+    return NextResponse.json({ profiles: [], source: 'local' });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('*')
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  const profiles = (data || []).map((profile) => ({
+    ...profile,
+    name: profile.full_name || '',
+    dossierNumero: profile.dossier_numero || '',
+    dossierValide: Boolean(profile.dossier_valide),
+    status: profile.dossier_status || 'en_attente',
+    documents: Array.isArray(profile.documents) ? profile.documents : [],
+    departement: profile.departement || '',
+    emploiDuTemps: Array.isArray(profile.emploi_du_temps) ? profile.emploi_du_temps : [],
+  }));
+
+  return NextResponse.json({ profiles, source: 'supabase' });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
@@ -27,9 +55,11 @@ export async function POST(req: NextRequest) {
     }
 
     const rawDocuments = Array.isArray(payload.documents) ? payload.documents.slice(0, 5) : [];
+    const existingDocuments = rawDocuments.filter((document: any) => !document?.data && (document?.url || document?.path));
+    const documentsToUpload = rawDocuments.filter((document: any) => document?.data);
     const storedDocuments: Array<Record<string, string>> = [];
 
-    if (rawDocuments.length) {
+    if (documentsToUpload.length) {
       const storageBucket = 'dossier_documents';
       const bucket = db.storage.from(storageBucket);
       const bucketCheck = await bucket.list('', { limit: 1 });
@@ -43,7 +73,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      for (const doc of rawDocuments) {
+      for (const doc of documentsToUpload) {
         const name = typeof doc?.name === 'string' && doc.name ? doc.name : 'document';
         const type = typeof doc?.type === 'string' && doc.type ? doc.type : 'application/octet-stream';
         const base64Data = toBase64Data(doc?.data || '');
@@ -89,7 +119,9 @@ export async function POST(req: NextRequest) {
       bio: payload.bio || '',
       diplome: payload.diplome || '',
       photo: payload.photo || '',
-      documents: storedDocuments.length ? storedDocuments : (Array.isArray(payload.documents) ? payload.documents.slice(0, 5).map((doc: any) => ({
+      departement: payload.departement || '',
+      emploi_du_temps: Array.isArray(payload.emploiDuTemps) ? payload.emploiDuTemps.slice(0, 10) : [],
+      documents: [...existingDocuments, ...storedDocuments].length ? [...existingDocuments, ...storedDocuments] : (Array.isArray(payload.documents) ? payload.documents.slice(0, 5).map((doc: any) => ({
         name: typeof doc?.name === 'string' ? doc.name : 'document',
         type: typeof doc?.type === 'string' ? doc.type : 'application/octet-stream',
         url: typeof doc?.url === 'string' ? doc.url : '',

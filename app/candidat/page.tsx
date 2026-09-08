@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogIn, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -52,6 +52,8 @@ export default function Candidat() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [msg, setMsg] = useState('');
+  const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false);
+  const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
 
   useEffect(() => {
     const storedRaw = localStorage.getItem('inptic_user');
@@ -137,6 +139,11 @@ export default function Candidat() {
         user?.app_metadata?.roles ??
         '';
       const normalizedRole = String(rawRole).toLowerCase();
+      const staffRole = user?.email?.toLowerCase() === 'dep@inptic.ga'
+        ? 'direction_etudes'
+        : ['scolarite', 'chef_departement', 'direction_etudes'].includes(normalizedRole)
+          ? normalizedRole
+          : '';
       const isDirector =
         ['dg', 'directeur', 'director', 'directeur general'].includes(normalizedRole) ||
         user?.email?.toLowerCase() === 'directeur@inptic.ga';
@@ -160,7 +167,7 @@ export default function Candidat() {
         dossierNumero: user?.user_metadata?.dossierNumero || generateDossierNumber(),
         filiere: user?.user_metadata?.filiere || '',
         notifications: Array.isArray(user?.user_metadata?.notifications) ? user.user_metadata.notifications : [],
-        role: 'etudiant',
+        role: staffRole || (isDirector ? 'directeur' : 'etudiant'),
       };
 
       if (isDirector) {
@@ -171,6 +178,14 @@ export default function Candidat() {
         );
         window.dispatchEvent(new Event('auth-state-changed'));
         router.push('/directeur');
+        return;
+      }
+
+      if (staffRole) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push(staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement');
         return;
       }
 
@@ -204,6 +219,12 @@ export default function Candidat() {
 
       if (matchingProfile) {
         const profile = { ...matchingProfile, password: form.password };
+        const localStaffRole = profile.email?.toLowerCase() === 'dep@inptic.ga' ? 'direction_etudes' : profile.role;
+        if (localStaffRole === 'scolarite' || localStaffRole === 'chef_departement' || localStaffRole === 'direction_etudes') {
+          localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: localStaffRole }));
+          router.push(localStaffRole === 'scolarite' ? '/scolarite' : localStaffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement');
+          return;
+        }
         localStorage.removeItem('inptic_directeur');
         localStorage.setItem('inptic_user', JSON.stringify(profile));
         window.dispatchEvent(new Event('auth-state-changed'));
@@ -437,14 +458,25 @@ export default function Candidat() {
                 className="mt-6 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
-              <input
-                required
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="Mot de passe"
-                className="mt-3 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
+              <div className="relative mt-3">
+                <input
+                  required
+                  type={isLoginPasswordVisible ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder="Mot de passe"
+                  className="w-full rounded-xl border border-slate-200 p-3 pr-12 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsLoginPasswordVisible((visible) => !visible)}
+                  aria-label={isLoginPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  title={isLoginPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 transition hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {isLoginPasswordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
 
               <button
                 type="submit"
@@ -478,14 +510,25 @@ export default function Candidat() {
                 className="mt-3 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
-              <input
-                required
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="Créer un mot de passe"
-                className="mt-3 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
+              <div className="relative mt-3">
+                <input
+                  required
+                  type={isSignupPasswordVisible ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder="Créer un mot de passe"
+                  className="w-full rounded-xl border border-slate-200 p-3 pr-12 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsSignupPasswordVisible((visible) => !visible)}
+                  aria-label={isSignupPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  title={isSignupPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 transition hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {isSignupPasswordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
 
               <button
                 type="submit"

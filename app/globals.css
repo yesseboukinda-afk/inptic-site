@@ -6,12 +6,53 @@
   --gold: #D97706;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  border-radius: 0 !important;
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+.student-section-page {
+  animation: student-section-slide-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.student-panel {
+  animation: student-section-slide-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.director-panel {
+  animation: student-section-slide-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes student-section-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(48px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-section-page {
+    animation: none;
+  }
+
+    .student-panel {
+      animation: none;
+    }
+
+    .director-panel {
+      animation: none;
+    }
 }
 
 body {

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Bell, ChevronLeft, ChevronRight, ClipboardList, FileText, Users } from 'lucide-react';
+import DirectorPanel, { DirectorSection } from '@/components/DirectorPanel';
 
 type Notification = {
   id: string;
@@ -25,7 +27,7 @@ type StudentProfile = {
   photo?: string;
   filiere?: string;
   dossierNumero?: string;
-  documents?: Array<{ name: string; type: string; data: string }>;
+  documents?: Array<{ name: string; type: string; data?: string; url?: string; path?: string }>;
   role?: string;
   dossierValide?: boolean;
   status?: 'inscription' | 'en_attente' | 'valide' | 'refuse';
@@ -48,6 +50,8 @@ export default function Directeur() {
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [selected, setSelected] = useState<StudentProfile | null>(null);
   const [ready, setReady] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeSection, setActiveSection] = useState<DirectorSection | null>(null);
 
   useEffect(() => {
     const director = localStorage.getItem('inptic_directeur');
@@ -57,11 +61,43 @@ export default function Directeur() {
     }
 
     const stored = JSON.parse(localStorage.getItem('inptic_users') || '[]');
-    const profiles = Array.isArray(stored) ? stored.filter((entry: StudentProfile) => entry.role === 'etudiant' || entry.email) : [];
-    setStudents(profiles);
-    if (profiles[0]) {
-      setSelected(profiles[0]);
-    }
+    const localProfiles: StudentProfile[] = Array.isArray(stored)
+      ? stored
+          .filter((entry: StudentProfile) => entry.role === 'etudiant' || entry.email)
+          .map((entry: StudentProfile) => {
+            try {
+              const cachedDocuments = JSON.parse(localStorage.getItem(`inptic_documents_${entry.email.toLowerCase()}`) || 'null');
+              return Array.isArray(cachedDocuments) && cachedDocuments.length
+                ? { ...entry, documents: cachedDocuments }
+                : entry;
+            } catch {
+              return entry;
+            }
+          })
+      : [];
+
+    fetch('/api/candidat/profile')
+      .then((response) => response.ok ? response.json() : { profiles: [] })
+      .then((data: { profiles?: StudentProfile[] }) => {
+        const remoteProfiles = Array.isArray(data.profiles) ? data.profiles : [];
+        const profilesByEmail = new Map(localProfiles.map((profile) => [profile.email.toLowerCase(), profile]));
+        remoteProfiles.forEach((profile) => {
+          const localProfile = profilesByEmail.get(profile.email.toLowerCase());
+          profilesByEmail.set(profile.email.toLowerCase(), {
+            ...localProfile,
+            ...profile,
+            documents: profile.documents?.length ? profile.documents : localProfile?.documents,
+            role: 'etudiant',
+          });
+        });
+        const profiles = Array.from(profilesByEmail.values());
+        setStudents(profiles);
+        setSelected(profiles[0] || null);
+      })
+      .catch(() => {
+        setStudents(localProfiles);
+        setSelected(localProfiles[0] || null);
+      });
     setReady(true);
   }, [router]);
 
@@ -186,7 +222,29 @@ export default function Directeur() {
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className={`relative grid gap-6 ${sidebarCollapsed ? 'lg:grid-cols-[90px_1fr]' : 'lg:grid-cols-[210px_1fr]'}`}>
+          <aside className={`border border-slate-700 bg-slate-900 p-3 shadow-sm ${sidebarCollapsed ? 'lg:h-[558px] lg:w-[90px]' : 'lg:w-[210px]'}`}>
+            <button type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} aria-label={sidebarCollapsed ? 'Développer le menu DG' : 'Réduire le menu DG'} className="mb-4 flex w-full items-center justify-center border border-slate-700 p-3 text-slate-200 hover:bg-slate-800">
+              {sidebarCollapsed ? <ChevronRight size={24} aria-hidden="true" /> : <ChevronLeft size={24} aria-hidden="true" />}
+            </button>
+            <nav className="space-y-2" aria-label="Menu directeur">
+              {[
+                { label: 'Étudiants', section: 'etudiants' as DirectorSection, icon: Users },
+                { label: 'Dossiers', section: 'dossiers' as DirectorSection, icon: ClipboardList },
+                { label: 'Notifications', section: 'notifications' as DirectorSection, icon: Bell },
+                { label: 'Profil DG', section: 'profil' as DirectorSection, icon: FileText },
+              ].map(({ label, section, icon: Icon }) => (
+                <button key={section} type="button" onClick={() => setActiveSection(section)} title={sidebarCollapsed ? label : undefined} className={`flex w-full items-center gap-3 border-l-2 border-transparent px-2 py-3 text-left text-sm font-semibold text-slate-200 hover:border-cyan-400 hover:bg-slate-800 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+                  <Icon size={sidebarCollapsed ? 26 : 22} aria-hidden="true" />
+                  {!sidebarCollapsed && <span>{label}</span>}
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          {activeSection && <DirectorPanel key={activeSection} section={activeSection} students={students} selected={selected} sidebarCollapsed={sidebarCollapsed} onSelectStudent={handleSelectStudent} onUpdateStatus={(decision) => selected && updateStudentStatus(selected.email, decision)} onClose={() => setActiveSection(null)} />}
+
+          <div className="hidden">
           <aside className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
             <h2 className="text-lg font-bold text-slate-900">Étudiants</h2>
             <div className="mt-4 space-y-3">
@@ -382,6 +440,7 @@ export default function Directeur() {
               </div>
             )}
           </section>
+          </div>
         </div>
       </div>
     </main>

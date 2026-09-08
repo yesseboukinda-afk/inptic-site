@@ -5,6 +5,9 @@ export default function Presentation() {
         <img
           src="/banniere/DGA.webp"
           alt=""
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
           className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105"
           aria-hidden="true"
         />

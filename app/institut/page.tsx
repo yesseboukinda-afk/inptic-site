@@ -5,6 +5,9 @@ export default function Institut() {
         <img
           src="/banniere/DG.webp"
           alt=""
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
           className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-1/2 scale-105 object-cover object-center brightness-110 saturate-110"
           aria-hidden="true"
         />

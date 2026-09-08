@@ -58,13 +58,19 @@ const addNotification = (existing: Notification[] | undefined, message: string, 
 ];
 
 const compactDocuments = (documents?: ProfileDocument[]) =>
-  (documents ?? []).map(({ name, type }) => ({ name, type }));
+  (documents ?? []).map(({ name, type, data }) => ({ name, type, data }));
 
 const saveProfileSafely = (payload: CandidateProfile) => {
   const compacted = {
     ...payload,
     documents: compactDocuments(payload.documents),
   };
+
+  try {
+    localStorage.setItem(`inptic_documents_${payload.email.toLowerCase()}`, JSON.stringify(payload.documents ?? []));
+  } catch {
+    // Keep the compact profile when the browser quota cannot store document previews.
+  }
 
   try {
     localStorage.setItem('inptic_user', JSON.stringify(compacted));
@@ -131,6 +137,8 @@ export default function Suivi() {
   const [form, setForm] = useState(defaultForm({}));
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState('');
+  const [isDossierModalOpen, setIsDossierModalOpen] = useState(false);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
 
   useEffect(() => {
     const storedRaw = localStorage.getItem('inptic_user');
@@ -281,7 +289,7 @@ export default function Suivi() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
-        <img src="/banniere/2.webp" alt="" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <img src="/banniere/2.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">Admissions</p>
@@ -296,36 +304,14 @@ export default function Suivi() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
-        <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Dossier de candidature</p>
-              <h2 className="mt-2 text-2xl font-bold text-slate-900">Étapes de votre demande</h2>
-            </div>
-            <p className="text-sm text-slate-500">Étape {currentStepIndex + 1} sur 3</p>
-          </div>
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {[
-              { label: 'Compte candidat', detail: 'Informations personnelles', active: true },
-              { label: 'Dépôt du dossier', detail: 'Formation et justificatifs', active: currentStepIndex >= 1 },
-              { label: 'Traitement', detail: 'Validation par l’administration', active: currentStepIndex >= 2 },
-            ].map((step, index) => (
-              <div key={step.label} className={`flex items-center gap-3 rounded-2xl border p-4 ${step.active ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}>
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${step.active ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</span>
-                <div>
-                  <p className={`font-semibold ${step.active ? 'text-blue-800' : 'text-slate-500'}`}>{step.label}</p>
-                  <p className="text-xs text-slate-500">{step.detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-2xl font-bold text-slate-900">État de votre dossier</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">État de votre dossier</h2>
+                  <p className="mt-1 text-sm text-slate-500">Étape {currentStepIndex + 1} sur 3</p>
+                </div>
                 <span
                   className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
                     dossierStatus === 'Validé'
@@ -339,7 +325,7 @@ export default function Suivi() {
                 </span>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="relative mt-6 space-y-4 border-l-2 border-slate-200 pl-6">
                 {[
                   { label: 'Inscription', active: currentStepIndex >= 0 },
                   { label: 'Dossier', active: currentStepIndex >= 1 },
@@ -347,12 +333,10 @@ export default function Suivi() {
                 ].map((step, index) => (
                   <div
                     key={step.label}
-                    className={`rounded-2xl border p-4 ${
-                      step.active ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-500'
-                    }`}
+                    className={`relative flex items-center py-1 ${step.active ? 'text-blue-800' : 'text-slate-500'}`}
                   >
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em]">Étape {index + 1}</p>
-                    <p className="mt-2 font-semibold">{step.label}</p>
+                    <span className={`absolute -left-[2.625rem] flex h-9 w-9 items-center justify-center rounded-full border-4 border-white font-bold ${step.active ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{index + 1}</span>
+                    <p className="font-semibold">{step.label}</p>
                   </div>
                 ))}
               </div>
@@ -370,18 +354,52 @@ export default function Suivi() {
               </div>
             </div>
 
-            <form onSubmit={saveDossier} className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-2xl font-bold text-slate-900">Compléter le dossier</h3>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
-                  {profile.status === 'en_attente' ? 'Dossier soumis' : 'En cours'}
-                </span>
+            <div className="flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Dossier de candidature</p>
+                <h3 className="mt-1 text-xl font-bold text-slate-900">Compléter le dossier</h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsDossierModalOpen(true)}
+                className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Ouvrir le formulaire
+              </button>
+            </div>
 
-              <div className="mt-6 border-b border-slate-200 pb-5">
+            {isDossierModalOpen && (
+              <div
+                className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="dossier-modal-title"
+                onClick={() => setIsDossierModalOpen(false)}
+              >
+                <div
+                  className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl md:p-8"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="mb-6 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Dossier de candidature</p>
+                      <h3 id="dossier-modal-title" className="mt-1 text-2xl font-bold text-slate-900">Compléter le dossier</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDossierModalOpen(false)}
+                      aria-label="Fermer le formulaire"
+                      className="rounded-lg p-2 text-2xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <form onSubmit={saveDossier}>
+                <div className="mt-6 border-b border-slate-200 pb-5">
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">1. Identité du candidat</p>
                 <p className="mt-1 text-sm text-slate-500">Vérifiez les informations utilisées pour votre dossier.</p>
-              </div>
+                </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label className="block">
@@ -542,44 +560,89 @@ export default function Suivi() {
                   Soumettre le dossier
                 </button>
               </div>
-            </form>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
 
           <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="text-xl font-bold text-slate-900">Suivi</h3>
-            <div className="space-y-4 text-sm text-slate-600">
-              <div className="rounded-2xl bg-blue-50 p-4 text-blue-800">
-                <p className="font-semibold">1. Inscription enregistrée</p>
-                <p className="mt-1">Votre compte candidat a bien été créé.</p>
+            <div className="relative space-y-4 border-l-2 border-slate-200 pl-6 text-sm">
+              <div className="relative flex items-center py-1 text-blue-800">
+                <span className="absolute -left-[2.625rem] flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-blue-600 font-bold text-white">1</span>
+                <p className="font-semibold">Inscription enregistrée</p>
               </div>
-              <div className="rounded-2xl bg-amber-50 p-4 text-amber-800">
-                <p className="font-semibold">2. Dossier en cours de completion</p>
-                <p className="mt-1">Téléversez vos justificatifs et choisissez votre filière.</p>
+              <div className="relative flex items-center py-1 text-amber-800">
+                <span className="absolute -left-[2.625rem] flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-amber-500 font-bold text-white">2</span>
+                <p className="font-semibold">Dossier en cours de complétion</p>
               </div>
-              <div className="rounded-2xl bg-slate-100 p-4 text-slate-700">
-                <p className="font-semibold">3. Validation du dossier</p>
-                <p className="mt-1">Une fois validé, votre profil étudiant s’ouvrira automatiquement.</p>
+              <div className="relative flex items-center py-1 text-slate-700">
+                <span className="absolute -left-[2.625rem] flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-slate-200 font-bold text-slate-500">3</span>
+                <p className="font-semibold">Validation du dossier</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Notifications</p>
-              <div className="mt-3 space-y-3">
-                {(profile.notifications?.length ? profile.notifications : [{ id: 'default', message: 'Aucune notification pour le moment.', type: 'info', createdAt: new Date().toISOString() }]).slice(0, 5).map((notification) => (
-                  <div key={notification.id} className={`rounded-xl border p-3 ${
-                    notification.type === 'success'
-                      ? 'border-green-200 bg-green-50 text-green-800'
-                      : notification.type === 'danger'
-                        ? 'border-red-200 bg-red-50 text-red-800'
-                        : notification.type === 'warning'
-                          ? 'border-amber-200 bg-amber-50 text-amber-800'
-                          : 'border-blue-200 bg-blue-50 text-blue-800'
-                  }`}>
-                    <p className="text-sm">{notification.message}</p>
+            <button
+              type="button"
+              onClick={() => setIsNotificationsModalOpen(true)}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-haspopup="dialog"
+            >
+              <span>
+                <span className="block text-xs uppercase tracking-[0.12em] text-slate-500">Notifications</span>
+                <span className="mt-2 block font-semibold text-slate-900">Consulter mes notifications</span>
+              </span>
+              <span className="rounded-full bg-blue-600 px-3 py-1 text-sm font-bold text-white">
+                {profile.notifications?.length || 0}
+              </span>
+            </button>
+
+            {isNotificationsModalOpen && (
+              <div
+                className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="notifications-modal-title"
+                onClick={() => setIsNotificationsModalOpen(false)}
+              >
+                <div
+                  className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Espace candidat</p>
+                      <h3 id="notifications-modal-title" className="mt-1 text-2xl font-bold text-slate-900">Notifications</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsNotificationsModalOpen(false)}
+                      aria-label="Fermer les notifications"
+                      className="rounded-lg p-2 text-2xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      ×
+                    </button>
                   </div>
-                ))}
+
+                  <div className="mt-6 space-y-3">
+                    {(profile.notifications?.length ? profile.notifications : [{ id: 'default', message: 'Aucune notification pour le moment.', type: 'info', createdAt: new Date().toISOString() }]).slice(0, 5).map((notification) => (
+                      <div key={notification.id} className={`rounded-xl border p-3 ${
+                        notification.type === 'success'
+                          ? 'border-green-200 bg-green-50 text-green-800'
+                          : notification.type === 'danger'
+                            ? 'border-red-200 bg-red-50 text-red-800'
+                            : notification.type === 'warning'
+                              ? 'border-amber-200 bg-amber-50 text-amber-800'
+                              : 'border-blue-200 bg-blue-50 text-blue-800'
+                      }`}>
+                        <p className="text-sm">{notification.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {profile.dossierValide === true || profile.status === 'valide' ? (
               <button
