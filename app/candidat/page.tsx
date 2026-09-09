@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { translateAuthError } from '@/lib/authMessages';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
@@ -49,11 +50,18 @@ const persistLocalProfile = (profile: Record<string, any>) => {
 
 export default function Candidat() {
   const router = useRouter();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [msg, setMsg] = useState('');
   const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false);
   const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
+
+  useEffect(() => {
+    if (!msg) return;
+
+    const timeout = window.setTimeout(() => setMsg(''), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [msg]);
 
   useEffect(() => {
     const storedRaw = localStorage.getItem('inptic_user');
@@ -233,9 +241,35 @@ export default function Candidat() {
         return;
       }
 
-      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la connexion.';
+      const message = error instanceof Error ? translateAuthError(error.message) : 'Une erreur est survenue lors de la connexion.';
       setMsg(message);
     }
+  }
+
+  async function requestPasswordReset(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!supabase) {
+      setMsg('La récupération du mot de passe nécessite la configuration Supabase.');
+      return;
+    }
+
+    const email = form.email.trim();
+
+    if (!email) {
+      setMsg('Saisissez votre adresse email pour recevoir le lien de récupération.');
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setMsg(
+      error
+        ? translateAuthError(error.message)
+        : 'Un lien de récupération a été envoyé à cette adresse email.'
+    );
   }
 
   async function handleSignup(e: React.FormEvent) {
@@ -428,6 +462,17 @@ export default function Candidat() {
               <UserPlus size={18} aria-hidden="true" />
               <span className="btn-label">Inscription au concours</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setMode('forgot')}
+              aria-label="Mot de passe oublié"
+              className={`mobile-icon-action rounded-xl px-4 py-3 font-semibold transition ${
+                mode === 'forgot' ? 'bg-white text-blue-700' : 'bg-blue-500/20 text-white border border-blue-300/30'
+              }`}
+            >
+              <KeyRound size={18} aria-hidden="true" />
+              <span className="btn-label">Mot de passe oublié</span>
+            </button>
           </div>
 
           <div className="mt-8 rounded-2xl border border-white/15 bg-slate-950/15 p-4">
@@ -486,6 +531,45 @@ export default function Candidat() {
                 <LogIn size={18} aria-hidden="true" />
                 <span className="btn-label">Connexion</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('forgot')}
+                className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
+              >
+                Mot de passe oublié ?
+              </button>
+            </form>
+          ) : mode === 'forgot' ? (
+            <form onSubmit={requestPasswordReset} className="w-full">
+              <h2 className="text-2xl font-bold text-slate-900">Récupérer le mot de passe</h2>
+              <p className="mt-2 text-sm text-slate-500">Recevez un lien sécurisé pour définir un nouveau mot de passe.</p>
+
+              <input
+                required
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="Email"
+                className="mt-6 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+
+              <button
+                type="submit"
+                aria-label="Envoyer le lien de récupération"
+                className="mobile-icon-action mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700"
+              >
+                <KeyRound size={18} aria-hidden="true" />
+                <span className="btn-label">Envoyer le lien</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
+              >
+                Retour à la connexion
+              </button>
             </form>
           ) : (
             <form onSubmit={handleSignup} className="w-full">
@@ -541,7 +625,15 @@ export default function Candidat() {
             </form>
           )}
 
-          {msg && <p className="mt-4 text-sm text-slate-600">{msg}</p>}
+          {msg && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`auth-toast ${/incorrect|introuv|invalid|password|mot de passe|erreur|invalide|expir|nécessite|échou|requis|correspond|remplir|existe déjà/i.test(msg) ? 'auth-toast-error' : 'auth-toast-success'}`}
+            >
+              {msg}
+            </div>
+          )}
         </section>
       </div>
     </main>

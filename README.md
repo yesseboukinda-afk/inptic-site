@@ -20,7 +20,13 @@ sont vérifiés par Supabase Auth. Pour la production :
 	fonctionner en production.
 3. Vérifier que l'URL de production est autorisée dans **Authentication > URL
 	Configuration** de Supabase.
-4. Relancer un déploiement après toute modification des variables d'environnement.
+4. Ajouter aussi `https://votre-domaine.tld/reset-password` dans les **Redirect
+	URLs** Supabase. En local, utiliser `http://localhost:3000/reset-password`.
+5. Relancer un déploiement après toute modification des variables d'environnement.
+
+Depuis `/candidat`, le lien **Mot de passe oublié** envoie un email Supabase. Le
+lien ouvre `/reset-password`, où l'utilisateur définit et confirme son nouveau mot
+de passe.
 
 La clé `SUPABASE_SERVICE_ROLE_KEY` est utilisée uniquement par les routes serveur et
 ne doit jamais être préfixée par `NEXT_PUBLIC_`.
