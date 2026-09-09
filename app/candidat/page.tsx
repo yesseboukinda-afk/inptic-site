@@ -99,7 +99,7 @@ export default function Candidat() {
       );
 
       if (!matchingProfile) {
-        setMsg('Identifiants introuvables. Vérifiez votre email et votre mot de passe.');
+        setMsg('Connexion Supabase non configurée. Ajoutez les variables d’environnement en production, puis redéployez.');
         return;
       }
 
