@@ -6,7 +6,7 @@ type ChatMessage = {
 };
 
 const siteKnowledge = `
-INPTIC signifie Institut National Polytechnique des Technologies de l'Information et de la Communication.
+INPTIC signifie Institut National de la Poste, des Technologies de l'Information et de la Communication.
 Le site présente notamment les formations en cybersécurité, génie logiciel, monétique,
 télécommunications et postes/logistique, ainsi que les rubriques admissions, vie étudiante,
 recherche, entreprises, institut et contact.
@@ -126,7 +126,7 @@ function buildFallbackReply(message: string): string {
   }
 
   if (/qui|qu'est-ce|definition|inptic|institut/.test(text)) {
-    return 'L’INPTIC est l’Institut National Polytechnique des Technologies de l’Information et de la Communication. Découvrez [la présentation de l’institut](/institut/presentation) et les informations générales sur [l’INPTIC](/institut).';
+    return 'L’INPTIC est l’Institut National de la Poste, des Technologies de l’Information et de la Communication. Découvrez [la présentation de l’institut](/institut/presentation) et les informations générales sur [l’INPTIC](/institut).';
   }
 
   if (/dossier|document|piece|pièce|cv|lettre|certificat/.test(text)) {

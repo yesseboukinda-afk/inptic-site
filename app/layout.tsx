@@ -7,7 +7,7 @@ import BackToTop from '@/components/BackToTop';
 import ScrollReveal from '@/components/ScrollReveal';
 
 export const metadata = {
-  title: 'INPTIC - Institut National Polytechnique des Technologies de l\'Information et de la Communication',
+  title: 'Institut National de la Poste, des Technologies de l\'Information et de la Communication',
   description: 'Portail numérique de l\'INPTIC'
 };
 
