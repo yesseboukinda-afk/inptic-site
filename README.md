@@ -6,6 +6,27 @@
 3. Copier `.env.example` vers `.env.local` et renseigner les services.
 4. `npm run dev`
 
+## Chatbot INPTIC
+
+Le bouton Assistant utilise maintenant une intégration native dans l'application
+principale. Le moteur AI SDK et le provider Gateway sont utilisés par
+`/api/chat`, avec le contexte documentaire et les liens internes de l'INPTIC.
+Le moteur conserve l'historique de la conversation, peut exécuter des outils
+bornés comme la météo, puis rédiger la réponse finale en français.
+
+Pour activer le modèle Gateway, renseigner `AI_GATEWAY_API_KEY` dans `.env.local`.
+Sans cette clé, l'assistant conserve son fallback local ; `OPENAI_API_KEY` reste
+également accepté comme solution de compatibilité.
+
+Le dossier `chatbot/` conserve le template open source complet comme référence pour
+les futures évolutions (historique, authentification, outils et artefacts), mais il
+n'est plus nécessaire de lancer une seconde application pour utiliser l'assistant
+du site.
+
+Les artefacts éditables (documents, code et tableurs), les votes et l'historique
+persistant restent des fonctionnalités séparées du template source : ils nécessitent
+une base de données et un espace d'édition dédiés.
+
 ## Déploiement et comptes
 
 Les comptes ne sont pas partagés par le navigateur : en local, un compte créé sans

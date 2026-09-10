@@ -1,4 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateText, gateway, stepCountIs, tool } from 'ai';
+import { z } from 'zod';
+import {
+  chatExists,
+  createChat,
+  getChatMessages,
+  getDocument,
+  saveChatMessage,
+  saveDocument,
+  type DocumentKind,
+} from '@/lib/chatbot-db';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -42,6 +53,35 @@ la page officielle Admissions ou Contact fait foi et ne fabrique jamais de valeu
 Les pages utiles sont /formations, /admissions, /admissions/depot, /admissions/suivi,
 /vie-etudiante et /contact.
 `;
+
+const weatherTool = tool({
+  description: 'Get the current weather for a city when the user asks about weather.',
+  inputSchema: z.object({
+    city: z.string().describe('The city name, for example Libreville or Paris'),
+  }),
+  execute: async ({ city }) => {
+    const geocodingResponse = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fr&format=json`,
+    );
+    const geocodingData = await geocodingResponse.json();
+    const location = geocodingData.results?.[0];
+
+    if (!location) return { error: `Ville introuvable : ${city}` };
+
+    const weatherResponse = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`,
+    );
+    const weatherData = await weatherResponse.json();
+
+    return {
+      city: location.name,
+      country: location.country,
+      current: weatherData.current,
+    };
+  },
+});
+
+const documentKindSchema = z.enum(['text', 'code', 'sheet']);
 
 function normalize(text: string): string {
   return text
@@ -140,7 +180,34 @@ function buildFallbackReply(message: string): string {
   return 'Je peux vous aider sur :\n- les formations : [voir les formations](/formations)\n- l’inscription : [voir les admissions](/admissions)\n- le dépôt et le suivi de dossier\n- la vie étudiante\n- les contacts : [ouvrir la page Contact](/contact)\n\nQuelle information recherchez-vous ?';
 }
 
+function buildLocalArtifact(message: string) {
+  const creationMatch = message.match(
+    /(?:cr(?:ée|eer|e)\s+(?:un|une)\s+)?(?:document|fichier|code|tableau)\s+(?:intitul[ée]|nomm[ée]|appel[ée])\s*[«"']?([^«"'\n]+)[»"']?/i,
+  );
+
+  if (!creationMatch || !/cr(?:ée|eer|e)|g[ée]n[èe]re|r[ée]dige|produis/i.test(message)) {
+    return null;
+  }
+
+  const normalized = normalize(message);
+  const kind: DocumentKind = /code|fichier/.test(normalized) ? 'code' : /tableau|feuille|csv/.test(normalized) ? 'sheet' : 'text';
+  const title = creationMatch[1]
+    .replace(/\s+(?:avec|contenant|qui contient)\s+.*/i, '')
+    .trim()
+    .replace(/[»"']+$/, '') || 'Document INPTIC';
+  const content = kind === 'code'
+    ? '// Document créé par INPTIC Assistant\n\n'
+    : kind === 'sheet'
+      ? 'Titre,Description\nINPTIC,Institut National de la Poste des Technologies de l’Information et de la Communication\n'
+      : `# ${title}\n\nL’INPTIC est l’Institut National de la Poste, des Technologies de l’Information et de la Communication.\n\nCet institut accompagne les étudiants dans les domaines du numérique, des télécommunications, de la cybersécurité, du génie logiciel, de la monétique et de la logistique.\n`;
+
+  return saveDocument({ title, kind, content });
+}
+
 export async function POST(req: NextRequest) {
+  let requestText = '';
+  let requestChatId = '';
+
   try {
     const body = await req.json();
     const rawMessages: unknown = body?.messages;
@@ -168,10 +235,81 @@ export async function POST(req: NextRequest) {
     }
 
     const text = messages.filter((item) => item.role === 'user').at(-1)?.content || '';
+    const requestedChatId = typeof body?.chatId === 'string' ? body.chatId : '';
+    const chat = requestedChatId && chatExists(requestedChatId) ? { id: requestedChatId } : createChat(text);
+    requestText = text;
+    requestChatId = chat.id;
+    saveChatMessage(chat.id, 'user', text);
+    const systemPrompt = `Tu es l'assistant officiel de l'INPTIC. Tiens une conversation naturelle et cohérente en français. Adapte ta réponse à l'intention : réponds chaleureusement à une salutation, remercie en retour, et termine poliment si l'utilisateur dit au revoir. Pour une demande d'information, réponds avec une structure lisible : un court titre, une explication directe, puis des étapes ou des puces si nécessaire. Termine par un lien Markdown vers la page utile, par exemple [Déposer un dossier](/admissions/depot). Les liens doivent utiliser uniquement les chemins internes fournis dans le contexte. Utilise l'historique pour comprendre les relances et ne répète pas inutilement les informations déjà données. Pose une question courte si la demande est ambiguë et propose la prochaine action utile. Ne prétends jamais connaître une date, un tarif, une adresse ou une condition qui n'est pas fournie. Pour ces informations, oriente vers la page officielle correspondante ou Contact. Ne parle pas de ton fonctionnement interne.\n\nContexte du site :\n${siteKnowledge}`;
+    const gatewayKey = process.env.AI_GATEWAY_API_KEY;
     const apiKey = process.env.OPENAI_API_KEY;
 
+    if (gatewayKey) {
+      const result = await generateText({
+        model: gateway.languageModel('moonshotai/kimi-k2.5'),
+        system: `${systemPrompt}\n\nTu peux utiliser l’outil météo uniquement lorsque la question porte réellement sur la météo. Tu peux créer ou modifier un artefact uniquement si l'utilisateur demande explicitement un document, du code ou un tableau. Pour un artefact, explique brièvement ce qui a été créé ou modifié après l'appel de l'outil.`,
+        messages,
+        tools: {
+          getWeather: weatherTool,
+          createDocument: tool({
+            description: 'Create a persistent text document, code file, or spreadsheet when explicitly requested.',
+            inputSchema: z.object({
+              title: z.string(),
+              kind: documentKindSchema,
+              content: z.string().describe('The complete content to save in the artifact'),
+            }),
+            execute: async ({ title, kind, content }) => saveDocument({ title, kind, content }),
+          }),
+          editDocument: tool({
+            description: 'Edit an existing artifact by exact string replacement.',
+            inputSchema: z.object({
+              id: z.string(),
+              oldString: z.string(),
+              newString: z.string(),
+              replaceAll: z.boolean().optional(),
+            }),
+            execute: async ({ id, oldString, newString, replaceAll }) => {
+              const document = getDocument(id);
+              if (!document) return { error: 'Document introuvable' };
+              if (!document.content.includes(oldString)) return { error: 'Texte à remplacer introuvable' };
+              const content = replaceAll ? document.content.replaceAll(oldString, newString) : document.content.replace(oldString, newString);
+              return saveDocument({ id, title: document.title, kind: document.kind, content });
+            },
+          }),
+          updateDocument: tool({
+            description: 'Replace the complete content of an existing artifact when a major rewrite is requested.',
+            inputSchema: z.object({
+              id: z.string(),
+              content: z.string(),
+            }),
+            execute: async ({ id, content }) => {
+              const document = getDocument(id);
+              if (!document) return { error: 'Document introuvable' };
+              return saveDocument({ id, title: document.title, kind: document.kind, content });
+            },
+          }),
+        },
+        stopWhen: stepCountIs(3),
+        temperature: 0.4,
+        maxOutputTokens: 450,
+      });
+
+      const documents = result.steps
+        .flatMap((step) => step.toolResults)
+        .map((toolResult) => toolResult.output)
+        .filter((output): output is ReturnType<typeof saveDocument> => Boolean(output && typeof output === 'object' && 'id' in output && 'content' in output));
+      const reply = result.text.trim() || buildFallbackReply(text);
+      saveChatMessage(chat.id, 'assistant', reply);
+      return NextResponse.json({ chatId: chat.id, documents, reply });
+    }
+
     if (!apiKey) {
-      return NextResponse.json({ reply: buildFallbackReply(text) });
+      const localDocument = buildLocalArtifact(text);
+      const reply = localDocument
+        ? `J’ai créé l’artefact « ${localDocument.title} ». Vous pouvez maintenant consulter et modifier son contenu dans le panneau Artefacts.`
+        : buildFallbackReply(text);
+      saveChatMessage(chat.id, 'assistant', reply);
+      return NextResponse.json({ chatId: chat.id, documents: localDocument ? [localDocument] : [], reply });
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -185,8 +323,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content:
-              `Tu es l'assistant officiel de l'INPTIC. Tiens une conversation naturelle et cohérente en français. Adapte ta réponse à l'intention : réponds chaleureusement à une salutation, remercie en retour, et termine poliment si l'utilisateur dit au revoir. Pour une demande d'information, réponds avec une structure lisible : un court titre, une explication directe, puis des étapes ou des puces si nécessaire. Termine par un lien Markdown vers la page utile, par exemple [Déposer un dossier](/admissions/depot). Les liens doivent utiliser uniquement les chemins internes fournis dans le contexte. Utilise l'historique pour comprendre les relances et ne répète pas inutilement les informations déjà données. Pose une question courte si la demande est ambiguë et propose la prochaine action utile. Ne prétends jamais connaître une date, un tarif, une adresse ou une condition qui n'est pas fournie. Pour ces informations, oriente vers la page officielle correspondante ou Contact. Ne parle pas de ton fonctionnement interne.\n\nContexte du site :\n${siteKnowledge}`,
+            content: systemPrompt,
           },
           ...messages,
         ],
@@ -199,16 +336,26 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       console.error('OpenAI API error:', data);
-      return NextResponse.json({ reply: buildFallbackReply(text) });
+      const localDocument = buildLocalArtifact(text);
+      const reply = localDocument
+        ? `J’ai créé l’artefact « ${localDocument.title} ». Vous pouvez maintenant consulter et modifier son contenu dans le panneau Artefacts.`
+        : buildFallbackReply(text);
+      saveChatMessage(chat.id, 'assistant', reply);
+      return NextResponse.json({ chatId: chat.id, documents: localDocument ? [localDocument] : [], reply });
     }
 
     const reply =
       data.choices?.[0]?.message?.content?.trim() || buildFallbackReply(text);
 
-    return NextResponse.json({ reply });
+    saveChatMessage(chat.id, 'assistant', reply);
+    return NextResponse.json({ chatId: chat.id, documents: [], reply });
   } catch (error) {
     console.error('OpenAI error:', error);
-    const fallback = buildFallbackReply(String((error as Error)?.message || ''));
-    return NextResponse.json({ reply: fallback });
+    const localDocument = buildLocalArtifact(requestText);
+    const fallback = localDocument
+      ? `J’ai créé l’artefact « ${localDocument.title} ». Vous pouvez maintenant consulter et modifier son contenu dans le panneau Artefacts.`
+      : buildFallbackReply(requestText);
+    if (requestChatId) saveChatMessage(requestChatId, 'assistant', fallback);
+    return NextResponse.json({ chatId: requestChatId || undefined, documents: localDocument ? [localDocument] : [], reply: fallback });
   }
 }
