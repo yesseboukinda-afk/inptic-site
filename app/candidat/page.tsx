@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { translateAuthError } from '@/lib/authMessages';
+import { getRolePath, getStaffRole, isDirectorRole, normalizeRole } from '@/lib/roles';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
@@ -75,8 +76,11 @@ export default function Candidat() {
     if (storedRaw) {
       try {
         const stored = JSON.parse(storedRaw);
-        if (stored?.role === 'directeur' || stored?.email?.toLowerCase() === 'directeur@inptic.ga') {
+        const storedRole = normalizeRole(stored?.role);
+        if (isDirectorRole(storedRole) || stored?.email?.toLowerCase() === 'directeur@inptic.ga') {
           router.replace('/directeur');
+        } else if (getStaffRole(storedRole)) {
+          router.replace(getRolePath(getStaffRole(storedRole)));
         } else if (stored?.dossierValide === true || stored?.status === 'valide') {
           router.replace('/vie-etudiante');
         } else {
@@ -109,7 +113,8 @@ export default function Candidat() {
         role: matchingProfile.role || 'etudiant',
       };
 
-      if (profile.role === 'directeur' || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+      const localRole = normalizeRole(profile.role);
+      if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
         localStorage.removeItem('inptic_user');
         localStorage.setItem(
           'inptic_directeur',
@@ -125,6 +130,14 @@ export default function Candidat() {
       localStorage.setItem('inptic_user', JSON.stringify(profile));
       window.dispatchEvent(new Event('auth-state-changed'));
       setMsg('Connexion réussie.');
+      const localStaffRole = getStaffRole(localRole);
+      if (localStaffRole) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: localStaffRole }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push(getRolePath(localStaffRole));
+        return;
+      }
       router.push(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
       return;
     }
@@ -146,14 +159,12 @@ export default function Candidat() {
         user?.app_metadata?.role ??
         user?.app_metadata?.roles ??
         '';
-      const normalizedRole = String(rawRole).toLowerCase();
+      const normalizedRole = normalizeRole(rawRole);
       const staffRole = user?.email?.toLowerCase() === 'dep@inptic.ga'
         ? 'direction_etudes'
-        : ['scolarite', 'chef_departement', 'direction_etudes'].includes(normalizedRole)
-          ? normalizedRole
-          : '';
+        : getStaffRole(normalizedRole);
       const isDirector =
-        ['dg', 'directeur', 'director', 'directeur general'].includes(normalizedRole) ||
+        isDirectorRole(normalizedRole) ||
         user?.email?.toLowerCase() === 'directeur@inptic.ga';
       const profile = {
         email: user?.email || form.email,
@@ -193,7 +204,7 @@ export default function Candidat() {
         localStorage.removeItem('inptic_user');
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push(staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement');
+        router.push(getRolePath(staffRole));
         return;
       }
 
@@ -227,10 +238,16 @@ export default function Candidat() {
 
       if (matchingProfile) {
         const profile = { ...matchingProfile, password: form.password };
-        const localStaffRole = profile.email?.toLowerCase() === 'dep@inptic.ga' ? 'direction_etudes' : profile.role;
-        if (localStaffRole === 'scolarite' || localStaffRole === 'chef_departement' || localStaffRole === 'direction_etudes') {
+        const localRole = normalizeRole(profile.role);
+        const localStaffRole = profile.email?.toLowerCase() === 'dep@inptic.ga' ? 'direction_etudes' : getStaffRole(localRole);
+        if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+          localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
+          router.push('/directeur');
+          return;
+        }
+        if (localStaffRole) {
           localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: localStaffRole }));
-          router.push(localStaffRole === 'scolarite' ? '/scolarite' : localStaffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement');
+          router.push(getRolePath(localStaffRole));
           return;
         }
         localStorage.removeItem('inptic_directeur');

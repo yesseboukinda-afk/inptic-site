@@ -3,6 +3,7 @@
 import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users } from 'lucide-react';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { normalizeRole } from '@/lib/roles';
 
 type Role = 'scolarite' | 'chef_departement' | 'direction_etudes';
 
@@ -63,7 +64,14 @@ export default function StaffDashboard({ role }: { role: Role }) {
   useEffect(() => {
     const session = localStorage.getItem('inptic_staff');
 
-    if (!session) {
+    let sessionData: { role?: unknown };
+    try {
+      sessionData = JSON.parse(session || '{}');
+    } catch {
+      sessionData = {};
+    }
+
+    if (!session || normalizeRole(sessionData.role) !== role) {
       router.replace('/candidat');
       return;
     }

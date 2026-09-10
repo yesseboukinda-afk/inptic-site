@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, ChevronLeft, ChevronRight, ClipboardList, FileText, Users } from 'lucide-react';
 import DirectorPanel, { DirectorSection } from '@/components/DirectorPanel';
+import { isDirectorRole, normalizeRole } from '@/lib/roles';
 
 type Notification = {
   id: string;
@@ -55,7 +56,14 @@ export default function Directeur() {
 
   useEffect(() => {
     const director = localStorage.getItem('inptic_directeur');
-    if (!director) {
+    let directorData: { role?: unknown } = {};
+    try {
+      directorData = JSON.parse(director || '{}');
+    } catch {
+      directorData = {};
+    }
+
+    if (!director || !isDirectorRole(normalizeRole(directorData.role))) {
       router.replace('/candidat');
       return;
     }
