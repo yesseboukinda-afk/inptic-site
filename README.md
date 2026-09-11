@@ -33,7 +33,7 @@ Les comptes ne sont pas partagés par le navigateur : en local, un compte créé
 Supabase est enregistré dans `localStorage`, alors qu'en production les identifiants
 sont vérifiés par Supabase Auth. Pour la production :
 
-1. Ajouter `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` et
+1. Ajouter `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` et
 	`SUPABASE_SERVICE_ROLE_KEY` dans les variables d'environnement du fournisseur de
 	déploiement, pour l'environnement **Production**, avant le build.
 2. Créer ou inviter les comptes dans le projet Supabase de production, dans
@@ -41,7 +41,9 @@ sont vérifiés par Supabase Auth. Pour la production :
 	fonctionner en production.
 3. Vérifier que l'URL de production est autorisée dans **Authentication > URL
 	Configuration** de Supabase.
-4. Ajouter aussi `https://votre-domaine.tld/reset-password` dans les **Redirect
+4. Vérifier que `NEXT_PUBLIC_SITE_URL` contient exactement l'URL publique du site,
+	par exemple `https://votre-domaine.tld`, puis ajouter
+	`https://votre-domaine.tld/reset-password` dans les **Redirect
 	URLs** Supabase. En local, utiliser `http://localhost:3000/reset-password`.
 5. Relancer un déploiement après toute modification des variables d'environnement.
 

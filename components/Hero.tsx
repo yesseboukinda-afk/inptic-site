@@ -235,9 +235,7 @@ function findFormationMatches(query: string, domain: string, level: string) {
 }
 
 export default function Hero() {
-  const [searchFocus, setSearchFocus] = useState(false);
   const [selectedAction, setSelectedAction] = useState('Visite 3D');
-  const [formationQuery, setFormationQuery] = useState('');
   const [formationDomain, setFormationDomain] = useState('');
   const [formationLevel, setFormationLevel] = useState('');
   const [formationMatches, setFormationMatches] = useState<ReturnType<typeof findFormationMatches>>([]);
@@ -293,36 +291,19 @@ export default function Hero() {
         </div>
 
         <div className="relative mx-auto w-full max-w-md lg:ml-auto">
-        <div className={`formation-finder-panel w-full rounded-2xl p-5 shadow-lg transition-all duration-300 sm:p-6 md:p-8 ${
-          searchFocus ? 'ring-2 ring-blue-400 shadow-2xl' : ''
-        } ${showFormationResults ? 'formation-finder-exit' : 'formation-finder-return'}`}>
+        <div className={`formation-finder-panel w-full rounded-2xl p-5 shadow-lg transition-all duration-300 sm:p-6 md:p-8 ${showFormationResults ? 'formation-finder-exit' : 'formation-finder-return'}`}>
           <h2 className="mb-6 text-2xl font-bold md:text-3xl">Trouver ma formation</h2>
 
           <form
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              setFormationMatches(findFormationMatches(formationQuery, formationDomain, formationLevel));
-              setFormationQuery('');
+              setFormationMatches(findFormationMatches('', formationDomain, formationLevel));
               setFormationDomain('');
               setFormationLevel('');
               setShowFormationResults(true);
             }}
           >
-            <div className="relative">
-              <input
-                type="search"
-                value={formationQuery}
-                onChange={(event) => setFormationQuery(event.target.value)}
-                className="w-full rounded-lg p-3 text-base text-slate-800 placeholder-gray-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-0 md:p-4"
-                placeholder="Que voulez-vous étudier ?"
-                aria-label="Champ de recherche de formation"
-                onFocus={() => setSearchFocus(true)}
-                onBlur={() => setSearchFocus(false)}
-              />
-              <Search size={18} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-            </div>
-
             <select
               className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
               aria-label="Domaine d'étude"
