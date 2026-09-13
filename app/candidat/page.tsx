@@ -9,6 +9,12 @@ import { getRolePath, getStaffRole, isDirectorRole, normalizeRole } from '@/lib/
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
+const socialProviders = [
+  { name: 'Google', icon: '/connexion/google_icon.svg' },
+  { name: 'Apple', icon: '/connexion/apple_icon.svg' },
+  { name: 'Facebook', icon: '/connexion/facebook_icon.svg' },
+] as const;
+
 const addNotification = (
   notifications: Array<{ id: string; message: string; type: string; createdAt: string }> | undefined,
   message: string,
@@ -49,6 +55,65 @@ const persistLocalProfile = (profile: Record<string, any>) => {
   window.dispatchEvent(new Event('auth-state-changed'));
 };
 
+const buildSupabaseProfile = (user: any, fallbackName = 'Étudiant') => {
+  const rawRole = user?.user_metadata?.role ?? user?.user_metadata?.roles ?? user?.app_metadata?.role ?? user?.app_metadata?.roles ?? '';
+  const normalizedRole = normalizeRole(rawRole);
+  const staffRole = user?.email?.toLowerCase() === 'dep@inptic.ga'
+    ? 'direction_etudes'
+    : getStaffRole(normalizedRole);
+  const isDirector = isDirectorRole(normalizedRole) || user?.email?.toLowerCase() === 'directeur@inptic.ga';
+
+  return {
+    email: user?.email || '',
+    name: user?.user_metadata?.full_name || user?.user_metadata?.name || fallbackName,
+    phone: user?.user_metadata?.phone || '',
+    niveau: user?.user_metadata?.niveau || '',
+    parcours: user?.user_metadata?.parcours || '',
+    promotion: user?.user_metadata?.promotion || '',
+    etablissement: user?.user_metadata?.etablissement || '',
+    annee: user?.user_metadata?.annee || '',
+    specialite: user?.user_metadata?.specialite || '',
+    bio: user?.user_metadata?.bio || '',
+    diplome: user?.user_metadata?.diplome || '',
+    photo: user?.user_metadata?.photo || '',
+    documents: Array.isArray(user?.user_metadata?.documents) ? user.user_metadata.documents : [],
+    dossierValide: Boolean(user?.user_metadata?.dossierValide || user?.user_metadata?.status === 'valide'),
+    status: user?.user_metadata?.status || 'en_attente',
+    dossierStep: user?.user_metadata?.dossierStep || (user?.user_metadata?.status === 'valide' ? 'valide' : 'inscription'),
+    dossierNumero: user?.user_metadata?.dossierNumero || generateDossierNumber(),
+    filiere: user?.user_metadata?.filiere || '',
+    notifications: Array.isArray(user?.user_metadata?.notifications) ? user.user_metadata.notifications : [],
+    role: staffRole || (isDirector ? 'directeur' : 'etudiant'),
+  };
+};
+
+function SocialAuthButtons({ onClick }: { onClick: (provider: (typeof socialProviders)[number]['name']) => void }) {
+  return (
+    <div className="mt-6">
+      <div className="mb-3 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">
+        <span className="h-px flex-1 bg-slate-200" />
+        <span>ou</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {socialProviders.map(({ name, icon }) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => onClick(name)}
+            className="flex appearance-none items-center justify-center rounded-xl border-0 bg-transparent p-2 text-slate-700 shadow-none transition duration-200 hover:scale-110 hover:bg-transparent hover:text-blue-700 focus:outline-none focus:ring-0 focus-visible:outline-none"
+            aria-label={`Se connecter avec ${name}`}
+            title={`Se connecter avec ${name}`}
+          >
+            <img src={icon} alt={name} className="h-7 w-7" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Candidat() {
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
@@ -56,6 +121,30 @@ export default function Candidat() {
   const [msg, setMsg] = useState('');
   const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false);
   const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
+
+  const handleSocialAuth = async (provider: (typeof socialProviders)[number]['name']) => {
+    const providerKey = provider.toLowerCase() as 'google' | 'apple' | 'facebook';
+
+    if (!supabase) {
+      setMsg('Connexion sociale non disponible. Configurez Supabase pour activer Google, Apple et Facebook.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: providerKey,
+        options: {
+          redirectTo: `${window.location.origin}/candidat`,
+        },
+      });
+
+      if (error) {
+        setMsg(error.message || `La connexion avec ${provider} a échoué.`);
+      }
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : `La connexion avec ${provider} a échoué.`);
+    }
+  };
 
   useEffect(() => {
     if (!msg) return;
@@ -65,12 +154,72 @@ export default function Candidat() {
   }, [msg]);
 
   useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+      if (event !== 'SIGNED_IN' || !session?.user) return;
+
+      const user = session.user;
+      const profile = buildSupabaseProfile(user, user.user_metadata?.full_name || user.user_metadata?.name || 'Étudiant');
+      const localRole = normalizeRole(profile.role);
+      const staffRole = getStaffRole(localRole);
+
+      if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace('/directeur');
+        return;
+      }
+
+      if (staffRole) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace(getRolePath(staffRole));
+        return;
+      }
+
+      persistLocalProfile(profile);
+      router.replace(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+    });
+
+    const syncUserFromSupabaseSession = async () => {
+      const { data } = await client.auth.getSession();
+      const user = data.session?.user;
+      if (!user) return;
+
+      const profile = buildSupabaseProfile(user, user.user_metadata?.full_name || user.user_metadata?.name || 'Étudiant');
+      const localRole = normalizeRole(profile.role);
+      const staffRole = getStaffRole(localRole);
+
+      if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace('/directeur');
+        return;
+      }
+
+      if (staffRole) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace(getRolePath(staffRole));
+        return;
+      }
+
+      persistLocalProfile(profile);
+      router.replace(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+    };
+
     const storedRaw = localStorage.getItem('inptic_user');
     const director = localStorage.getItem('inptic_directeur');
 
     if (director) {
       router.replace('/directeur');
-      return;
+      return () => subscription.unsubscribe();
     }
 
     if (storedRaw) {
@@ -89,7 +238,11 @@ export default function Candidat() {
       } catch {
         localStorage.removeItem('inptic_user');
       }
+      return () => subscription.unsubscribe();
     }
+
+    syncUserFromSupabaseSession();
+    return () => subscription.unsubscribe();
   }, [router]);
 
   async function login(e: React.FormEvent) {
@@ -449,7 +602,7 @@ export default function Candidat() {
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-12">
-      <div className="mx-auto max-w-5xl grid gap-8 rounded-3xl bg-white p-6 shadow-xl md:grid-cols-[1.1fr_1fr] md:p-10">
+      <div className="mx-auto max-w-5xl grid gap-8 rounded-3xl bg-white p-6 md:grid-cols-[1.1fr_1fr] md:p-10">
         <section className="rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 p-8 text-white">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">Connexion</p>
           <h1 className="mt-3 text-4xl font-black">Compte</h1>
@@ -550,6 +703,8 @@ export default function Candidat() {
                 <span className="btn-label">Connexion</span>
               </button>
 
+              <SocialAuthButtons onClick={handleSocialAuth} />
+
               <button
                 type="button"
                 onClick={() => setMode('forgot')}
@@ -640,6 +795,8 @@ export default function Candidat() {
                 <UserPlus size={18} aria-hidden="true" />
                 <span className="btn-label">Inscription au concours</span>
               </button>
+
+              <SocialAuthButtons onClick={handleSocialAuth} />
             </form>
           )}
 
