@@ -80,6 +80,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchNotification, setSearchNotification] = useState('');
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
@@ -222,9 +223,34 @@ export default function Header() {
   };
 
   useEffect(() => {
+    setIsHydrated(true);
     setMobileMenuOpen(false);
     setExpandedMobileMenu(null);
   }, [pathname]);
+
+  if (!isHydrated) {
+    return (
+      <header className="sticky top-0 z-50 flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18" role="banner">
+        <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
+          <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
+            <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-auto sm:h-9 md:h-10" />
+          </Link>
+
+          <div className="ml-auto hidden items-center gap-3 md:flex">
+            <div className="hidden h-10 w-56 rounded-full border border-gray-200 bg-gray-100 lg:block" />
+            <div className="h-10 w-10 rounded-lg border border-gray-200 bg-gray-100" />
+            <div className="h-10 w-28 rounded-lg border border-gray-200 bg-gray-100" />
+          </div>
+
+          <div className="ml-auto flex items-center gap-2 md:hidden">
+            <div className="h-9 w-24 rounded-lg border border-gray-200 bg-gray-100" />
+            <div className="h-9 w-9 rounded-lg border border-gray-200 bg-gray-100" />
+            <div className="h-9 w-9 rounded-lg border border-gray-200 bg-gray-100" />
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <>

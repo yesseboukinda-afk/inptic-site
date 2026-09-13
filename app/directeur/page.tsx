@@ -142,7 +142,7 @@ export default function Directeur() {
     }
   }
 
-  function updateStudentStatus(studentEmail: string, decision: 'valide' | 'refuse') {
+  async function updateStudentStatus(studentEmail: string, decision: 'valide' | 'refuse') {
     const status: StudentProfile['status'] = decision === 'valide' ? 'valide' : 'refuse';
     const stored = JSON.parse(localStorage.getItem('inptic_users') || '[]');
     const nextProfiles: StudentProfile[] = Array.isArray(stored)
@@ -159,6 +159,7 @@ export default function Directeur() {
             dossierValide: decision === 'valide',
             status,
             dossierStep: status,
+            role: 'etudiant',
             notifications: addNotification(entry.notifications, message, decision === 'valide' ? 'success' : 'danger'),
           };
         })
@@ -171,15 +172,17 @@ export default function Directeur() {
     setStudents(updatedStudents);
 
     const currentCandidate = localStorage.getItem('inptic_user');
+    let updatedCandidate: StudentProfile | null = null;
     if (currentCandidate) {
       try {
         const parsed = JSON.parse(currentCandidate) as StudentProfile;
         if (parsed.email === studentEmail) {
-          const updatedCandidate = {
+          updatedCandidate = {
             ...parsed,
             dossierValide: decision === 'valide',
             status,
             dossierStep: status,
+            role: 'etudiant',
             notifications: addNotification(parsed.notifications, decision === 'valide' ? 'Votre dossier a été validé. Vous pouvez maintenant accéder à votre espace personnel.' : 'Votre dossier a été refusé. Vérifiez les informations et les justificatifs avant de réessayer.', decision === 'valide' ? 'success' : 'danger'),
           };
           localStorage.setItem('inptic_user', JSON.stringify(updatedCandidate));
@@ -189,15 +192,48 @@ export default function Directeur() {
       }
     }
 
-    if (selected?.email === studentEmail) {
+    const selectedProfile =
+      nextProfiles.find((entry) => entry.email === studentEmail) ||
+      (updatedCandidate && updatedCandidate.email === studentEmail ? updatedCandidate : selected);
+
+    if (selectedProfile && selected?.email === studentEmail) {
       setSelected({
-        ...selected,
+        ...selectedProfile,
         dossierValide: decision === 'valide',
         status,
         dossierStep: status,
-        notifications: addNotification(selected.notifications, decision === 'valide' ? 'Votre dossier a été validé. Vous pouvez maintenant accéder à votre espace personnel.' : 'Votre dossier a été refusé. Vérifiez les informations et les justificatifs avant de réessayer.', decision === 'valide' ? 'success' : 'danger'),
+        role: 'etudiant',
+        notifications: addNotification(selectedProfile.notifications, decision === 'valide' ? 'Votre dossier a été validé. Vous pouvez maintenant accéder à votre espace personnel.' : 'Votre dossier a été refusé. Vérifiez les informations et les justificatifs avant de réessayer.', decision === 'valide' ? 'success' : 'danger'),
       });
     }
+
+    const studentProfile = selectedProfile ?? updatedCandidate ?? nextProfiles.find((entry) => entry.email === studentEmail);
+    if (!studentProfile) return;
+
+    try {
+      const response = await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...studentProfile,
+          email: studentEmail,
+          role: 'etudiant',
+          dossierValide: decision === 'valide',
+          status,
+          dossierStep: status,
+          notifications: studentProfile.notifications || [],
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        console.error('Failed to persist student validation', data?.error || response.statusText);
+      }
+    } catch (error) {
+      console.error('Failed to persist student validation', error);
+    }
+
+    window.dispatchEvent(new Event('auth-state-changed'));
   }
 
   function logout() {

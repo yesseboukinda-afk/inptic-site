@@ -401,109 +401,119 @@ export default function Suivi() {
                 <p className="mt-1 text-sm text-slate-500">Vérifiez les informations utilisées pour votre dossier.</p>
                 </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Nom complet</span>
-                  <input
-                    value={form.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
+              <div className="mt-6 grid gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Nom complet</span>
+                    <input
+                      value={form.name}
+                      onChange={(e) => handleChange('name', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => handleChange('email', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+                </div>
 
                 <div className="md:col-span-2 border-t border-slate-200 pt-5">
                   <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">2. Parcours et formation demandée</p>
                   <p className="mt-1 text-sm text-slate-500">Indiquez votre niveau et la filière souhaitée à l’INPTIC.</p>
                 </div>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => handleChange('email', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Téléphone</span>
+                    <input
+                      value={form.phone}
+                      onChange={(e) => handleChange('phone', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Niveau</span>
+                    <input
+                      value={form.niveau}
+                      onChange={(e) => handleChange('niveau', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Parcours</span>
+                    <input
+                      value={form.parcours}
+                      onChange={(e) => handleChange('parcours', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Filière</span>
+                    <select
+                      value={form.filiere}
+                      onChange={(e) => handleChange('filiere', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <option value="">Sélectionner une filière</option>
+                      {filieres.map((filiere) => (
+                        <option key={filiere} value={filiere}>{filiere}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Établissement</span>
+                    <input
+                      value={form.etablissement}
+                      onChange={(e) => handleChange('etablissement', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Promotion</span>
+                    <input
+                      value={form.promotion}
+                      onChange={(e) => handleChange('promotion', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Année</span>
+                    <input
+                      value={form.annee}
+                      onChange={(e) => handleChange('annee', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">Spécialité</span>
+                    <input
+                      value={form.specialite}
+                      onChange={(e) => handleChange('specialite', e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+                </div>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Téléphone</span>
-                  <input
-                    value={form.phone}
-                    onChange={(e) => handleChange('phone', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Niveau</span>
-                  <input
-                    value={form.niveau}
-                    onChange={(e) => handleChange('niveau', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Parcours</span>
-                  <input
-                    value={form.parcours}
-                    onChange={(e) => handleChange('parcours', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Filière</span>
-                  <select
-                    value={form.filiere}
-                    onChange={(e) => handleChange('filiere', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option value="">Sélectionner une filière</option>
-                    {filieres.map((filiere) => (
-                      <option key={filiere} value={filiere}>{filiere}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Établissement</span>
-                  <input
-                    value={form.etablissement}
-                    onChange={(e) => handleChange('etablissement', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Promotion</span>
-                  <input
-                    value={form.promotion}
-                    onChange={(e) => handleChange('promotion', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Année</span>
-                  <input
-                    value={form.annee}
-                    onChange={(e) => handleChange('annee', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Spécialité</span>
-                  <input
-                    value={form.specialite}
-                    onChange={(e) => handleChange('specialite', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm font-medium text-slate-700">Diplôme / dernière qualification</span>
                   <input
                     value={form.diplome}
