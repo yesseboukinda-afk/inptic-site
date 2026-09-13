@@ -358,20 +358,38 @@ export default function Header() {
 
           <div className="ml-auto flex items-center gap-2 md:hidden">
             {isDirector ? (
-              <Link href="/directeur" className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.dashboard')}>
-                <LayoutDashboard size={14} aria-hidden="true" />
-                <span>{t('common.dashboard')}</span>
-              </Link>
+              <>
+                <Link href="/directeur" className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.dashboard')}>
+                  <LayoutDashboard size={14} aria-hidden="true" />
+                  <span>{t('common.dashboard')}</span>
+                </Link>
+                <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
+                  <LogOut size={14} aria-hidden="true" />
+                  <span>{t('common.logout')}</span>
+                </button>
+              </>
             ) : staffRole ? (
-              <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
-                <LayoutDashboard size={14} aria-hidden="true" />
-                <span>{t('common.professionalSpace')}</span>
-              </Link>
+              <>
+                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
+                  <LayoutDashboard size={14} aria-hidden="true" />
+                  <span>{t('common.professionalSpace')}</span>
+                </Link>
+                <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
+                  <LogOut size={14} aria-hidden="true" />
+                  <span>{t('common.logout')}</span>
+                </button>
+              </>
             ) : isStudent ? (
-              <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.myAccount')}>
-                <UserRound size={14} aria-hidden="true" />
-                <span>{t('common.myAccount')}</span>
-              </Link>
+              <>
+                <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.myAccount')}>
+                  <UserRound size={14} aria-hidden="true" />
+                  <span>{t('common.myAccount')}</span>
+                </Link>
+                <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
+                  <LogOut size={14} aria-hidden="true" />
+                  <span>{t('common.logout')}</span>
+                </button>
+              </>
             ) : (
               <Link href="/candidat" className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.login')}>
                 <UserRound size={14} aria-hidden="true" />
