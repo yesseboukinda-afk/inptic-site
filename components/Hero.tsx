@@ -13,11 +13,11 @@ const quickActions = [
 ];
 
 const galleryImages = [
-  '/institut/1.jpg',
-  '/institut/2.jpg',
-  '/institut/3.jpg',
-  '/institut/4.jpg',
-  '/institut/5.jpg',
+  '/institut/1.webp',
+  '/institut/2.webp',
+  '/institut/3.webp',
+  '/institut/4.webp',
+  '/institut/5.webp',
 ];
 
 const sliderImages = [...galleryImages, ...galleryImages];

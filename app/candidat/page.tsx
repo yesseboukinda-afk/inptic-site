@@ -9,6 +9,13 @@ import { getRolePath, getStaffRole, isDirectorRole, normalizeRole } from '@/lib/
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
+const normalizeAccountEmail = (value?: string) => (value ?? '').trim().toLowerCase().replace(/,/g, '.');
+const isSpecialStaffEmail = (email?: string) => {
+  const normalized = normalizeAccountEmail(email);
+  return normalized === 'dep@inptic.ga' || normalized === 'dep@inpti.ga';
+};
+const isDirectorAccountEmail = (email?: string) => normalizeAccountEmail(email) === 'directeur@inptic.ga';
+
 const socialProviders = [
   { name: 'Google', icon: '/connexion/google_icon.svg' },
   { name: 'Apple', icon: '/connexion/apple_icon.svg' },
@@ -58,10 +65,10 @@ const persistLocalProfile = (profile: Record<string, any>) => {
 const buildSupabaseProfile = (user: any, fallbackName = 'Étudiant') => {
   const rawRole = user?.user_metadata?.role ?? user?.user_metadata?.roles ?? user?.app_metadata?.role ?? user?.app_metadata?.roles ?? '';
   const normalizedRole = normalizeRole(rawRole);
-  const staffRole = user?.email?.toLowerCase() === 'dep@inptic.ga'
+  const staffRole = isSpecialStaffEmail(user?.email)
     ? 'direction_etudes'
     : getStaffRole(normalizedRole);
-  const isDirector = isDirectorRole(normalizedRole) || user?.email?.toLowerCase() === 'directeur@inptic.ga';
+  const isDirector = isDirectorRole(normalizedRole) || isDirectorAccountEmail(user?.email);
 
   return {
     email: user?.email || '',
@@ -123,6 +130,7 @@ export default function Candidat() {
   const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
 
   const handleSocialAuth = async (provider: (typeof socialProviders)[number]['name']) => {
+    localStorage.removeItem('inptic_logout_guard');
     const providerKey = provider.toLowerCase() as 'google' | 'apple' | 'facebook';
 
     if (!supabase) {
@@ -157,15 +165,18 @@ export default function Candidat() {
     const client = supabase;
     if (!client) return;
 
+    const logoutGuard = Number(localStorage.getItem('inptic_logout_guard') || '0');
+    const hasRecentLogout = Date.now() - logoutGuard < 15000;
+
     const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
-      if (event !== 'SIGNED_IN' || !session?.user) return;
+      if (event !== 'SIGNED_IN' || !session?.user || hasRecentLogout) return;
 
       const user = session.user;
       const profile = buildSupabaseProfile(user, user.user_metadata?.full_name || user.user_metadata?.name || 'Étudiant');
       const localRole = normalizeRole(profile.role);
       const staffRole = getStaffRole(localRole);
 
-      if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
         localStorage.removeItem('inptic_user');
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
         window.dispatchEvent(new Event('auth-state-changed'));
@@ -186,6 +197,8 @@ export default function Candidat() {
     });
 
     const syncUserFromSupabaseSession = async () => {
+      if (hasRecentLogout) return;
+
       const { data } = await client.auth.getSession();
       const user = data.session?.user;
       if (!user) return;
@@ -194,7 +207,7 @@ export default function Candidat() {
       const localRole = normalizeRole(profile.role);
       const staffRole = getStaffRole(localRole);
 
-      if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
         localStorage.removeItem('inptic_user');
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
         window.dispatchEvent(new Event('auth-state-changed'));
@@ -226,7 +239,7 @@ export default function Candidat() {
       try {
         const stored = JSON.parse(storedRaw);
         const storedRole = normalizeRole(stored?.role);
-        if (isDirectorRole(storedRole) || stored?.email?.toLowerCase() === 'directeur@inptic.ga') {
+        if (isDirectorRole(storedRole) || isDirectorAccountEmail(stored?.email)) {
           router.replace('/directeur');
         } else if (getStaffRole(storedRole)) {
           router.replace(getRolePath(getStaffRole(storedRole)));
@@ -267,7 +280,7 @@ export default function Candidat() {
       };
 
       const localRole = normalizeRole(profile.role);
-      if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
         localStorage.removeItem('inptic_user');
         localStorage.setItem(
           'inptic_directeur',
@@ -313,12 +326,12 @@ export default function Candidat() {
         user?.app_metadata?.roles ??
         '';
       const normalizedRole = normalizeRole(rawRole);
-      const staffRole = user?.email?.toLowerCase() === 'dep@inptic.ga'
+      const staffRole = isSpecialStaffEmail(user?.email)
         ? 'direction_etudes'
         : getStaffRole(normalizedRole);
       const isDirector =
         isDirectorRole(normalizedRole) ||
-        user?.email?.toLowerCase() === 'directeur@inptic.ga';
+        isDirectorAccountEmail(user?.email);
       const profile = {
         email: user?.email || form.email,
         name: user?.user_metadata?.full_name || user?.user_metadata?.name || form.name || 'Étudiant',
@@ -392,8 +405,8 @@ export default function Candidat() {
       if (matchingProfile) {
         const profile = { ...matchingProfile, password: form.password };
         const localRole = normalizeRole(profile.role);
-        const localStaffRole = profile.email?.toLowerCase() === 'dep@inptic.ga' ? 'direction_etudes' : getStaffRole(localRole);
-        if (isDirectorRole(localRole) || profile.email?.toLowerCase() === 'directeur@inptic.ga') {
+        const localStaffRole = isSpecialStaffEmail(profile.email) ? 'direction_etudes' : getStaffRole(localRole);
+        if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
           localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
           router.push('/directeur');
           return;
