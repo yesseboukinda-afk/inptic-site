@@ -330,42 +330,66 @@ export default function Header() {
             )}
           </div>
 
-          <div ref={mobileLanguageMenuRef} className="relative ml-auto md:hidden">
-            <button
-              type="button"
-              onClick={() => setLanguageMenuOpen((open) => !open)}
-              aria-label={t('common.switchLanguage')}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-[#D4AF37] hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95"
-              title={t('common.switchLanguage')}
-            >
-              <span aria-hidden="true">{currentLangFlag}</span>
-              <span className="hidden xs:inline">{languageOptions.find((option) => option.code === currentLanguage)?.label ?? 'FR'}</span>
-            </button>
-
-            {languageMenuOpen && (
-              <div className="absolute right-0 top-full z-[60] mt-2 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                {languageOptions.map((option) => (
-                  <button
-                    key={option.code}
-                    type="button"
-                    onClick={() => changeLanguage(option.code)}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition ${currentLanguage === option.code ? 'bg-[#F9F2D1] text-slate-900' : 'text-slate-700 hover:bg-slate-50'}`}
-                    aria-label={option.label}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span aria-hidden="true">{option.flag}</span>
-                      <span>{option.label}</span>
-                    </span>
-                    {currentLanguage === option.code && <span className="text-[10px] font-bold">✓</span>}
-                  </button>
-                ))}
-              </div>
+          <div className="ml-auto flex items-center gap-2 md:hidden">
+            {isDirector ? (
+              <Link href="/directeur" className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.dashboard')}>
+                <LayoutDashboard size={14} aria-hidden="true" />
+                <span>{t('common.dashboard')}</span>
+              </Link>
+            ) : staffRole ? (
+              <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
+                <LayoutDashboard size={14} aria-hidden="true" />
+                <span>{t('common.professionalSpace')}</span>
+              </Link>
+            ) : isStudent ? (
+              <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.myAccount')}>
+                <UserRound size={14} aria-hidden="true" />
+                <span>{t('common.myAccount')}</span>
+              </Link>
+            ) : (
+              <Link href="/candidat" className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.login')}>
+                <UserRound size={14} aria-hidden="true" />
+                <span>{t('common.login')}</span>
+              </Link>
             )}
-          </div>
 
-          <button ref={mobileMenuButtonRef} type="button" onClick={(event) => { event.stopPropagation(); setMobileMenuOpen((open) => !open); }} aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-menu" className="mobile-menu-trigger md:hidden rounded-lg p-2 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 active:scale-95">
-            {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
-          </button>
+            <div ref={mobileLanguageMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setLanguageMenuOpen((open) => !open)}
+                aria-label={t('common.switchLanguage')}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-[#D4AF37] hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95"
+                title={t('common.switchLanguage')}
+              >
+                <span aria-hidden="true">{currentLangFlag}</span>
+                <span className="hidden xs:inline">{languageOptions.find((option) => option.code === currentLanguage)?.label ?? 'FR'}</span>
+              </button>
+
+              {languageMenuOpen && (
+                <div className="absolute right-0 top-full z-[60] mt-2 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {languageOptions.map((option) => (
+                    <button
+                      key={option.code}
+                      type="button"
+                      onClick={() => changeLanguage(option.code)}
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition ${currentLanguage === option.code ? 'bg-[#F9F2D1] text-slate-900' : 'text-slate-700 hover:bg-slate-50'}`}
+                      aria-label={option.label}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true">{option.flag}</span>
+                        <span>{option.label}</span>
+                      </span>
+                      {currentLanguage === option.code && <span className="text-[10px] font-bold">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button ref={mobileMenuButtonRef} type="button" onClick={(event) => { event.stopPropagation(); setMobileMenuOpen((open) => !open); }} aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-menu" className="mobile-menu-trigger rounded-lg p-2 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 active:scale-95">
+              {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -466,40 +490,6 @@ export default function Header() {
               {t('common.contact')}
             </Link>
 
-            {isDirector ? (
-              <div className="mt-4 flex gap-2">
-                <Link href="/directeur" aria-label={t('common.dashboard')} className="navbar-icon-only flex-1 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 text-white px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" onClick={() => setMobileMenuOpen(false)}>
-                  <LayoutDashboard size={18} aria-hidden="true" />
-                  <span className="btn-label">{t('common.dashboard')}</span>
-                </Link>
-                <Link href="/directeur/compte" aria-label={t('common.profile')} className="navbar-icon-only flex-1 bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 active:bg-slate-100 px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" onClick={() => setMobileMenuOpen(false)}>
-                  <UserRound size={18} aria-hidden="true" />
-                  <span className="btn-label">{t('common.profile')}</span>
-                </Link>
-                <button onClick={() => { setMobileMenuOpen(false); handleLogout(); }} aria-label={t('common.logout')} className="navbar-icon-only flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">
-                  <LogOut size={18} aria-hidden="true" />
-                  <span className="btn-label">{t('common.logout')}</span>
-                </button>
-              </div>
-            ) : isStudent ? (
-              <div className="mt-4 flex gap-2">
-                <Link href="/vie-etudiante" aria-label={t('common.myAccount')} className="navbar-icon-only flex-1 bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 active:bg-slate-100 px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" onClick={() => setMobileMenuOpen(false)}>
-                  <UserRound size={18} aria-hidden="true" />
-                  <span className="btn-label">{t('common.myAccount')}</span>
-                </Link>
-                <button onClick={() => { setMobileMenuOpen(false); handleLogout(); }} aria-label={t('common.logout')} className="navbar-icon-only flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">
-                  <LogOut size={18} aria-hidden="true" />
-                  <span className="btn-label">{t('common.logout')}</span>
-                </button>
-              </div>
-            ) : (
-              <div className="mt-4 flex gap-2">
-                <Link href="/candidat" aria-label={t('common.login')} className="navbar-icon-only flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 rounded-lg text-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" onClick={() => setMobileMenuOpen(false)}>
-                  <LogIn size={18} aria-hidden="true" />
-                  <span className="btn-label">{t('common.login')}</span>
-                </Link>
-              </div>
-            )}
           </div>
         </nav>
       )}
