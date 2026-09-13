@@ -242,7 +242,7 @@ export default function Hero() {
   const [showFormationResults, setShowFormationResults] = useState(false);
 
   return (
-    <section className="relative min-h-[500px] bg-slate-900 overflow-hidden sm:min-h-[540px] md:min-h-[510px]">
+    <section className="relative min-h-[560px] overflow-hidden bg-slate-900 pb-20 sm:min-h-[600px] md:min-h-[510px] md:pb-0">
       <div className="absolute inset-0 overflow-hidden">
         <div className="hero-slider-track flex h-full w-max">
           {sliderImages.map((image, index) => (
@@ -385,7 +385,48 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Quick Action Buttons - Desktop */}
+      <div className="relative z-20 mt-6 grid grid-cols-2 gap-2 px-3 sm:gap-3 md:hidden">
+        {quickActions.map(({ label, icon: Icon, ariaLabel }) => {
+          const isSelected = selectedAction === label;
+
+          const content = (
+            <div
+              className={`flex flex-col items-center justify-center gap-1 rounded-lg border border-white/15 bg-slate-900/70 px-2 py-2 text-center shadow-lg backdrop-blur-sm transition-all duration-200 ${
+                isSelected ? 'border-[#D4AF37]/80 bg-[#D4AF37]/15 text-[#F4D06F]' : 'text-white hover:bg-white/10'
+              }`}
+            >
+              <Icon size={18} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
+              <span className="text-[10px] font-semibold leading-tight">{label}</span>
+            </div>
+          );
+
+          if (label === 'Visite 3D' || label === 'Candidature' || label === 'Alumni') {
+            return (
+              <Link key={label} href={label === 'Visite 3D' ? '/visite-3d' : label === 'Alumni' ? '/alumni' : '/admissions/depot'} aria-label={ariaLabel} className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950">
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                setSelectedAction(label);
+                if (label === 'INPTIC-Bot') {
+                  window.dispatchEvent(new Event('open-inptic-chat'));
+                }
+              }}
+              aria-label={ariaLabel}
+              className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
+            >
+              {content}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="absolute right-5 bottom-20 hidden xl:flex flex-col gap-3 bg-slate-900/55 backdrop-blur-sm p-4 rounded-xl text-xs text-center space-y-4 animate-in fade-in slide-in-from-right-8 duration-1000 border border-white/10">
         {quickActions.map(({ label, icon: Icon, ariaLabel }) => {
           const isSelected = selectedAction === label;
@@ -435,7 +476,7 @@ export default function Hero() {
       </div>
 
       {/* Scroll Indicator - Mobile */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 md:hidden flex flex-col items-center gap-2 text-white/60 animate-bounce">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 md:hidden flex flex-col items-center gap-1 text-white/60 animate-bounce opacity-0">
         <span className="text-xs font-medium">Parcourez</span>
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
