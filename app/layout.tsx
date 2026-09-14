@@ -9,7 +9,10 @@ import I18nProvider from '@/components/I18nProvider';
 
 export const metadata = {
   title: 'Institut National de la Poste, des Technologies de l\'Information et de la Communication',
-  description: 'Portail numérique de l\'INPTIC'
+  description: 'Portail numérique de l\'INPTIC',
+  icons: {
+    icon: '/logoinptic.png'
+  }
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
