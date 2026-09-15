@@ -134,7 +134,10 @@ export default function Footer() {
                   <img src="/connexion/youtube.svg" alt="YouTube" className="h-4 w-4" />
                 </a>
               </div>
+              
             </div>
+              <span>v1.8.0</span>
+
 
             <div className="flex items-center gap-3 text-xs text-slate-400 md:text-sm">
              
