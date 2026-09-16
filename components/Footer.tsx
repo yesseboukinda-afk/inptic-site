@@ -122,6 +122,9 @@ export default function Footer() {
               <a href="/conditions-d-utilisation" className="transition-colors duration-200 hover:text-[#D4AF37]">
                 {t('footer.terms')}
               </a>
+              <a href="/textes-et-lois" className="transition-colors duration-200 hover:text-[#D4AF37]">
+                Textes et lois
+              </a>
               <span className="hidden md:inline-block text-slate-600">|</span>
               <div className="flex items-center gap-2">
                 <a href="https://www.facebook.com/share/1JiVyPnGRj/?mibextid=wwXIfr" target="_blank" rel="noreferrer" aria-label="Facebook INPTIGabon" className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]">

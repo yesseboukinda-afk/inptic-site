@@ -49,6 +49,15 @@ export default function Presentation() {
               <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span><span>Approche pédagogique innovante</span></li>
               <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span><span>Ouverture vers l’international</span></li>
             </ul>
+
+            <div className="mt-8">
+              <a
+                href="/institut/organigramme"
+                className="inline-flex items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
+              >
+                Voir l’organigramme
+              </a>
+            </div>
           </div>
         </div>
       </section>
