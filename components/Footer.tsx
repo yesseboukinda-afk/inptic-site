@@ -47,6 +47,7 @@ export default function Footer() {
             <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">INPTIC</h3>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
               <li><a href="/institut" className="transition-colors duration-200 hover:text-[#D4AF37]">Présentation</a></li>
+              <li><a href="/institut/organigramme" className="transition-colors duration-200 hover:text-[#D4AF37]">Organigramme</a></li>
               <li><a href="/institut/certifications" className="transition-colors duration-200 hover:text-[#D4AF37]">Certifications</a></li>
               <li><a href="/institut/partenariats" className="transition-colors duration-200 hover:text-[#D4AF37]">Partenariats</a></li>
             </ul>
