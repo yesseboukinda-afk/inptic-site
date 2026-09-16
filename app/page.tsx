@@ -1,4 +1,7 @@
+"use client";
+
 import Hero from "@/components/Hero";
+import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
   CalendarDays,
@@ -7,17 +10,15 @@ import {
   Globe2,
   BriefcaseBusiness,
 } from "lucide-react";
-const formations = [
-  ["Informatique", "Développement logiciel, systèmes, réseaux et sécurité.", "/formations/genie-logiciel"],
-  ["Multimédia & Internet", "Création numérique, web, design et audiovisuel.", "/formations"],
-  ["Télécommunications", "Réseaux, systèmes embarqués, IoT et services.", "/formations/telecoms"],
-  [
-    "Management & TIC",
-    "Gestion de projet, marketing digital et entrepreneuriat.",
-    "/formations",
-  ],
-];
 export default function Home() {
+  const { t } = useTranslation();
+  const formations = [
+    [t('home.informatique'), t('home.informatiqueText'), "/formations/genie-logiciel"],
+    [t('home.multimedia'), t('home.multimediaText'), "/formations"],
+    [t('home.telecom'), t('home.telecomText'), "/formations/telecoms"],
+    [t('home.management'), t('home.managementText'), "/formations"],
+  ];
+
   return (
     <>
       <Hero />
@@ -25,72 +26,71 @@ export default function Home() {
         <section className="-mt-10 relative z-10 bg-white rounded-2xl shadow-xl grid grid-cols-2 md:grid-cols-6 gap-4 p-6 text-center">
           <div>
             <BookOpen className="mx-auto text-blue-600" />
-            <b>Formations d'Excellences</b>
-            <p className="text-xs">programmes de haut niveau</p>
+            <b>{t('home.excellence')}</b>
+            <p className="text-xs">{t('home.excellenceText')}</p>
           </div>
           <div>
             <Globe2 className="mx-auto text-blue-600" />
-            <b>Recherche</b>
-            <p className="text-xs">et innovation</p>
+            <b>{t('home.research')}</b>
+            <p className="text-xs">{t('home.researchText')}</p>
           </div>
           <div>
             <BriefcaseBusiness className="mx-auto text-blue-600" />
-            <b>Insertion</b>
-            <p className="text-xs">professionnelle</p>
+            <b>{t('home.employment')}</b>
+            <p className="text-xs">{t('home.employmentText')}</p>
           </div>
           <div>
             <Users className="mx-auto text-blue-600" />
-            <b>Vie de</b>
-            <p className="text-xs">campus</p>
+            <b>{t('home.campus')}</b>
+            <p className="text-xs">{t('home.campusText')}</p>
           </div>
           <div>
             <Globe2 className="mx-auto text-blue-600" />
-            <b>Ouvert à</b>
-            <p className="text-xs">l’international</p>
+            <b>{t('home.international')}</b>
+            <p className="text-xs">{t('home.internationalText')}</p>
           </div>
           <div>
             <BookOpen className="mx-auto text-blue-600" />
-            <b>Excellence</b>
-            <p className="text-xs">académique</p>
+            <b>{t('home.academic')}</b>
+            <p className="text-xs">{t('home.academicText')}</p>
           </div>
         </section>
         <section id="actualites" className="py-14">
           <div className="flex justify-between">
-            <h2 className="text-3xl font-black">À la une</h2>
+            <h2 className="text-3xl font-black">{t('home.highlights')}</h2>
             <a href="/actualites" className="text-blue-600">
-              Toutes les actualités →
+              {t('home.allNews')}
             </a>
           </div>
           <div className="grid md:grid-cols-3 gap-5 mt-6">
             <article className="md:col-span-2 rounded-2xl overflow-hidden bg-slate-900 text-white p-8 min-h-72">
               <span className="text-xs bg-blue-600 px-2 py-1 rounded">
-                ÉVÉNEMENT
+                {t('home.event')}
               </span>
               <h3 className="text-3xl font-bold mt-20">
-                Semaine de l’innovation 2025
+                {t('home.innovationWeek')}
               </h3>
               <p className="mt-2">
-                Conférences, ateliers et hackathons autour des technologies
-                émergentes.
+                {t('home.innovationText')}
               </p>
             </article>
             <div className="space-y-4">
               <article className="border rounded-xl p-5">
-                <b>Lancement de la plateforme INPTIC Alumni</b>
+                <b>{t('home.alumniLaunch')}</b>
                 <p className="text-sm text-slate-500 mt-2">
-                  Rejoignez le réseau des diplômés.
+                  {t('home.alumniText')}
                 </p>
               </article>
               <article className="border rounded-xl p-5">
-                <b>Nos chercheurs présentent leurs travaux</b>
+                <b>{t('home.researchers')}</b>
                 <p className="text-sm text-slate-500 mt-2">
-                  Actualités de la recherche et de l’innovation.
+                  {t('home.researchersText')}
                 </p>
               </article>
               <article className="border rounded-xl p-5">
-                <b>Clubs & associations</b>
+                <b>{t('home.clubs')}</b>
                 <p className="text-sm text-slate-500 mt-2">
-                  Rejoignez la communauté étudiante.
+                  {t('home.clubsText')}
                 </p>
               </article>
             </div>
@@ -98,26 +98,26 @@ export default function Home() {
         </section>
         <section id="formations" className="py-10">
           <div className="flex justify-between">
-            <h2 className="text-3xl font-black">Nos formations</h2>
+            <h2 className="text-3xl font-black">{t('home.formations')}</h2>
             <a href="/formations" className="text-blue-600">
-              Voir toutes les formations →
+              {t('home.allFormations')}
             </a>
           </div>
           <div className="grid md:grid-cols-4 gap-5 mt-6">
-            {formations.map(([t, d, href]) => (
+            {formations.map(([title, description, href]) => (
               <article
-                key={t}
+                key={title}
                 className="bg-white border rounded-2xl p-5 hover:shadow-lg transition"
               >
                 <div className="h-28 bg-slate-100 rounded-xl mb-5" />
-                <h3 className="font-bold text-lg">{t}</h3>
-                <p className="text-sm text-slate-500 mt-2 min-h-12">{d}</p>
-                <p className="text-xs mt-4">DTS · Licence</p>
+                <h3 className="font-bold text-lg">{title}</h3>
+                <p className="text-sm text-slate-500 mt-2 min-h-12">{description}</p>
+                <p className="text-xs mt-4">{t('home.diploma')}</p>
                 <a
                   href={href}
                   className="text-blue-600 text-sm font-semibold mt-5 inline-block"
                 >
-                  En savoir plus →
+                  {t('home.learnMore')}
                 </a>
               </article>
             ))}
@@ -128,49 +128,48 @@ export default function Home() {
           className="my-12 bg-slate-950 text-white rounded-3xl p-10 grid md:grid-cols-3 gap-8"
         >
           <div>
-            <h2 className="text-3xl font-black">Candidater en ligne</h2>
+            <h2 className="text-3xl font-black">{t('home.apply')}</h2>
             <p className="text-slate-300 mt-3">
-              Créez votre compte, déposez vos pièces et suivez votre candidature
-              en temps réel.
+              {t('home.applyText')}
             </p>
             <a
               href="/candidat"
               className="inline-block mt-6 bg-blue-600 px-5 py-3 rounded-lg"
             >
-              Commencer →
+              {t('home.start')}
             </a>
           </div>
           <div>
-            <h3 className="font-bold">Agenda</h3>
-            <p className="mt-4">28 MAI — Journée portes ouvertes</p>
-            <p className="mt-4">05 JUIN — Forum Entreprises & Stages</p>
-            <p className="mt-4">12 JUIN — Conférence IA & Société</p>
+            <h3 className="font-bold">{t('home.agenda')}</h3>
+            <p className="mt-4">28 MAI — {t('home.openDay')}</p>
+            <p className="mt-4">05 JUIN — {t('home.companiesForum')}</p>
+            <p className="mt-4">12 JUIN — {t('home.aiConference')}</p>
           </div>
           <div>
-            <h3 className="font-bold">Chiffres clés</h3>
+            <h3 className="font-bold">{t('home.keyFigures')}</h3>
             <div className="grid grid-cols-2 gap-5 mt-5">
               <b>
                 +20
                 <br />
-                <small className="font-normal text-slate-400">formations</small>
+                <small className="font-normal text-slate-400">{t('home.trainingCount')}</small>
               </b>
               <b>
                 +3 000
                 <br />
-                <small className="font-normal text-slate-400">étudiants</small>
+                <small className="font-normal text-slate-400">{t('home.studentCount')}</small>
               </b>
               <b>
                 +150
                 <br />
                 <small className="font-normal text-slate-400">
-                  enseignants
+                  {t('home.teacherCount')}
                 </small>
               </b>
               <b>
                 +95%
                 <br />
                 <small className="font-normal text-slate-400">
-                  insertion pro
+                  {t('home.employmentRate')}
                 </small>
               </b>
             </div>

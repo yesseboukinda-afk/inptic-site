@@ -4,6 +4,7 @@ import { BookOpen, BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, F
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StudentPanel, { StudentSection } from '@/components/StudentPanel';
+import { useTranslation } from 'react-i18next';
 
 const emptyProfile = {
   name: '',
@@ -40,6 +41,7 @@ const defaultAvatar =
   `);
 
 export default function VieEtudiante() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
   const [profile, setProfile] = useState(emptyProfile);
@@ -179,7 +181,7 @@ export default function VieEtudiante() {
   if (!isReady) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-100">
-        <p className="text-slate-600">Vérification de l’accès…</p>
+        <p className="text-slate-600">{t('pages.accessCheck')}</p>
       </main>
     );
   }
@@ -192,9 +194,9 @@ export default function VieEtudiante() {
         <div className="container-x px-3 py-10 md:px-0 md:py-16">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-100 md:text-sm">Mon compte</p>
-              <h1 className="mt-2 text-3xl font-black md:text-5xl">Bienvenue, {profile.name || 'Étudiant'}</h1>
-              <p className="mt-2 text-sm text-blue-50 md:mt-3">Votre espace personnel INPTIC.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-100 md:text-sm">{t('pages.account')}</p>
+              <h1 className="mt-2 text-3xl font-black md:text-5xl">{t('pages.hello', { name: profile.name || t('pages.student') })}</h1>
+              <p className="mt-2 text-sm text-blue-50 md:mt-3">{t('studentDashboard.space')} INPTIC.</p>
             </div>
 
             <div className="flex items-center gap-2 md:gap-3">
@@ -209,12 +211,12 @@ export default function VieEtudiante() {
               </button>
               <button
                 type="button"
-                aria-label="Déconnexion"
+                aria-label={t('pages.logout')}
                 onClick={logout}
                 className="mobile-icon-action rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
               >
                 <LogOut size={18} aria-hidden="true" />
-                <span className="btn-label">Déconnexion</span>
+                <span className="btn-label">{t('pages.logout')}</span>
               </button>
             </div>
           </div>
@@ -225,7 +227,7 @@ export default function VieEtudiante() {
         <div className={`relative grid gap-4 md:gap-8 ${sidebarCollapsed ? 'lg:grid-cols-[90px_1fr]' : 'lg:grid-cols-[210px_1fr]'}`}>
           <aside className={`border border-slate-200 bg-white p-4 shadow-sm md:p-6 lg:sticky lg:top-6 lg:self-start ${sidebarCollapsed ? 'lg:h-[558px] lg:w-[90px] lg:p-3' : ''}`}>
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-4">
-              {!sidebarCollapsed && <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-600">Espace étudiant</p>}
+              {!sidebarCollapsed && <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-600">{t('studentDashboard.space')}</p>}
               <button
                 type="button"
                 onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
@@ -237,15 +239,15 @@ export default function VieEtudiante() {
               </button>
             </div>
 
-            <nav className="mt-4 space-y-1" aria-label="Menu étudiant">
+            <nav className="mt-4 space-y-1" aria-label={t('studentDashboard.space')}>
               {[
-                { label: 'Profil', section: 'profil' as StudentSection, icon: UserRound },
-                { label: 'Cours', section: 'cours' as StudentSection, icon: BookOpen },
-                { label: 'Emploi du temps', section: 'emploi-du-temps' as StudentSection, icon: CalendarDays },
-                { label: 'Diplômes', section: 'diplomes' as StudentSection, icon: GraduationCap },
-                { label: 'Relevés', section: 'releves' as StudentSection, icon: FileText },
-                { label: 'Stages', section: 'stages' as StudentSection, icon: BriefcaseBusiness },
-                { label: 'Attestations', section: 'attestations' as StudentSection, icon: FileCheck2 },
+                { label: t('studentDashboard.profile'), section: 'profil' as StudentSection, icon: UserRound },
+                { label: t('studentDashboard.courses'), section: 'cours' as StudentSection, icon: BookOpen },
+                { label: t('studentDashboard.schedule'), section: 'emploi-du-temps' as StudentSection, icon: CalendarDays },
+                { label: t('studentDashboard.degrees'), section: 'diplomes' as StudentSection, icon: GraduationCap },
+                { label: t('studentDashboard.transcripts'), section: 'releves' as StudentSection, icon: FileText },
+                { label: t('studentDashboard.internships'), section: 'stages' as StudentSection, icon: BriefcaseBusiness },
+                { label: t('studentDashboard.certificates'), section: 'attestations' as StudentSection, icon: FileCheck2 },
               ].map(({ label, section, icon: Icon }) => (
                 <button
                   key={section}

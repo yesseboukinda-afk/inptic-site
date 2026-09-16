@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type ProgramType = 'licence' | 'qualifiante' | 'certifiante';
 type StudyLevel = 'bac' | 'bac2' | 'bac3' | 'autre';
@@ -77,12 +78,32 @@ const tracks: Track[] = [
 const levelRank: Record<StudyLevel, number> = { autre: 0, bac: 1, bac2: 2, bac3: 3 };
 
 export default function Calculateur() {
+  const { t } = useTranslation();
   const [programType, setProgramType] = useState<ProgramType | ''>('');
   const [studyLevel, setStudyLevel] = useState<StudyLevel | ''>('');
   const [bacType, setBacType] = useState<BacType | ''>('');
   const [specialty, setSpecialty] = useState<Specialty | ''>('');
   const [diploma, setDiploma] = useState('');
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
+  const translatedProgramLabels: Record<ProgramType, string> = {
+    licence: t('public.formationsTitle'),
+    qualifiante: t('public.qualifying'),
+    certifiante: t('public.certifying'),
+  };
+  const translatedLevelLabels: Record<StudyLevel, string> = {
+    bac: t('pages.bacType'),
+    bac2: 'Bac+2',
+    bac3: 'Bac+3',
+    autre: t('pages.notProvided'),
+  };
+  const translatedBacLabels: Record<BacType, string> = {
+    ...bacLabels,
+    autre: t('pages.notProvided'),
+  };
+  const translatedSpecialtyLabels: Record<Specialty, string> = {
+    ...specialtyLabels,
+    autre: t('pages.notProvided'),
+  };
 
   const calculateEligibility = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -99,17 +120,17 @@ export default function Calculateur() {
 
         if (hasRequiredLevel) {
           score += 4;
-          reasons.push(`Niveau compatible : ${levelLabels[studyLevel]}`);
+          reasons.push(`Niveau compatible : ${translatedLevelLabels[studyLevel]}`);
         } else {
-          reasons.push(`Niveau requis : ${levelLabels[track.minimumLevel]}`);
+          reasons.push(`Niveau requis : ${translatedLevelLabels[track.minimumLevel]}`);
         }
         if (matchesBac) {
           score += 3;
-          reasons.push(`Type de bac adapté : ${bacLabels[bacType]}`);
+          reasons.push(`Type de bac adapté : ${translatedBacLabels[bacType]}`);
         }
         if (matchesSpecialty) {
           score += 3;
-          reasons.push(`Spécialité cohérente : ${specialtyLabels[specialty]}`);
+          reasons.push(`Spécialité cohérente : ${translatedSpecialtyLabels[specialty]}`);
         }
 
         return { ...track, score, reasons };
@@ -134,10 +155,10 @@ export default function Calculateur() {
         <img src="/banniere/2.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">Admissions</p>
-          <h1 className="text-4xl font-black md:text-6xl">Calculateur d’éligibilité</h1>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">{t('pages.admissions')}</p>
+          <h1 className="text-4xl font-black md:text-6xl">{t('pages.eligibilityCalculator')}</h1>
             <p className="mt-5 max-w-3xl text-lg text-blue-50">
-            Identifiez la filière et le département les plus adaptés à votre bac, votre spécialité et votre niveau.
+            {t('pages.eligibilityIntro')}
           </p>
         </div>
       </section>
@@ -146,70 +167,70 @@ export default function Calculateur() {
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <form onSubmit={calculateEligibility} className="rounded-none border border-slate-200 bg-white p-6 shadow-sm md:p-8">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Simulation gratuite</p>
-              <h2 className="mt-2 text-2xl font-bold text-slate-900">Vérifiez votre profil</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Renseignez votre profil pour obtenir un classement des filières compatibles.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">{t('pages.freeSimulation')}</p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-900">{t('pages.checkProfile')}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{t('pages.profileIntro')}</p>
             </div>
 
             <div className="mt-8 space-y-5">
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Type de formation</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('pages.trainingType')}</span>
                 <select
                   required
                   value={programType}
                   onChange={(event) => { setProgramType(event.target.value as ProgramType); setRecommendations(null); }}
                   className="w-full rounded-none border border-slate-200 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="">Sélectionner une formation</option>
-                  {(Object.keys(programLabels) as ProgramType[]).map((type) => <option key={type} value={type}>{programLabels[type]}</option>)}
+                  <option value="">{t('pages.selectTraining')}</option>
+                  {(Object.keys(programLabels) as ProgramType[]).map((type) => <option key={type} value={type}>{translatedProgramLabels[type]}</option>)}
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Type de bac</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('pages.bacType')}</span>
                 <select
                   required
                   value={bacType}
                   onChange={(event) => { setBacType(event.target.value as BacType); setRecommendations(null); }}
                   className="w-full rounded-none border border-slate-200 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="">Sélectionner votre type de bac</option>
-                  {(Object.keys(bacLabels) as BacType[]).map((type) => <option key={type} value={type}>{bacLabels[type]}</option>)}
+                  <option value="">{t('pages.selectBac')}</option>
+                  {(Object.keys(bacLabels) as BacType[]).map((type) => <option key={type} value={type}>{translatedBacLabels[type]}</option>)}
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Dernier niveau validé</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('pages.validatedLevel')}</span>
                 <select
                   required
                   value={studyLevel}
                   onChange={(event) => { setStudyLevel(event.target.value as StudyLevel); setRecommendations(null); }}
                   className="w-full rounded-none border border-slate-200 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="">Sélectionner votre niveau</option>
-                  {(Object.keys(levelLabels) as StudyLevel[]).map((level) => <option key={level} value={level}>{levelLabels[level]}</option>)}
+                  <option value="">{t('pages.selectLevel')}</option>
+                  {(Object.keys(levelLabels) as StudyLevel[]).map((level) => <option key={level} value={level}>{translatedLevelLabels[level]}</option>)}
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Spécificité de votre parcours</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('pages.specialty')}</span>
                 <select
                   required
                   value={specialty}
                   onChange={(event) => { setSpecialty(event.target.value as Specialty); setRecommendations(null); }}
                   className="w-full rounded-none border border-slate-200 bg-white p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="">Sélectionner une spécialité</option>
-                  {(Object.keys(specialtyLabels) as Specialty[]).map((value) => <option key={value} value={value}>{specialtyLabels[value]}</option>)}
+                  <option value="">{t('pages.selectSpecialty')}</option>
+                  {(Object.keys(specialtyLabels) as Specialty[]).map((value) => <option key={value} value={value}>{translatedSpecialtyLabels[value]}</option>)}
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Diplôme ou spécialité</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{t('pages.diploma')}</span>
                 <input
                   value={diploma}
                   onChange={(event) => setDiploma(event.target.value)}
-                  placeholder="Ex. : Bac D, BTS, DUT, Licence..."
+                  placeholder={t('pages.diplomaPlaceholder')}
                   className="w-full rounded-none border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </label>
@@ -217,19 +238,19 @@ export default function Calculateur() {
 
             <div className="mt-8 flex flex-wrap gap-3">
               <button type="submit" className="rounded-none bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                Vérifier mon éligibilité
+                {t('pages.checkEligibility')}
               </button>
               <button type="button" onClick={resetCalculator} className="rounded-none border border-slate-200 px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                Réinitialiser
+                {t('pages.reset')}
               </button>
             </div>
           </form>
 
           <div className="rounded-none border border-slate-200 bg-white p-6 shadow-sm md:p-8" aria-live="polite">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Résultat</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">{t('pages.result')}</p>
             {recommendations === null ? (
               <div className="mt-8 rounded-none bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-                Votre classement apparaîtra ici après validation du formulaire.
+                {t('pages.resultEmpty')}
               </div>
             ) : (
               <div className="mt-6 space-y-4">
@@ -237,9 +258,9 @@ export default function Calculateur() {
                   <div key={recommendation.name} className={`rounded-none border p-5 ${index === 0 ? 'border-green-200 bg-green-50' : 'border-slate-200 bg-slate-50'}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-600">{index === 0 ? 'Meilleure correspondance' : `Option ${index + 1}`}</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-600">{index === 0 ? t('pages.bestMatch') : t('pages.option', { number: index + 1 })}</p>
                         <h3 className="mt-1 font-bold text-slate-900">{recommendation.name}</h3>
-                        <p className="mt-1 text-sm font-semibold text-slate-600">Département : {recommendation.department}</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-600">{t('pages.department')}: {recommendation.department}</p>
                       </div>
                       <span className="shrink-0 rounded-none bg-white px-3 py-1 text-sm font-bold text-blue-700 shadow-sm">{recommendation.score}/10</span>
                     </div>
@@ -249,10 +270,10 @@ export default function Calculateur() {
                     </ul>
                   </div>
                 ))}
-                {recommendations[0]?.score < 7 && <p className="rounded-none bg-amber-50 p-4 text-sm leading-6 text-amber-900">Aucune correspondance ne remplit tous les critères indicatifs. Contactez l’administration pour étudier votre parcours.</p>}
+                {recommendations[0]?.score < 7 && <p className="rounded-none bg-amber-50 p-4 text-sm leading-6 text-amber-900">{t('pages.noFullMatch')}</p>}
               </div>
             )}
-            <p className="mt-6 text-xs leading-5 text-slate-500">Cette simulation est indicative et ne remplace pas l’étude officielle de votre dossier par l’administration.</p>
+            <p className="mt-6 text-xs leading-5 text-slate-500">{t('pages.indicative')}</p>
           </div>
         </div>
       </section>

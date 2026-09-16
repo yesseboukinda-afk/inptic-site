@@ -1,3 +1,7 @@
+'use client';
+
+import { useTranslation } from 'react-i18next';
+
 const partnerLogos = [
   { name: 'CNOU', src: '/partners/cnou.png' },
   { name: 'Cisco', src: '/partners/cisco.png' },
@@ -10,6 +14,8 @@ const partnerLogos = [
 ];
 
 export default function Entreprises() {
+  const { t } = useTranslation();
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
         <section className="relative isolate overflow-hidden text-white">
@@ -17,9 +23,9 @@ export default function Entreprises() {
           <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
         <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
-          <h1 className="text-4xl font-black md:text-6xl">Espace entreprises</h1>
+          <h1 className="text-4xl font-black md:text-6xl">{t('public.companiesTitle')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            L’INPTIC Gabon collabore avec des acteurs clés du numérique et de l’économie pour offrir à nos étudiants les meilleures opportunités de formation, d’innovation et d’insertion professionnelle.
+            {t('public.companiesIntro')}
           </p>
         </div>
       </section>
@@ -27,34 +33,34 @@ export default function Entreprises() {
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
         <div className="grid gap-8 md:grid-cols-2">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">Insertion professionnelle</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">Nos diplômés trouvent rapidement un emploi grâce à notre réseau de partenaires</h2>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.professionalIntegration')}</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.companiesHeading')}</h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">
-              Nos diplômés trouvent rapidement un emploi grâce à notre réseau de partenaires et à la qualité de notre formation.
+              {t('public.companiesText')}
             </p>
             <p className="mt-4 text-base leading-7 text-slate-600">
-              Des programmes académiques de haut niveau adaptés aux besoins du marché, avec des partenariats industriels pour répondre aux besoins du marché.
+              {t('public.companiesText2')}
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h3 className="text-2xl font-bold text-slate-900">Nos services pour les entreprises</h3>
+            <h3 className="text-2xl font-bold text-slate-900">{t('public.services')}</h3>
             <ul className="mt-6 space-y-5 text-slate-700">
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Recrutement de profils numériques qualifiés</span>
+                <span>{t('public.recruitment')}</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Stages et projets de fin d’études</span>
+                <span>{t('public.internships')}</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Formations continues et accompagnement RH</span>
+                <span>{t('public.continuing')}</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Innovation et développement de projets technologiques</span>
+                <span>{t('public.innovation')}</span>
               </li>
             </ul>
           </div>
@@ -64,8 +70,8 @@ export default function Entreprises() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-8">
           <div className="mb-10 text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">Nos partenariats</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">Des acteurs qui accompagnent notre excellence</h2>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.partnerships')}</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.partnersHeading')}</h2>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -86,15 +92,15 @@ export default function Entreprises() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-8">
           <div className="mb-10 text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">Nos chiffres</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">Des résultats qui parlent d’eux-mêmes</h2>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.figures')}</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.results')}</h2>
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
             {[
-              { value: '500+', label: 'Étudiants' },
-              { value: '95%', label: 'Taux d’emploi' },
-              { value: '15+', label: 'Partenaires' },
+              { value: '500+', label: t('public.students') },
+              { value: '95%', label: t('public.employment') },
+              { value: '15+', label: t('public.partners') },
             ].map((stat) => (
               <div key={stat.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center shadow-sm">
                 <div className="text-4xl font-black text-blue-700">{stat.value}</div>

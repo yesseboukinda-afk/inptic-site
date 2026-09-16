@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import inpticLogo from '@/logoinptic.png';
 import { Bot, History, Loader, Menu, Plus, Send, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 type ChatMessage = {
   id: string;
@@ -16,12 +17,6 @@ type Conversation = {
   title: string;
   updatedAt: string;
 };
-
-const suggestions = [
-  'Quelles formations propose l’INPTIC ?',
-  'Comment déposer un dossier ?',
-  'Quels sont les débouchés en cybersécurité ?',
-];
 
 function renderMessage(text: string) {
   const cleanText = text.replace(/^#{1,3}\s+/gm, '');
@@ -45,6 +40,8 @@ function renderMessage(text: string) {
 }
 
 export default function ChatBot() {
+  const { t } = useTranslation();
+  const suggestions = t('chat.suggestions', { returnObjects: true }) as string[];
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +53,7 @@ export default function ChatBot() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Bonjour ! Je suis l’assistant IA de l’INPTIC. Que souhaitez-vous savoir sur nos formations, les admissions ou la vie étudiante ?',
+      content: t('chat.welcome'),
     },
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -182,7 +179,7 @@ export default function ChatBot() {
     setMessages([{
       id: 'welcome',
       role: 'assistant',
-      content: 'Bonjour ! Je suis l’assistant IA de l’INPTIC. Que souhaitez-vous savoir sur nos formations, les admissions ou la vie étudiante ?',
+      content: t('chat.welcome'),
     }]);
     setShowHistory(false);
   };
@@ -199,10 +196,10 @@ export default function ChatBot() {
       <button
         onClick={isOpen ? closeChat : openChat}
         className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full p-3 sm:p-4 shadow-lg z-50 transition-all duration-200 transform hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-        aria-label={isOpen ? "Fermer le chat" : "Ouvrir le chat"}
+        aria-label={isOpen ? t('chat.close') : t('chat.open')}
         aria-expanded={isOpen}
         aria-controls="chat-window"
-        title={isOpen ? "Fermer le chat" : "Ouvrir le chat"}
+        title={isOpen ? t('chat.close') : t('chat.open')}
       >
         {isOpen ? <X size={22} aria-hidden="true" /> : <Bot size={22} aria-hidden="true" />}
       </button>
@@ -228,28 +225,28 @@ export default function ChatBot() {
                 </div>
                 <div>
                   <h2 id="chat-header" className="font-bold">INPTIC Assistant</h2>
-                  <p className="text-xs text-blue-100">Assistant IA de l’INPTIC</p>
+                  <p className="text-xs text-blue-100">{t('chat.assistant')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setShowHistory((visible) => !visible)} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={showHistory ? 'Masquer la barre latérale' : 'Afficher la barre latérale'} title={showHistory ? 'Masquer la barre latérale' : 'Afficher la barre latérale'}>
+                <button onClick={() => setShowHistory((visible) => !visible)} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={showHistory ? t('chat.hideSidebar') : t('chat.showSidebar')} title={showHistory ? t('chat.hideSidebar') : t('chat.showSidebar')}>
                   {showHistory ? <Menu size={19} aria-hidden="true" /> : <History size={19} aria-hidden="true" />}
                 </button>
-                <button onClick={startNewConversation} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label="Démarrer une nouvelle conversation" title="Nouvelle conversation">
+                <button onClick={startNewConversation} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={t('chat.newConversation')} title={t('chat.newConversation')}>
                   <Plus size={20} aria-hidden="true" />
                 </button>
-                <button onClick={closeChat} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label="Fermer le chat" title="Fermer le chat">
+                <button onClick={closeChat} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={t('chat.close')} title={t('chat.close')}>
                   <X size={20} aria-hidden="true" />
                 </button>
               </div>
             </header>
 
             {showHistory && (
-              <aside className="absolute inset-y-0 left-0 z-20 w-[280px] overflow-y-auto border-r border-slate-200 bg-[#f7f7f8] p-3 shadow-xl" aria-label="Anciennes conversations">
+              <aside className="absolute inset-y-0 left-0 z-20 w-[280px] overflow-y-auto border-r border-slate-200 bg-[#f7f7f8] p-3 shadow-xl" aria-label={t('chat.conversations')}>
                 <div className="pt-14">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="px-2 text-xs font-bold uppercase tracking-wide text-slate-500">Vos conversations</h3>
-                    <button onClick={startNewConversation} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-900" aria-label="Nouvelle conversation" title="Nouvelle conversation"><Plus size={16} aria-hidden="true" /></button>
+                    <button onClick={startNewConversation} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-900" aria-label={t('chat.newConversation')} title={t('chat.newConversation')}><Plus size={16} aria-hidden="true" /></button>
                   </div>
                   {conversations.length === 0 ? (
                     <p className="text-sm text-slate-500">Aucune conversation enregistrée.</p>
@@ -312,8 +309,8 @@ export default function ChatBot() {
 
             <form className="border-t border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
               <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-100">
-                <textarea ref={inputRef} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={handleKeyDown} placeholder="Posez votre question à l’INPTIC…" aria-label="Message à envoyer" rows={1} disabled={isLoading} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed" />
-                <button type="submit" disabled={isLoading || !inputValue.trim()} className="rounded-lg bg-blue-600 p-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label="Envoyer le message" title="Envoyer le message">
+                <textarea ref={inputRef} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={handleKeyDown} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} rows={1} disabled={isLoading} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed" />
+                <button type="submit" disabled={isLoading || !inputValue.trim()} className="rounded-lg bg-blue-600 p-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label={t('chat.send')} title={t('chat.send')}>
                   <Send size={18} aria-hidden="true" />
                 </button>
               </div>

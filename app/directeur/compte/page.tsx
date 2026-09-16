@@ -3,6 +3,7 @@
 import { Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 
 type DirectorProfile = {
   name: string;
@@ -33,6 +34,7 @@ const defaultAvatar =
   `);
 
 export default function DirecteurCompte() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [profile, setProfile] = useState<DirectorProfile>({
     name: 'Directeur général',
@@ -149,7 +151,7 @@ export default function DirecteurCompte() {
   if (!ready) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-100">
-        <p className="text-slate-600">Chargement du compte…</p>
+        <p className="text-slate-600">{t('pages.loading')}</p>
       </main>
     );
   }
@@ -160,7 +162,7 @@ export default function DirecteurCompte() {
         <header className="rounded-2xl bg-gradient-to-r from-blue-700 to-cyan-600 p-4 text-white md:rounded-3xl md:p-6">
           <div className="flex items-start justify-between gap-3 md:flex-row md:items-end">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-100 md:text-xs">Mon compte</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-100 md:text-xs">{t('pages.account')}</p>
               <h1 className="mt-2 text-2xl font-black md:text-3xl">Bienvenue, {profile.name}</h1>
             </div>
 

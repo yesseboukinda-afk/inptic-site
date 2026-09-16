@@ -1,18 +1,24 @@
+"use client";
+
+import { useTranslation } from 'react-i18next';
+
 export default function OrganigrammePage() {
+  const { t } = useTranslation();
+
   const topRow = [
-    'Chargés\nd’études',
-    'Controleur\nde Gestion',
-    'Chef de\nService',
-    'Conseillers',
-    'Assistante\ndu DG',
+    t('organization.studiesOfficer').replace(' ', '\n'),
+    t('organization.controller').replace(' ', '\n'),
+    t('organization.serviceHead').replace(' ', '\n'),
+    t('organization.advisors'),
+    t('organization.assistant').replace(' ', '\n'),
   ];
 
   const middleRow = [
-    'Directeur des\nEtudes et de la\nPédagogie',
-    'Directeur de la\nFormation\nContinue',
-    'Directeur des\nRessources techniques\net de l’innovation',
-    'Directeur du\nCentre\nUNESCO-INPTIC',
-    'Secrétaire\nGénérale',
+    t('organization.studiesDirector'),
+    t('organization.continuingDirector'),
+    t('organization.technicalDirector'),
+    t('organization.unescoDirector'),
+    t('organization.secretary'),
   ];
 
   const lowerCols = [
@@ -128,10 +134,10 @@ export default function OrganigrammePage() {
     <main className="min-h-screen bg-slate-100 px-4 py-16 text-slate-800">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">INPTIC</p>
-          <h1 className="mt-4 text-3xl font-black md:text-5xl">Organigramme</h1>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">{t('organization.label')}</p>
+          <h1 className="mt-4 text-3xl font-black md:text-5xl">{t('organization.title')}</h1>
           <p className="mx-auto mt-4 max-w-3xl text-base text-slate-600 md:text-lg">
-            Structure organisationnelle de l’Institut National de la Poste, des Technologies de l’Information et de la Communication.
+            {t('organization.intro')}
           </p>
         </div>
 
@@ -158,9 +164,9 @@ export default function OrganigrammePage() {
               padding: '1rem 0 0.5rem',
             }}
           >
-            <div className="org-root">{renderMultiline('Président du conseil\nd’Administration', 'root')}</div>
+            <div className="org-root">{renderMultiline(t('organization.board'), 'root')}</div>
             <div className="org-connector short" />
-            <div className="org-manager">{renderMultiline('Directeur Général', 'manager')}</div>
+            <div className="org-manager">{renderMultiline(t('organization.director'), 'manager')}</div>
             <div className="org-connector short" />
 
             <div className="org-row row-top">

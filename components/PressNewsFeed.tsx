@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type NewsItem = {
   id: string;
@@ -47,7 +48,17 @@ const getNewsItems = (payload: unknown): NewsItem[] => {
 };
 
 export default function PressNewsFeed() {
-  const [news, setNews] = useState<NewsItem[]>(fallbackNews);
+  const { t, i18n } = useTranslation();
+  const localizedFallbackNews: NewsItem[] = [
+    { id: 'innovation', title: t('newsFeed.innovationTitle'), text: t('newsFeed.innovationText') },
+    { id: 'alumni', title: t('newsFeed.alumniTitle'), text: t('newsFeed.alumniText') },
+    { id: 'recherche', title: t('newsFeed.researchTitle'), text: t('newsFeed.researchText') },
+  ];
+  const [news, setNews] = useState<NewsItem[]>(localizedFallbackNews);
+
+  useEffect(() => {
+    setNews((current) => current.every((item) => ['innovation', 'alumni', 'recherche'].includes(item.id)) ? localizedFallbackNews : current);
+  }, [i18n.language]);
 
   useEffect(() => {
     let active = true;
@@ -67,18 +78,18 @@ export default function PressNewsFeed() {
 
   return (
     <div className="mt-6 border-t border-white/10 pt-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-200">Flux d’actualités</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-200">{t('newsFeed.label')}</p>
       <div className="mt-4 space-y-4">
         {news.map((item) => (
           <article key={item.id} className="border-b border-white/10 pb-4 last:border-0 last:pb-0">
-            {item.date && <p className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString('fr-FR')}</p>}
+            {item.date && <p className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString(i18n.language === 'zh' ? 'zh-CN' : i18n.language === 'ar' ? 'ar' : i18n.language === 'en' ? 'en-GB' : 'fr-FR')}</p>}
             <h4 className="mt-1 font-semibold text-white">{item.title}</h4>
             <p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p>
           </article>
         ))}
       </div>
       <Link href="/actualites" className="mt-5 inline-flex text-sm font-semibold text-blue-200 transition hover:text-white">
-        Voir toutes les actualités →
+        {t('newsFeed.allNews')}
       </Link>
     </div>
   );

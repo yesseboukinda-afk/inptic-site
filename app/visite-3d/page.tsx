@@ -3,14 +3,16 @@
 import Link from 'next/link';
 import { ArrowLeft, Box, Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const zones = [
-  { id: 'campus', label: 'Vue du campus', position: 'left-[25%] top-[35%]' },
-  { id: 'formations', label: 'Pôle formations', position: 'left-[58%] top-[28%]' },
-  { id: 'innovation', label: 'Espace innovation', position: 'left-[48%] top-[62%]' },
+  { id: 'campus', position: 'left-[25%] top-[35%]' },
+  { id: 'formations', position: 'left-[58%] top-[28%]' },
+  { id: 'innovation', position: 'left-[48%] top-[62%]' },
 ];
 
 export default function Visite3DPage() {
+  const { t } = useTranslation();
   const [rotation, setRotation] = useState({ x: -12, y: -24 });
   const [zoom, setZoom] = useState(1);
   const [activeZone, setActiveZone] = useState('campus');
@@ -32,17 +34,17 @@ export default function Visite3DPage() {
           className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-blue-100 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-white"
         >
           <ArrowLeft size={18} aria-hidden="true" />
-          Retour à l'accueil
+          {t('common.home')}
         </Link>
 
         <div className="max-w-3xl">
           <div className="mb-3 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-blue-200">
             <Box size={18} aria-hidden="true" />
-            Visite immersive
+            {t('pages.explore3d')}
           </div>
-          <h1 className="text-4xl font-black leading-tight md:text-6xl">Explorez l'INPTIC en 3D</h1>
+          <h1 className="text-4xl font-black leading-tight md:text-6xl">{t('pages.explore3d')}</h1>
           <p className="mt-5 text-lg text-slate-200">
-            Découvrez les espaces de l'institut dans une expérience interactive. La scène est prête à accueillir les prochains modèles 3D du campus.
+            {t('pages.explore3dIntro')}
           </p>
         </div>
         </div>
@@ -55,7 +57,7 @@ export default function Visite3DPage() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.14),transparent_48%)]" />
 
             <div className="absolute left-5 top-5 z-10 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-300 backdrop-blur-sm">
-              Prototype de visite 3D
+              {t('pages.explore3d')}
             </div>
 
             <div className="absolute inset-0 flex items-center justify-center [perspective:1000px]">
@@ -83,26 +85,26 @@ export default function Visite3DPage() {
                 type="button"
                 onClick={() => setActiveZone(zone.id)}
                 className={`absolute z-10 ${zone.position} h-4 w-4 rounded-full border-2 border-white transition-all focus:outline-none focus:ring-2 focus:ring-cyan-300 ${activeZone === zone.id ? 'scale-150 bg-amber-300 shadow-[0_0_0_7px_rgba(252,211,77,0.2)]' : 'bg-cyan-300 hover:scale-125'}`}
-                aria-label={zone.label}
+                aria-label={t(`pages.zone${zone.id[0].toUpperCase()}${zone.id.slice(1)}`)}
               />
             ))}
 
             <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
-              <p className="max-w-xs text-xs leading-relaxed text-slate-400">Sélectionnez un point d'intérêt pour préparer la prochaine visite guidée.</p>
+              <p className="max-w-xs text-xs leading-relaxed text-slate-400">{t('pages.selectPoint')}</p>
               <button
                 type="button"
                 onClick={resetView}
                 className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-white/15 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:border-cyan-300 hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-300"
               >
                 <RotateCcw size={15} aria-hidden="true" />
-                Réinitialiser
+                {t('pages.reset')}
               </button>
             </div>
           </div>
 
           <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold">Navigation</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">Utilisez les commandes pour orienter la scène et parcourir les zones.</p>
+            <h2 className="text-lg font-bold">{t('pages.navigation')}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{t('pages.navigationIntro')}</p>
 
             <div className="mt-6 grid grid-cols-2 gap-2">
               <button
@@ -110,29 +112,29 @@ export default function Visite3DPage() {
                 onClick={() => setRotation((current) => ({ ...current, y: current.y - 15 }))}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold transition hover:border-blue-400 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                Tourner gauche
+                {t('pages.rotateLeft')}
               </button>
               <button
                 type="button"
                 onClick={() => setRotation((current) => ({ ...current, y: current.y + 15 }))}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold transition hover:border-blue-400 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                Tourner droite
+                {t('pages.rotateRight')}
               </button>
             </div>
 
             <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-200 p-2">
-              <button type="button" onClick={() => setZoom((current) => Math.max(0.75, current - 0.15))} className="rounded-md p-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label="Réduire le zoom">
+              <button type="button" onClick={() => setZoom((current) => Math.max(0.75, current - 0.15))} className="rounded-md p-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label={t('pages.zoomOut')}>
                 <Minus size={18} aria-hidden="true" />
               </button>
-              <span className="text-sm font-semibold">Zoom {Math.round(zoom * 100)}%</span>
-              <button type="button" onClick={() => setZoom((current) => Math.min(1.5, current + 0.15))} className="rounded-md p-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label="Augmenter le zoom">
+              <span className="text-sm font-semibold">{t('pages.zoom')} {Math.round(zoom * 100)}%</span>
+              <button type="button" onClick={() => setZoom((current) => Math.min(1.5, current + 0.15))} className="rounded-md p-2 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-400" aria-label={t('pages.zoomIn')}>
                 <Plus size={18} aria-hidden="true" />
               </button>
             </div>
 
             <div className="mt-6 space-y-2">
-              <h3 className="text-sm font-semibold text-slate-700">Points d'intérêt</h3>
+              <h3 className="text-sm font-semibold text-slate-700">{t('pages.pointsOfInterest')}</h3>
               {zones.map((zone) => (
                 <button
                   key={zone.id}
@@ -140,7 +142,7 @@ export default function Visite3DPage() {
                   onClick={() => setActiveZone(zone.id)}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm transition ${activeZone === zone.id ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-300' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
-                  {zone.label}
+                  {t(`pages.zone${zone.id[0].toUpperCase()}${zone.id.slice(1)}`)}
                   <Maximize2 size={15} aria-hidden="true" />
                 </button>
               ))}

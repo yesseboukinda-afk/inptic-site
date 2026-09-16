@@ -1,29 +1,44 @@
-export function translateAuthError(message: string) {
+type Translator = (key: string) => string;
+
+export function translateAuthError(message: string, translate?: Translator) {
   const normalizedMessage = message.toLowerCase();
+  const t = translate ?? ((key: string) => key);
 
   if (normalizedMessage.includes('invalid login credentials')) {
-    return 'Email ou mot de passe incorrect.';
+    return t('auth.invalidCredentials');
   }
 
   if (normalizedMessage.includes('email not confirmed')) {
-    return 'Votre adresse email n’est pas encore confirmée.';
+    return t('auth.emailNotConfirmed');
   }
 
   if (normalizedMessage.includes('user already registered')) {
-    return 'Un compte existe déjà avec cette adresse email.';
+    return t('auth.userAlreadyRegistered');
   }
 
   if (normalizedMessage.includes('password should be at least')) {
-    return 'Le mot de passe doit contenir au moins 6 caractères.';
+    return t('auth.passwordTooShort');
   }
 
   if (normalizedMessage.includes('rate limit')) {
-    return 'Trop de tentatives. Veuillez patienter avant de réessayer.';
+    return t('auth.rateLimit');
   }
 
   if (/[àâçéèêëîïôùûüÿœ]|\b(le|la|les|un|une|votre|mot|email|erreur|compte)\b/i.test(message)) {
     return message;
   }
 
-  return 'Une erreur est survenue. Vérifiez vos informations et réessayez.';
+  return t('auth.genericError');
+}
+
+export function translateNotification(message: string, translate?: Translator) {
+  const t = translate ?? ((key: string) => key);
+  const translations: Record<string, string> = {
+    'Votre dossier a été soumis avec succès. Il est désormais en cours de validation par l’administration.': 'notifications.applicationSubmitted',
+    'Votre dossier a été validé. Vous pouvez maintenant accéder à votre espace personnel.': 'notifications.applicationValidated',
+    'Votre dossier a été refusé. Vérifiez les informations et les justificatifs avant de réessayer.': 'notifications.applicationRejected',
+    'Aucune notification pour le moment.': 'notifications.empty',
+  };
+
+  return translations[message] ? t(translations[message]) : message;
 }

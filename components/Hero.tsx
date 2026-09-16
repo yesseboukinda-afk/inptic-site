@@ -4,6 +4,7 @@ import { Search, ArrowRight, Bot, Box, FileText, GraduationCap, X } from 'lucide
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const quickActions = [
   { label: 'INPTIC-Bot', icon: Bot, ariaLabel: 'Chat avec le bot INPTIC' },
@@ -235,7 +236,8 @@ function findFormationMatches(query: string, domain: string, level: string) {
 }
 
 export default function Hero() {
-  const [selectedAction, setSelectedAction] = useState('Visite 3D');
+  const { t } = useTranslation();
+  const [selectedAction, setSelectedAction] = useState('visit3d');
   const [formationDomain, setFormationDomain] = useState('');
   const [formationLevel, setFormationLevel] = useState('');
   const [formationMatches, setFormationMatches] = useState<ReturnType<typeof findFormationMatches>>([]);
@@ -272,10 +274,10 @@ export default function Hero() {
         <div className="space-y-6 animate-in fade-in slide-in-from-left-8 duration-700">
           <div className="space-y-4">
             <h1 className="text-3xl font-black leading-tight sm:text-4xl md:text-5xl lg:text-6xl">
-              Bienvenue à l'INPTIC Gabon
+              {t('hero.welcome')}
             </h1>
             <p className="max-w-xl text-base leading-relaxed text-blue-100 sm:text-lg md:text-xl">
-              Rejoignez la première université du numérique au Gabon et façonnez votre avenir dans les technologies de l'information.
+              {t('hero.intro')}
             </p>
           </div>
 
@@ -283,16 +285,16 @@ export default function Hero() {
             href="/formations"
             className="icon-only-mobile mt-4 inline-flex w-full items-center justify-center gap-3 rounded-lg bg-blue-600 px-6 py-3 font-semibold transition-all duration-200 hover:bg-blue-700 active:bg-blue-800 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 sm:w-auto md:mt-8 md:px-8 md:py-4"
             role="button"
-            aria-label="Découvrir nos formations"
+            aria-label={t('hero.discover')}
           >
-            <span className="btn-label">Découvrir nos formations</span>
+            <span className="btn-label">{t('hero.discover')}</span>
             <ArrowRight size={20} aria-hidden="true" className="icon-slot transition-transform duration-200 group-hover:translate-x-1" />
           </a>
         </div>
 
         <div className="relative mx-auto w-full max-w-md lg:ml-auto">
         <div className={`formation-finder-panel w-full rounded-2xl p-5 shadow-lg transition-all duration-300 sm:p-6 md:p-8 ${showFormationResults ? 'formation-finder-exit' : 'formation-finder-return'}`}>
-          <h2 className="mb-6 text-2xl font-bold md:text-3xl">Trouver ma formation</h2>
+          <h2 className="mb-6 text-2xl font-bold md:text-3xl">{t('hero.find')}</h2>
 
           <form
             className="space-y-4"
@@ -306,25 +308,25 @@ export default function Hero() {
           >
             <select
               className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
-              aria-label="Domaine d'étude"
+              aria-label={t('hero.studyDomain')}
               value={formationDomain}
               onChange={(event) => setFormationDomain(event.target.value)}
             >
-              <option value="">Domaine d'étude</option>
-              <option value="management-tic">Management des TIC</option>
-              <option value="reseaux-systemes">Réseaux et Systèmes Numériques</option>
-              <option value="audiovisuel">Audiovisuel</option>
-              <option value="qualifiante">Formations qualifiantes</option>
-              <option value="certifiante">Formations certifiantes</option>
+              <option value="">{t('hero.studyDomain')}</option>
+              <option value="management-tic">{t('hero.management')}</option>
+              <option value="reseaux-systemes">{t('hero.networks')}</option>
+              <option value="audiovisuel">{t('hero.audiovisual')}</option>
+              <option value="qualifiante">{t('hero.qualifying')}</option>
+              <option value="certifiante">{t('hero.certifying')}</option>
             </select>
 
             <select
               className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
-              aria-label="Niveau d'études"
+              aria-label={t('hero.studyLevel')}
               value={formationLevel}
               onChange={(event) => setFormationLevel(event.target.value)}
             >
-              <option value="">Niveau</option>
+              <option value="">{t('hero.level')}</option>
               <option value="dts">DTS</option>
               <option value="licence">Licence</option>
             </select>
@@ -332,16 +334,16 @@ export default function Hero() {
             <button
               type="submit"
               className="icon-only-mobile flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-semibold text-white transition-all duration-200 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900 hover:shadow-lg active:scale-95 md:py-4"
-              aria-label="Lancer la recherche de formations"
+              aria-label={t('hero.search')}
             >
-              <span className="btn-label">Rechercher</span>
+              <span className="btn-label">{t('hero.search')}</span>
               <Search size={18} aria-hidden="true" className="icon-slot" />
             </button>
 
           </form>
 
           <p className="mt-4 text-sm leading-relaxed text-blue-100">
-            💡 Conseil: Affinez votre recherche en sélectionnant un domaine et un niveau d'études.
+            💡 {t('hero.advice')}
           </p>
         </div>
 
@@ -349,15 +351,15 @@ export default function Hero() {
             <div className="formation-results-enter absolute inset-0 z-30 rounded-2xl border border-white/30 bg-slate-950 p-4 shadow-2xl sm:p-5" aria-live="polite">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Résultat de votre recherche</p>
-                  <h3 className="mt-1 text-lg font-bold text-white">Formations recommandées</h3>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">{t('hero.result')}</p>
+                  <h3 className="mt-1 text-lg font-bold text-white">{t('hero.recommended')}</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowFormationResults(false)}
                   className="rounded-lg p-1.5 text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-300"
-                  aria-label="Fermer les recommandations"
-                  title="Fermer les recommandations"
+                  aria-label={t('hero.closeRecommendations')}
+                  title={t('hero.closeRecommendations')}
                 >
                   <X size={20} aria-hidden="true" />
                 </button>
@@ -386,8 +388,11 @@ export default function Hero() {
       </div>
 
       <div className="relative z-20 mt-6 grid grid-cols-2 gap-2 px-3 sm:gap-3 md:hidden">
-        {quickActions.map(({ label, icon: Icon, ariaLabel }) => {
-          const isSelected = selectedAction === label;
+        {quickActions.map(({ label, icon: Icon, ariaLabel }, index) => {
+          const actionKey = ['bot', 'visit3d', 'application', 'alumni'][index];
+          const localizedLabel = t(`hero.${actionKey}`);
+          const localizedAriaLabel = t(`hero.${actionKey}Label`);
+          const isSelected = selectedAction === actionKey;
 
           const content = (
             <div
@@ -396,13 +401,13 @@ export default function Hero() {
               }`}
             >
               <Icon size={18} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
-              <span className="text-[10px] font-semibold leading-tight">{label}</span>
+              <span className="text-[10px] font-semibold leading-tight">{localizedLabel}</span>
             </div>
           );
 
-          if (label === 'Visite 3D' || label === 'Candidature' || label === 'Alumni') {
+          if (actionKey === 'visit3d' || actionKey === 'application' || actionKey === 'alumni') {
             return (
-              <Link key={label} href={label === 'Visite 3D' ? '/visite-3d' : label === 'Alumni' ? '/alumni' : '/admissions/depot'} aria-label={ariaLabel} className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950">
+              <Link key={label} href={actionKey === 'visit3d' ? '/visite-3d' : actionKey === 'alumni' ? '/alumni' : '/admissions/depot'} aria-label={localizedAriaLabel} className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950">
                 {content}
               </Link>
             );
@@ -413,12 +418,12 @@ export default function Hero() {
               key={label}
               type="button"
               onClick={() => {
-                setSelectedAction(label);
-                if (label === 'INPTIC-Bot') {
+                setSelectedAction(actionKey);
+                if (actionKey === 'bot') {
                   window.dispatchEvent(new Event('open-inptic-chat'));
                 }
               }}
-              aria-label={ariaLabel}
+              aria-label={localizedAriaLabel}
               className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
             >
               {content}
@@ -428,16 +433,19 @@ export default function Hero() {
       </div>
 
       <div className="absolute right-5 bottom-20 hidden xl:flex flex-col gap-3 bg-slate-900/55 backdrop-blur-sm p-4 rounded-xl text-xs text-center space-y-4 animate-in fade-in slide-in-from-right-8 duration-1000 border border-white/10">
-        {quickActions.map(({ label, icon: Icon, ariaLabel }) => {
-          const isSelected = selectedAction === label;
+        {quickActions.map(({ label, icon: Icon, ariaLabel }, index) => {
+          const actionKey = ['bot', 'visit3d', 'application', 'alumni'][index];
+          const localizedLabel = t(`hero.${actionKey}`);
+          const localizedAriaLabel = t(`hero.${actionKey}Label`);
+          const isSelected = selectedAction === actionKey;
 
-              return label === 'Visite 3D' || label === 'Candidature' || label === 'Alumni' ? (
+              return actionKey === 'visit3d' || actionKey === 'application' || actionKey === 'alumni' ? (
               <Link
                 key={label}
                   href={
-                    label === 'Visite 3D'
+                    actionKey === 'visit3d'
                       ? '/visite-3d'
-                      : label === 'Alumni'
+                      : actionKey === 'alumni'
                         ? '/alumni'
                         : '/admissions/depot'
                   }
@@ -446,18 +454,18 @@ export default function Hero() {
                     ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
                     : 'text-white hover:bg-white/10'
                 }`}
-                aria-label={ariaLabel}
+                aria-label={localizedAriaLabel}
               >
                 <Icon size={20} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
-                <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{label}</span>
+                <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{localizedLabel}</span>
               </Link>
             ) : (
               <button
                 key={label}
                 type="button"
                 onClick={() => {
-                  setSelectedAction(label);
-                  if (label === 'INPTIC-Bot') {
+                  setSelectedAction(actionKey);
+                  if (actionKey === 'bot') {
                     window.dispatchEvent(new Event('open-inptic-chat'));
                   }
                 }}
@@ -469,7 +477,7 @@ export default function Hero() {
                 aria-label={ariaLabel}
               >
                 <Icon size={20} aria-hidden="true" className={isSelected ? 'text-[#F4D06F]' : 'text-white'} />
-                <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{label}</span>
+                <span className={`font-semibold ${isSelected ? 'text-[#F4D06F]' : 'text-white'}`}>{localizedLabel}</span>
               </button>
             );
         })}

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Bell, ChevronLeft, ChevronRight, ClipboardList, FileText, Users } from 'lucide-react';
 import DirectorPanel, { DirectorSection } from '@/components/DirectorPanel';
 import { isDirectorRole, normalizeRole } from '@/lib/roles';
+import { useTranslation } from 'react-i18next';
+import { translateNotification } from '@/lib/authMessages';
 
 type Notification = {
   id: string;
@@ -47,6 +49,7 @@ const addNotification = (existing: Notification[] | undefined, message: string, 
 ];
 
 export default function Directeur() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [selected, setSelected] = useState<StudentProfile | null>(null);
@@ -251,7 +254,7 @@ export default function Directeur() {
   if (!ready) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-100">
-        <p className="text-slate-600">Chargement des profils…</p>
+        <p className="text-slate-600">{t('pages.loading')}</p>
       </main>
     );
   }
@@ -261,22 +264,22 @@ export default function Directeur() {
       <div className="mx-auto max-w-7xl">
         <header className="mb-6 rounded-3xl bg-gradient-to-r from-blue-700 to-cyan-600 p-6 text-white">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">Accès directeur</p>
-            <h1 className="mt-2 text-3xl font-black">Tableau de bord général</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">{t('pages.directorSpace')}</p>
+            <h1 className="mt-2 text-3xl font-black">{t('pages.dashboard')}</h1>
           </div>
         </header>
 
         <div className={`relative grid gap-6 ${sidebarCollapsed ? 'lg:grid-cols-[90px_1fr]' : 'lg:grid-cols-[210px_1fr]'}`}>
           <aside className={`border border-slate-700 bg-slate-900 p-3 shadow-sm ${sidebarCollapsed ? 'lg:h-[558px] lg:w-[90px]' : 'lg:w-[210px]'}`}>
-            <button type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} aria-label={sidebarCollapsed ? 'Développer le menu DG' : 'Réduire le menu DG'} className="mb-4 flex w-full items-center justify-center border border-slate-700 p-3 text-slate-200 hover:bg-slate-800">
+            <button type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} aria-label={sidebarCollapsed ? t('directorDashboard.space') : t('directorDashboard.close')} className="mb-4 flex w-full items-center justify-center border border-slate-700 p-3 text-slate-200 hover:bg-slate-800">
               {sidebarCollapsed ? <ChevronRight size={24} aria-hidden="true" /> : <ChevronLeft size={24} aria-hidden="true" />}
             </button>
-            <nav className="space-y-2" aria-label="Menu directeur">
+            <nav className="space-y-2" aria-label={t('directorDashboard.space')}>
               {[
-                { label: 'Étudiants', section: 'etudiants' as DirectorSection, icon: Users },
-                { label: 'Dossiers', section: 'dossiers' as DirectorSection, icon: ClipboardList },
-                { label: 'Notifications', section: 'notifications' as DirectorSection, icon: Bell },
-                { label: 'Profil DG', section: 'profil' as DirectorSection, icon: FileText },
+                { label: t('directorDashboard.students'), section: 'etudiants' as DirectorSection, icon: Users },
+                { label: t('directorDashboard.files'), section: 'dossiers' as DirectorSection, icon: ClipboardList },
+                { label: t('directorDashboard.notifications'), section: 'notifications' as DirectorSection, icon: Bell },
+                { label: t('directorDashboard.profile'), section: 'profil' as DirectorSection, icon: FileText },
               ].map(({ label, section, icon: Icon }) => (
                 <button key={section} type="button" onClick={() => setActiveSection(section)} title={sidebarCollapsed ? label : undefined} className={`flex w-full items-center gap-3 border-l-2 border-transparent px-2 py-3 text-left text-sm font-semibold text-slate-200 hover:border-cyan-400 hover:bg-slate-800 ${sidebarCollapsed ? 'justify-center' : ''}`}>
                   <Icon size={sidebarCollapsed ? 26 : 22} aria-hidden="true" />
@@ -472,7 +475,7 @@ export default function Directeur() {
                                 : 'border-blue-200 bg-blue-50 text-blue-800'
                         }`}
                       >
-                        <p className="text-sm">{notification.message}</p>
+                        <p className="text-sm">{translateNotification(notification.message, t)}</p>
                       </div>
                     ))}
                   </div>

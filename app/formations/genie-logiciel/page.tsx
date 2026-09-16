@@ -1,4 +1,11 @@
+ 'use client';
+
+import { useTranslation } from 'react-i18next';
+
 export default function GenieLogiciel() {
+  const { t } = useTranslation();
+  const items = ['architecture', 'development', 'quality'];
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
@@ -7,23 +14,19 @@ export default function GenieLogiciel() {
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
                     <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
 
-          <h1 className="text-4xl font-black md:text-6xl">Génie logiciel</h1>
+          <h1 className="text-4xl font-black md:text-6xl">{t('public.softwareTitle')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-blue-50">
-            Apprenez à concevoir, développer et maintenir des logiciels fiables, évolutifs et alignés sur les besoins des entreprises.
+            {t('public.softwareIntro')}
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
         <div className="grid gap-6 md:grid-cols-3">
-          {[
-            { title: 'Architecture logicielle', text: 'Compréhension des principes de conception et de structure applicative.' },
-            { title: 'Développement', text: 'Création d’interfaces, API et services applicatifs robustes.' },
-            { title: 'Qualité logicielle', text: 'Méthodes pour tester, sécuriser et maintenir des produits fiables.' },
-          ].map((item) => (
-            <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900">{item.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
+          {items.map((item) => (
+            <div key={item} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+              <h3 className="text-xl font-bold text-slate-900">{t(`public.software${item}Title`)}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{t(`public.software${item}Text`)}</p>
             </div>
           ))}
         </div>

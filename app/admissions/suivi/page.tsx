@@ -2,6 +2,8 @@
 
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import { translateNotification } from '@/lib/authMessages';
 
 type Notification = {
   id: string;
@@ -132,6 +134,7 @@ const defaultForm = (stored: Partial<CandidateProfile>) => ({
 });
 
 export default function Suivi() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [form, setForm] = useState(defaultForm({}));
@@ -281,7 +284,7 @@ export default function Suivi() {
   if (!ready || !profile) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-100">
-        <p className="text-slate-600">Chargement du suivi du dossier…</p>
+        <p className="text-slate-600">{t('pages.loading')}</p>
       </main>
     );
   }
@@ -292,13 +295,13 @@ export default function Suivi() {
         <img src="/banniere/2.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(7, 25, 55, 0.98) 0%, rgba(7, 25, 55, 0.88) 30%, rgba(7, 25, 55, 0.5) 50%, rgba(0, 142, 174, 0.16) 75%, rgba(0, 142, 174, 0.04) 100%)' }} aria-hidden="true" />
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">Admissions</p>
-          <h1 className="text-4xl font-black md:text-6xl">Suivi du dossier</h1>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">{t('pages.admissions')}</p>
+          <h1 className="text-4xl font-black md:text-6xl">{t('pages.tracking')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-blue-50">
-            Votre inscription est bien enregistrée. Complétez votre dossier, téléversez les justificatifs, puis suivez son évolution jusqu’à validation.
+            {t('application.intro')}
           </p>
           <div className="mt-6 inline-flex rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-blue-50">
-            Session 2026-2027 · Dépôt ouvert jusqu’au 18 septembre 2026
+            {t('application.session')}
           </div>
         </div>
       </section>
@@ -309,8 +312,8 @@ export default function Suivi() {
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">État de votre dossier</h2>
-                  <p className="mt-1 text-sm text-slate-500">Étape {currentStepIndex + 1} sur 3</p>
+                  <h2 className="text-2xl font-bold text-slate-900">{t('application.status')}</h2>
+                  <p className="mt-1 text-sm text-slate-500">{t('application.step', { current: currentStepIndex + 1 })}</p>
                 </div>
                 <span
                   className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${
@@ -327,9 +330,9 @@ export default function Suivi() {
 
               <div className="relative mt-6 space-y-4 border-l-2 border-slate-200 pl-6">
                 {[
-                  { label: 'Inscription', active: currentStepIndex >= 0 },
-                  { label: 'Dossier', active: currentStepIndex >= 1 },
-                  { label: 'Validation', active: currentStepIndex >= 2 },
+                  { label: t('application.registration'), active: currentStepIndex >= 0 },
+                  { label: t('application.file'), active: currentStepIndex >= 1 },
+                  { label: t('application.validation'), active: currentStepIndex >= 2 },
                 ].map((step, index) => (
                   <div
                     key={step.label}
@@ -343,12 +346,12 @@ export default function Suivi() {
 
               <div className="mt-8 grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Étudiant</p>
-                  <p className="mt-2 font-semibold text-slate-900">{profile.name || 'Étudiant'}</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-slate-500">{t('application.student')}</p>
+                  <p className="mt-2 font-semibold text-slate-900">{profile.name || t('application.student')}</p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Numéro de dossier</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-slate-500">{t('application.fileNumber')}</p>
                   <p className="mt-2 font-semibold text-slate-900">{profile.dossierNumero || form.dossierNumero}</p>
                 </div>
               </div>
@@ -356,15 +359,15 @@ export default function Suivi() {
 
             <div className="flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Dossier de candidature</p>
-                <h3 className="mt-1 text-xl font-bold text-slate-900">Compléter le dossier</h3>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">{t('application.applicationFile')}</p>
+                <h3 className="mt-1 text-xl font-bold text-slate-900">{t('application.complete')}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsDossierModalOpen(true)}
                 className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
-                Ouvrir le formulaire
+                {t('application.openForm')}
               </button>
             </div>
 
@@ -382,13 +385,13 @@ export default function Suivi() {
                 >
                   <div className="mb-6 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Dossier de candidature</p>
-                      <h3 id="dossier-modal-title" className="mt-1 text-2xl font-bold text-slate-900">Compléter le dossier</h3>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">{t('application.applicationFile')}</p>
+                      <h3 id="dossier-modal-title" className="mt-1 text-2xl font-bold text-slate-900">{t('application.complete')}</h3>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsDossierModalOpen(false)}
-                      aria-label="Fermer le formulaire"
+                      aria-label={t('application.closeForm')}
                       className="rounded-lg p-2 text-2xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       ×
@@ -397,14 +400,14 @@ export default function Suivi() {
 
                   <form onSubmit={saveDossier}>
                 <div className="mt-6 border-b border-slate-200 pb-5">
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">1. Identité du candidat</p>
-                <p className="mt-1 text-sm text-slate-500">Vérifiez les informations utilisées pour votre dossier.</p>
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">1. {t('application.identity')}</p>
+                <p className="mt-1 text-sm text-slate-500">{t('application.identityHelp')}</p>
                 </div>
 
               <div className="mt-6 grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Nom complet</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.fullName')}</span>
                     <input
                       value={form.name}
                       onChange={(e) => handleChange('name', e.target.value)}
@@ -413,7 +416,7 @@ export default function Suivi() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.email')}</span>
                     <input
                       type="email"
                       value={form.email}
@@ -424,13 +427,13 @@ export default function Suivi() {
                 </div>
 
                 <div className="md:col-span-2 border-t border-slate-200 pt-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">2. Parcours et formation demandée</p>
-                  <p className="mt-1 text-sm text-slate-500">Indiquez votre niveau et la filière souhaitée à l’INPTIC.</p>
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">2. {t('application.program')}</p>
+                  <p className="mt-1 text-sm text-slate-500">{t('application.programHelp')}</p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Téléphone</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.phone')}</span>
                     <input
                       value={form.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
@@ -439,7 +442,7 @@ export default function Suivi() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Niveau</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.level')}</span>
                     <input
                       value={form.niveau}
                       onChange={(e) => handleChange('niveau', e.target.value)}
@@ -450,7 +453,7 @@ export default function Suivi() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Parcours</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.path')}</span>
                     <input
                       value={form.parcours}
                       onChange={(e) => handleChange('parcours', e.target.value)}
@@ -459,13 +462,13 @@ export default function Suivi() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Filière</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.track')}</span>
                     <select
                       value={form.filiere}
                       onChange={(e) => handleChange('filiere', e.target.value)}
                       className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     >
-                      <option value="">Sélectionner une filière</option>
+                      <option value="">{t('application.selectTrack')}</option>
                       {filieres.map((filiere) => (
                         <option key={filiere} value={filiere}>{filiere}</option>
                       ))}
@@ -475,7 +478,7 @@ export default function Suivi() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Établissement</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.institution')}</span>
                     <input
                       value={form.etablissement}
                       onChange={(e) => handleChange('etablissement', e.target.value)}
@@ -484,7 +487,7 @@ export default function Suivi() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Promotion</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.cohort')}</span>
                     <input
                       value={form.promotion}
                       onChange={(e) => handleChange('promotion', e.target.value)}
@@ -495,7 +498,7 @@ export default function Suivi() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Année</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.year')}</span>
                     <input
                       value={form.annee}
                       onChange={(e) => handleChange('annee', e.target.value)}
@@ -504,7 +507,7 @@ export default function Suivi() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Spécialité</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.specialty')}</span>
                     <input
                       value={form.specialite}
                       onChange={(e) => handleChange('specialite', e.target.value)}
@@ -514,7 +517,7 @@ export default function Suivi() {
                 </div>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Diplôme / dernière qualification</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.diploma')}</span>
                   <input
                     value={form.diplome}
                     onChange={(e) => handleChange('diplome', e.target.value)}
@@ -523,7 +526,7 @@ export default function Suivi() {
                 </label>
 
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Biographie / motivation</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.motivation')}</span>
                   <textarea
                     value={form.bio}
                     onChange={(e) => handleChange('bio', e.target.value)}
@@ -533,13 +536,13 @@ export default function Suivi() {
                 </label>
 
                 <div className="md:col-span-2 border-t border-slate-200 pt-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">3. Pièces justificatives</p>
-                  <p className="mt-1 text-sm text-slate-500">Ajoutez les documents nécessaires à l’étude de votre candidature.</p>
+                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">3. {t('application.documents')}</p>
+                  <p className="mt-1 text-sm text-slate-500">{t('application.documentsHelp')}</p>
                 </div>
 
                 <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">Justificatifs / documents</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.uploadDocuments')}</span>
                     <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocumentsChange} className="w-full" />
                   </label>
 
@@ -555,7 +558,7 @@ export default function Suivi() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-slate-500">Aucun document téléversé pour le moment.</p>
+                    <p className="mt-3 text-sm text-slate-500">{t('application.noDocuments')}</p>
                   )}
                 </div>
               </div>
@@ -646,7 +649,7 @@ export default function Suivi() {
                               ? 'border-amber-200 bg-amber-50 text-amber-800'
                               : 'border-blue-200 bg-blue-50 text-blue-800'
                       }`}>
-                        <p className="text-sm">{notification.message}</p>
+                        <p className="text-sm">{translateNotification(notification.message, t)}</p>
                       </div>
                     ))}
                   </div>

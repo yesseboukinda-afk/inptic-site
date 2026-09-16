@@ -4,6 +4,7 @@ import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users } from 'lucide-re
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { normalizeRole } from '@/lib/roles';
+import { useTranslation } from 'react-i18next';
 
 type Role = 'scolarite' | 'chef_departement' | 'direction_etudes';
 
@@ -48,6 +49,7 @@ const defaultDepartments: Department[] = departments.map((name) => ({
 
 export default function StaffDashboard({ role }: { role: Role }) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedEmail, setSelectedEmail] = useState('');
@@ -101,7 +103,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
       .then((data) =>
         setStudents(Array.isArray(data.profiles) ? data.profiles : [])
       )
-      .catch(() => setMessage('Impossible de charger les étudiants.'));
+      .catch(() => setMessage(t('pages.loadStudentsFailed')));
   }, [router]);
 
   const uploadForStudent = async (event: React.FormEvent) => {
@@ -112,7 +114,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
     );
 
     if (!student || !file) {
-      setMessage('Sélectionnez un étudiant et un fichier.');
+      setMessage(t('pages.selectStudentFile'));
       return;
     }
 
@@ -132,7 +134,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
         },
         body: JSON.stringify({
           ...student,
-          name: student.name || 'Étudiant',
+          name: student.name || t('pages.student'),
           documents: [...(student.documents || []), document],
           role: 'etudiant',
         }),
@@ -140,8 +142,8 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
       setMessage(
         response.ok
-          ? `Document publié pour ${student.name || student.email}.`
-          : 'La publication du document a échoué.'
+          ? t('pages.published', { name: student.name || student.email })
+          : t('pages.publishFailed')
       );
 
       if (response.ok) {
@@ -158,7 +160,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
     const normalizedName = newDepartment.trim().replace(/\s+/g, ' ');
 
     if (!normalizedName) {
-      setMessage('Saisissez le nom du département.');
+      setMessage(t('pages.notProvided'));
       return;
     }
 
@@ -168,7 +170,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
           value.name.toLowerCase() === normalizedName.toLowerCase()
       )
     ) {
-      setMessage('Ce département existe déjà.');
+      setMessage(t('pages.noData'));
       return;
     }
 
@@ -213,7 +215,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
           entry.name.toLowerCase() === normalizedName.toLowerCase()
       )
     ) {
-      setMessage('Ce département existe déjà.');
+      setMessage(t('pages.noData'));
       return;
     }
 
@@ -305,7 +307,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
     event.preventDefault();
 
     if (!file) {
-      setMessage('Sélectionnez un emploi du temps.');
+      setMessage(t('pages.selectStudentFile'));
       return;
     }
 
@@ -378,12 +380,12 @@ export default function StaffDashboard({ role }: { role: Role }) {
             <button
               type="button"
               onClick={logout}
-              aria-label="Déconnexion"
-              title="Déconnexion"
+              aria-label={t('pages.logout')}
+              title={t('pages.logout')}
               className="flex items-center gap-2 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 focus:ring-offset-slate-950"
             >
               <LogOut size={17} aria-hidden="true" />
-              Déconnexion
+              {t('pages.logout')}
             </button>
           )}
         </div>
@@ -415,7 +417,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                   aria-hidden="true"
                 />
 
-                <h2 className="font-bold">Étudiants</h2>
+                <h2 className="font-bold">{t('pages.student')}</h2>
               </div>
 
               <div className="mt-4 space-y-2">
@@ -431,7 +433,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                     }`}
                   >
                     <p className="font-semibold">
-                      {student.name || 'Étudiant'}
+                      {student.name || t('pages.student')}
                     </p>
 
                     <p className="truncate text-xs text-slate-500">
@@ -448,7 +450,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
               <section className="border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-xl font-bold">
-                    Départements
+                    {t('pages.department')}
                   </h2>
 
                   <span className="text-sm text-slate-500">
@@ -512,7 +514,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                             }}
                             className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                           >
-                            Modifier
+                            {t('common.profile')}
                           </button>
 
                           <button
@@ -522,7 +524,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                             }
                             className="border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
                           >
-                            Supprimer
+                            {t('pages.reset')}
                           </button>
                         </div>
                       </div>
@@ -556,7 +558,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
                 <label className="mt-6 block">
                   <span className="mb-2 block text-sm font-semibold">
-                    Étudiant
+                    {t('pages.student')}
                   </span>
 
                   <select
@@ -584,7 +586,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
                 <label className="mt-4 block">
                   <span className="mb-2 block text-sm font-semibold">
-                    Document
+                    {t('pages.document')}
                   </span>
 
                   <input
@@ -629,8 +631,8 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
                     <h2 className="text-xl font-bold">
                       {editingDepartmentId
-                        ? 'Modifier le département'
-                        : 'Créer un département'}
+                        ? t('pages.department')
+                        : t('pages.department')}
                     </h2>
                   </div>
 
@@ -660,8 +662,8 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       />
 
                       {editingDepartmentId
-                        ? 'Enregistrer'
-                        : 'Créer'}
+                        ? t('pages.savePassword')
+                        : t('pages.department')}
                     </button>
 
                     {editingDepartmentId && (
@@ -673,7 +675,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                         }}
                         className="border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
                       >
-                        Annuler
+                        {t('pages.reset')}
                       </button>
                     )}
                   </div>
@@ -705,7 +707,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
                   <label className="mt-6 block">
                     <span className="mb-2 block text-sm font-semibold">
-                      Département
+                      {t('pages.department')}
                     </span>
 
                     <select
@@ -728,7 +730,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
                   <label className="mt-4 block">
                     <span className="mb-2 block text-sm font-semibold">
-                      Fichier
+                      {t('pages.document')}
                     </span>
 
                     <input

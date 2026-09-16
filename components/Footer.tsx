@@ -39,37 +39,37 @@ export default function Footer() {
               <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} className="h-10 w-auto" />
             </div>
             <p className="max-w-xs text-sm leading-6 text-slate-300">
-              Institut National de la poste, des Technologies de l’Information et de la Communication.
+              {t('footer.instituteDescription')}
             </p>
           </div>
 
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">INPTIC</h3>
+            <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">{t('footer.institute')}</h3>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
-              <li><a href="/institut" className="transition-colors duration-200 hover:text-[#D4AF37]">Présentation</a></li>
-              <li><a href="/institut/organigramme" className="transition-colors duration-200 hover:text-[#D4AF37]">Organigramme</a></li>
-              <li><a href="/institut/certifications" className="transition-colors duration-200 hover:text-[#D4AF37]">Certifications</a></li>
-              <li><a href="/institut/partenariats" className="transition-colors duration-200 hover:text-[#D4AF37]">Partenariats</a></li>
+              <li><a href="/institut" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.presentation')}</a></li>
+              <li><a href="/institut/organigramme" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.organizationChart')}</a></li>
+              <li><a href="/institut/certifications" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.certifications')}</a></li>
+              <li><a href="/institut/partenariats" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.partnerships')}</a></li>
             </ul>
           </div>
 
           <div>
             <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">Formations</h3>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
-              <li><a href="/formations" className="transition-colors duration-200 hover:text-[#D4AF37]">Catalogue</a></li>
-              <li><a href="/formations/telecoms" className="transition-colors duration-200 hover:text-[#D4AF37]">Télécoms</a></li>
-              <li><a href="/formations/genie-logiciel" className="transition-colors duration-200 hover:text-[#D4AF37]">Génie Logiciel</a></li>
-              <li><a href="/formations/cybersecurite" className="transition-colors duration-200 hover:text-[#D4AF37]">Cybersécurité</a></li>
+              <li><a href="/formations" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.catalog')}</a></li>
+              <li><a href="/formations/telecoms" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.telecoms')}</a></li>
+              <li><a href="/formations/genie-logiciel" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.softwareEngineering')}</a></li>
+              <li><a href="/formations/cybersecurite" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.cybersecurity')}</a></li>
             </ul>
           </div>
 
           <div>
             <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">Contact</h3>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
-              <li><a href="/contact" className="transition-colors duration-200 hover:text-[#D4AF37]">Nous écrire</a></li>
-              <li><a href="/admissions" className="transition-colors duration-200 hover:text-[#D4AF37]">Admissions</a></li>
-              <li><a href="/vie-etudiante" className="transition-colors duration-200 hover:text-[#D4AF37]">Vie étudiante</a></li>
-              <li><a href="/entreprises" className="transition-colors duration-200 hover:text-[#D4AF37]">Entreprises</a></li>
+              <li><a href="/contact" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.writeUs')}</a></li>
+              <li><a href="/admissions" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.admissions')}</a></li>
+              <li><a href="/vie-etudiante" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.studentLife')}</a></li>
+              <li><a href="/entreprises" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.companies')}</a></li>
             </ul>
           </div>
 

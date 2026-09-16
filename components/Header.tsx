@@ -28,7 +28,7 @@ export default function Header() {
       description: t('header.institutDescription'),
       submenu: [
         { id: 'presentation', label: t('header.presentation'), href: '/institut/presentation', description: '' },
-        { id: 'organigramme', label: 'Organigramme', href: '/institut/organigramme', description: '' },
+        { id: 'organigramme', label: t('footer.organizationChart'), href: '/institut/organigramme', description: '' },
         { id: 'gouvernance', label: t('header.governance'), href: '/institut/gouvernance', description: '' },
         { id: 'certifications', label: t('header.certifications'), href: '/institut/certifications', description: '' },
         { id: 'partenariats', label: t('header.partnerships'), href: '/institut/partenariats', description: '' },
@@ -40,11 +40,11 @@ export default function Header() {
       href: '/formations',
       description: t('header.formationsDescription'),
       submenu: [
-        { id: 'management-tic', label: 'Management des TIC', href: '/formations', description: '' },
-        { id: 'reseaux-systemes-numeriques', label: 'Réseaux et Systèmes Numériques', href: '/formations', description: '' },
-        { id: 'audiovisuel', label: 'Audiovisuel', href: '/formations', description: '' },
-        { id: 'formations-qualifiantes', label: 'Formations qualifiantes', href: '/formations', description: '' },
-        { id: 'formations-certifiantes', label: 'Formations certifiantes', href: '/formations', description: '' },
+        { id: 'management-tic', label: t('hero.management'), href: '/formations', description: '' },
+        { id: 'reseaux-systemes-numeriques', label: t('hero.networks'), href: '/formations', description: '' },
+        { id: 'audiovisuel', label: t('hero.audiovisual'), href: '/formations', description: '' },
+        { id: 'formations-qualifiantes', label: t('hero.qualifying'), href: '/formations', description: '' },
+        { id: 'formations-certifiantes', label: t('hero.certifying'), href: '/formations', description: '' },
       ],
     },
     {

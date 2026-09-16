@@ -6,6 +6,7 @@ import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { translateAuthError } from '@/lib/authMessages';
 import { getRolePath, getStaffRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import { useTranslation } from 'react-i18next';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
@@ -94,12 +95,12 @@ const buildSupabaseProfile = (user: any, fallbackName = 'Étudiant') => {
   };
 };
 
-function SocialAuthButtons({ onClick }: { onClick: (provider: (typeof socialProviders)[number]['name']) => void }) {
+function SocialAuthButtons({ onClick, t }: { onClick: (provider: (typeof socialProviders)[number]['name']) => void; t: (key: string, options?: Record<string, string>) => string }) {
   return (
     <div className="mt-6">
       <div className="mb-3 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">
         <span className="h-px flex-1 bg-slate-200" />
-        <span>ou</span>
+        <span>{t('candidate.or')}</span>
         <span className="h-px flex-1 bg-slate-200" />
       </div>
 
@@ -110,8 +111,8 @@ function SocialAuthButtons({ onClick }: { onClick: (provider: (typeof socialProv
             type="button"
             onClick={() => onClick(name)}
             className="flex appearance-none items-center justify-center rounded-xl border-0 bg-transparent p-2 text-slate-700 shadow-none transition duration-200 hover:scale-110 hover:bg-transparent hover:text-blue-700 focus:outline-none focus:ring-0 focus-visible:outline-none"
-            aria-label={`Se connecter avec ${name}`}
-            title={`Se connecter avec ${name}`}
+            aria-label={t('candidate.socialLogin', { provider: name })}
+            title={t('candidate.socialLogin', { provider: name })}
           >
             <img src={icon} alt={name} className="h-7 w-7" />
           </button>
@@ -122,6 +123,7 @@ function SocialAuthButtons({ onClick }: { onClick: (provider: (typeof socialProv
 }
 
 export default function Candidat() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -424,7 +426,7 @@ export default function Candidat() {
         return;
       }
 
-      const message = error instanceof Error ? translateAuthError(error.message) : 'Une erreur est survenue lors de la connexion.';
+      const message = error instanceof Error ? translateAuthError(error.message, t) : t('auth.genericError');
       setMsg(message);
     }
   }
@@ -451,7 +453,7 @@ export default function Candidat() {
 
     setMsg(
       error
-        ? translateAuthError(error.message)
+        ? translateAuthError(error.message, t)
         : 'Un lien de récupération a été envoyé à cette adresse email.'
     );
   }
@@ -617,10 +619,10 @@ export default function Candidat() {
     <main className="min-h-screen bg-slate-100 px-4 py-12">
       <div className="mx-auto max-w-5xl grid gap-8 rounded-3xl bg-white p-6 md:grid-cols-[1.1fr_1fr] md:p-10">
         <section className="rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 p-8 text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">Connexion</p>
-          <h1 className="mt-3 text-4xl font-black">Compte</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">{t('common.login')}</p>
+          <h1 className="mt-3 text-4xl font-black">{t('pages.account')}</h1>
           <p className="mt-4 max-w-md text-sm leading-7 text-blue-50">
-            Connectez-vous pour accéder à votre espace. Si vous souhaitez intégrer l’INPTIC, vous pouvez aussi vous inscrire au concours et être orienté vers votre espace étudiant.
+            {t('candidate.intro')}
           </p>
 
           <div className="mt-8 flex justify-center gap-3 md:flex-col md:items-stretch">
@@ -633,57 +635,57 @@ export default function Candidat() {
               }`}
             >
               <LogIn size={18} aria-hidden="true" />
-              <span className="btn-label">Je me connecte</span>
+              <span className="btn-label">{t('common.login')}</span>
             </button>
             <button
               type="button"
               onClick={() => setMode('signup')}
-              aria-label="Inscription au concours"
+              aria-label={t('candidate.joinExam')}
               className={`mobile-icon-action rounded-xl px-4 py-3 font-semibold transition ${
                 mode === 'signup' ? 'bg-white text-blue-700' : 'bg-blue-500/20 text-white border border-blue-300/30'
               }`}
             >
               <UserPlus size={18} aria-hidden="true" />
-              <span className="btn-label">Inscription au concours</span>
+              <span className="btn-label">{t('candidate.joinExam')}</span>
             </button>
             <button
               type="button"
               onClick={() => setMode('forgot')}
-              aria-label="Mot de passe oublié"
+              aria-label={t('candidate.forgot')}
               className={`mobile-icon-action rounded-xl px-4 py-3 font-semibold transition ${
                 mode === 'forgot' ? 'bg-white text-blue-700' : 'bg-blue-500/20 text-white border border-blue-300/30'
               }`}
             >
               <KeyRound size={18} aria-hidden="true" />
-              <span className="btn-label">Mot de passe oublié</span>
+              <span className="btn-label">{t('candidate.forgot')}</span>
             </button>
           </div>
 
           <div className="mt-8 rounded-2xl border border-white/15 bg-slate-950/15 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100">Session d'inscription</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100">{t('candidate.session')}</p>
             <p className="mt-2 text-lg font-bold">2026-2027</p>
-            <p className="mt-1 text-sm text-blue-50">Ouverte du 03 août au 18 septembre 2026</p>
+            <p className="mt-1 text-sm text-blue-50">{t('candidate.openUntil')}</p>
           </div>
 
           <ol className="mt-6 space-y-3 text-sm text-blue-50">
-            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white font-bold text-blue-700">1</span>Créer votre compte candidat</li>
-            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">2</span>Compléter le dossier et les pièces</li>
-            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">3</span>Suivre la validation en ligne</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white font-bold text-blue-700">1</span>{t('candidate.createAccount')}</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">2</span>{t('candidate.completeFile')}</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">3</span>{t('candidate.followValidation')}</li>
           </ol>
         </section>
 
         <section className="flex items-center">
           {mode === 'login' ? (
             <form onSubmit={login} className="w-full">
-              <h2 className="text-2xl font-bold text-slate-900">Connexion</h2>
-              <p className="mt-2 text-sm text-slate-500">Accédez à votre compte candidat.</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('candidate.login')}</h2>
+              <p className="mt-2 text-sm text-slate-500">{t('candidate.accountAccess')}</p>
 
               <input
                 required
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="Email"
+                placeholder={t('candidate.email')}
                 className="mt-6 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
@@ -693,14 +695,14 @@ export default function Candidat() {
                   type={isLoginPasswordVisible ? 'text' : 'password'}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Mot de passe"
+                  placeholder={t('candidate.password')}
                   className="w-full rounded-xl border border-slate-200 p-3 pr-12 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
                 <button
                   type="button"
                   onClick={() => setIsLoginPasswordVisible((visible) => !visible)}
-                  aria-label={isLoginPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                  title={isLoginPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-label={isLoginPasswordVisible ? t('candidate.hidePassword') : t('candidate.showPassword')}
+                  title={isLoginPasswordVisible ? t('candidate.hidePassword') : t('candidate.showPassword')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 transition hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {isLoginPasswordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
@@ -709,34 +711,34 @@ export default function Candidat() {
 
               <button
                 type="submit"
-                aria-label="Connexion"
+                aria-label={t('candidate.loginButton')}
                 className="mobile-icon-action mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700"
               >
                 <LogIn size={18} aria-hidden="true" />
-                <span className="btn-label">Connexion</span>
+                <span className="btn-label">{t('candidate.loginButton')}</span>
               </button>
 
-              <SocialAuthButtons onClick={handleSocialAuth} />
+              <SocialAuthButtons onClick={handleSocialAuth} t={t} />
 
               <button
                 type="button"
                 onClick={() => setMode('forgot')}
                 className="mt-4 text-sm font-semibold text-blue-700 hover:text-blue-900"
               >
-                Mot de passe oublié ?
+                {t('candidate.forgotQuestion')}
               </button>
             </form>
           ) : mode === 'forgot' ? (
             <form onSubmit={requestPasswordReset} className="w-full">
-              <h2 className="text-2xl font-bold text-slate-900">Récupérer le mot de passe</h2>
-              <p className="mt-2 text-sm text-slate-500">Recevez un lien sécurisé pour définir un nouveau mot de passe.</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('candidate.recoverTitle')}</h2>
+              <p className="mt-2 text-sm text-slate-500">{t('candidate.recoverText')}</p>
 
               <input
                 required
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="Email"
+                placeholder={t('candidate.email')}
                 className="mt-6 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
@@ -759,15 +761,15 @@ export default function Candidat() {
             </form>
           ) : (
             <form onSubmit={handleSignup} className="w-full">
-              <h2 className="text-2xl font-bold text-slate-900">Inscription au concours</h2>
-              <p className="mt-2 text-sm text-slate-500">Créez votre compte pour candidater à l’INPTIC.</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('candidate.signupTitle')}</h2>
+              <p className="mt-2 text-sm text-slate-500">{t('candidate.signupText')}</p>
 
               <input
                 required
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Nom complet"
+                placeholder={t('candidate.fullName')}
                 className="mt-6 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
@@ -776,7 +778,7 @@ export default function Candidat() {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="Email"
+                placeholder={t('candidate.email')}
                 className="mt-3 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
 
@@ -786,14 +788,14 @@ export default function Candidat() {
                   type={isSignupPasswordVisible ? 'text' : 'password'}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Créer un mot de passe"
+                  placeholder={t('candidate.passwordCreate')}
                   className="w-full rounded-xl border border-slate-200 p-3 pr-12 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
                 <button
                   type="button"
                   onClick={() => setIsSignupPasswordVisible((visible) => !visible)}
-                  aria-label={isSignupPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                  title={isSignupPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-label={isSignupPasswordVisible ? t('candidate.hidePassword') : t('candidate.showPassword')}
+                  title={isSignupPasswordVisible ? t('candidate.hidePassword') : t('candidate.showPassword')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 transition hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {isSignupPasswordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
@@ -802,14 +804,14 @@ export default function Candidat() {
 
               <button
                 type="submit"
-                aria-label="Inscription au concours"
+                aria-label={t('candidate.joinExam')}
                 className="mobile-icon-action mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700"
               >
                 <UserPlus size={18} aria-hidden="true" />
-                <span className="btn-label">Inscription au concours</span>
+                <span className="btn-label">{t('candidate.joinExam')}</span>
               </button>
 
-              <SocialAuthButtons onClick={handleSocialAuth} />
+              <SocialAuthButtons onClick={handleSocialAuth} t={t} />
             </form>
           )}
 

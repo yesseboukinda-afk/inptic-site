@@ -1,4 +1,11 @@
+ 'use client';
+
+import { useTranslation } from 'react-i18next';
+
 export default function Certifications() {
+  const { t } = useTranslation();
+  const items = ['degrees', 'professional', 'recognition'];
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
@@ -7,9 +14,9 @@ export default function Certifications() {
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
           <div className="max-w-3xl">
             <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
-            <h1 className="text-4xl font-black md:text-6xl">Certifications</h1>
+            <h1 className="text-4xl font-black md:text-6xl">{t('public.certificationsTitle')}</h1>
             <p className="mt-5 text-lg text-blue-50">
-              Nos programmes permettent d’obtenir des diplômes et des certifications reconnues, conformes aux exigences du marché et de l’État.
+              {t('public.certificationsIntro')}
             </p>
           </div>
         </div>
@@ -17,14 +24,10 @@ export default function Certifications() {
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
         <div className="grid gap-6 md:grid-cols-3">
-          {[
-            { title: 'Diplômes', text: 'Formations de niveau licence et technicien supérieur.' },
-            { title: 'Certifications professionnelles', text: 'Compétences validées dans les domaines du numérique et des technologies.' },
-            { title: 'Reconnaissance', text: 'Diplômes et certifications reconnus par les institutions et les entreprises.' },
-          ].map((item) => (
-            <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900">{item.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
+          {items.map((item) => (
+            <div key={item} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+              <h3 className="text-xl font-bold text-slate-900">{t(`public.certifications${item}Title`)}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{t(`public.certifications${item}Text`)}</p>
             </div>
           ))}
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 
 type SearchItem = {
   id?: number | string;
@@ -20,6 +21,7 @@ function getItems(value: { data?: SearchItem[] } | SearchItem[] | undefined): Se
 }
 
 export default function Recherche() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,24 +62,23 @@ export default function Recherche() {
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
                     <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
 
-          <h1 className="text-4xl font-black md:text-6xl">Une culture d’innovation au cœur de l’INPTIC</h1>
+          <h1 className="text-4xl font-black md:text-6xl">{t('public.researchTitle')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-blue-50">
-            Les laboratoires, les projets étudiants et l’incubateur technologique de l’INPTIC permettent à
-            nos étudiants de développer des solutions concrètes et d’explorer les innovations du numérique.
+            {t('public.researchIntro')}
           </p>
         </div>
       </section>
 
       {query && (
         <section className="mx-auto max-w-6xl px-4 py-10 md:px-8" aria-live="polite">
-          <h2 className="text-2xl font-black text-slate-900">Résultats pour « {query} »</h2>
+          <h2 className="text-2xl font-black text-slate-900">{t('public.resultsFor', { query })}</h2>
           {isLoading ? (
-            <p className="mt-4 text-slate-600">Recherche en cours...</p>
+            <p className="mt-4 text-slate-600">{t('public.searching')}</p>
           ) : (
             <div className="mt-6 grid gap-8 md:grid-cols-2">
               {[
-                { title: 'Formations', items: getItems(results?.formations), href: '/formations' },
-                { title: 'Actualités', items: getItems(results?.actualites), href: '/actualites' },
+                { title: t('public.formations'), items: getItems(results?.formations), href: '/formations' },
+                { title: t('public.news'), items: getItems(results?.actualites), href: '/actualites' },
               ].map((group) => (
                 <div key={group.title}>
                   <h3 className="text-lg font-bold text-slate-900">{group.title}</h3>
@@ -85,13 +86,13 @@ export default function Recherche() {
                     <div className="mt-3 space-y-3">
                       {group.items.map((item, index) => (
                         <a key={item.id || index} href={group.href} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-400 hover:shadow-sm">
-                          <p className="font-semibold text-slate-900">{item.title || item.name || 'Résultat'}</p>
+                          <p className="font-semibold text-slate-900">{item.title || item.name || t('public.result')}</p>
                           {item.description && <p className="mt-1 text-sm text-slate-600">{item.description}</p>}
                         </a>
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-3 text-sm text-slate-600">Aucun résultat trouvé.</p>
+                    <p className="mt-3 text-sm text-slate-600">{t('public.noResults')}</p>
                   )}
                 </div>
               ))}
@@ -103,32 +104,31 @@ export default function Recherche() {
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
         <div className="grid gap-8 md:grid-cols-2">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">Notre approche</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">Innovation, projets et esprit entrepreneurial</h2>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.approach')}</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.approachHeading')}</h2>
             <p className="mt-5 text-lg leading-8 text-slate-600">
-              Nous encourageons la recherche appliquée et la création de projets utiles, innovants et
-              porteurs de transformation pour la société et l’économie numérique.
+              {t('public.approachText')}
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h3 className="text-2xl font-bold text-slate-900">Axes de développement</h3>
+            <h3 className="text-2xl font-bold text-slate-900">{t('public.axes')}</h3>
             <ul className="mt-6 space-y-5 text-slate-700">
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Laboratoires de recherche appliquée</span>
+                <span>{t('public.labs')}</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Projets étudiants innovants</span>
+                <span>{t('public.studentProjects')}</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Incubateur Tech & startups</span>
+                <span>{t('public.startup')}</span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                <span>Partenariats académiques et industriels</span>
+                <span>{t('public.academicPartners')}</span>
               </li>
             </ul>
           </div>
@@ -138,15 +138,15 @@ export default function Recherche() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-8">
           <div className="mb-10 text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">Exemples de projets</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">Des idées créatives en action</h2>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.examples')}</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.ideas')}</h2>
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
             {[
-              { title: 'IA & Data', text: 'Solutions d’analyse de données et d’intelligence artificielle adaptées à des contextes réels.' },
-              { title: 'Systèmes embarqués', text: 'Développement de dispositifs connectés et de solutions numériques innovantes.' },
-              { title: 'Startups & innovation', text: 'Accompagnement des étudiants dans la création d’entreprises et de projets à fort potentiel.' },
+              { title: t('public.aiData'), text: t('public.aiDataText') },
+              { title: t('public.embedded'), text: t('public.embeddedText') },
+              { title: t('public.startups'), text: t('public.startupsText') },
             ].map((project) => (
               <article key={project.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-7 shadow-sm">
                 <div className="mb-4 h-12 w-12 rounded-xl bg-blue-600/10 text-blue-700 flex items-center justify-center text-xl font-black">✦</div>
@@ -160,9 +160,9 @@ export default function Recherche() {
 
       <section className="bg-slate-50">
         <div className="mx-auto max-w-6xl px-4 py-10 text-center md:px-8">
-          <p className="text-sm text-slate-600">Suivez les dernières publications et annonces de l’Institut.</p>
+          <p className="text-sm text-slate-600">{t('public.latest')}</p>
           <Link href="/actualites" className="mt-3 inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
-            Voir toutes les actualités
+            {t('public.allNews')}
           </Link>
         </div>
       </section>
