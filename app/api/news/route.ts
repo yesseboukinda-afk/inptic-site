@@ -106,6 +106,12 @@ function parsePublication(value: unknown) {
     slug: String(attributes.slug || ''),
     excerpt: String(attributes.excerpt || attributes.description || attributes.resume || ''),
     category: String(attributes.category || 'Annonce'),
+    attachments: Array.isArray(attributes.attachments) ? attributes.attachments : [],
+    socialLinks: Array.isArray(attributes.social_links)
+      ? attributes.social_links
+      : Array.isArray(attributes.socialLinks)
+        ? attributes.socialLinks
+        : [],
     publishedAt: typeof attributes.published_at === 'string'
       ? attributes.published_at
       : typeof attributes.publishedAt === 'string'
@@ -136,8 +142,14 @@ function validatePublication(body: unknown) {
   const excerpt = typeof value.excerpt === 'string' ? value.excerpt.trim() : '';
   const category = typeof value.category === 'string' ? value.category.trim() : '';
   const status = value.status === 'published' ? 'published' : 'draft';
+  const attachments = Array.isArray(value.attachments) ? value.attachments : [];
+  const socialLinks = Array.isArray(value.social_links)
+    ? value.social_links
+    : Array.isArray(value.socialLinks)
+      ? value.socialLinks
+      : [];
   if (!title || !excerpt || !category) return null;
-  return { title, excerpt, category, slug: createSlug(title), status };
+  return { title, excerpt, category, attachments, socialLinks, slug: createSlug(title), status };
 }
 
 export async function GET(request: NextRequest) {
@@ -172,6 +184,12 @@ export async function GET(request: NextRequest) {
         slug: item.slug,
         excerpt: item.excerpt,
         category: item.category || 'Annonce',
+        attachments: Array.isArray(item.attachments) ? item.attachments : [],
+        socialLinks: Array.isArray(item.social_links)
+          ? item.social_links
+          : Array.isArray(item.socialLinks)
+            ? item.socialLinks
+            : [],
         publishedAt: item.published_at || null,
         createdAt: item.created_at || null,
       }));
@@ -204,6 +222,12 @@ export async function GET(request: NextRequest) {
               slug: item.slug,
               excerpt: item.excerpt,
               category: item.category || 'Annonce',
+              attachments: Array.isArray(item.attachments) ? item.attachments : [],
+              socialLinks: Array.isArray(item.social_links)
+                ? item.social_links
+                : Array.isArray(item.socialLinks)
+                  ? item.socialLinks
+                  : [],
               publishedAt: item.published_at,
               createdAt: item.created_at,
             })),
@@ -241,16 +265,30 @@ export async function POST(request: NextRequest) {
       slug: publicationData.slug,
       excerpt: publicationData.excerpt,
       category: publicationData.category,
+      attachments: publicationData.attachments,
+      social_links: publicationData.socialLinks,
       status,
       published_at: status === 'published' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('actualites')
       .insert([row])
       .select()
       .single();
+
+    // Fallback si la migration des colonnes attachments/social_links n'a pas encore été jouée
+    if (error && (error.message.includes('column "attachments"') || error.message.includes('column "social_links"'))) {
+      const { attachments, social_links, ...legacyRow } = row;
+      const retry = await supabaseAdmin
+        .from('actualites')
+        .insert([legacyRow])
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (!error && data) {
       return NextResponse.json(
@@ -261,6 +299,12 @@ export async function POST(request: NextRequest) {
             slug: data.slug,
             excerpt: data.excerpt,
             category: data.category,
+            attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
+            socialLinks: Array.isArray(data.social_links)
+              ? data.social_links
+              : Array.isArray(data.socialLinks)
+                ? data.socialLinks
+                : publicationData.socialLinks,
             publishedAt: data.published_at,
             createdAt: data.created_at,
           },
@@ -316,17 +360,32 @@ export async function PATCH(request: NextRequest) {
       slug: publicationData.slug,
       excerpt: publicationData.excerpt,
       category: publicationData.category,
+      attachments: publicationData.attachments,
+      social_links: publicationData.socialLinks,
       status,
       published_at: status === 'published' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('actualites')
       .update(updates)
       .eq('id', body.id)
       .select()
       .single();
+
+    // Fallback si la migration des colonnes attachments/social_links n'a pas encore été jouée
+    if (error && (error.message.includes('column "attachments"') || error.message.includes('column "social_links"'))) {
+      const { attachments, social_links, ...legacyUpdates } = updates;
+      const retry = await supabaseAdmin
+        .from('actualites')
+        .update(legacyUpdates)
+        .eq('id', body.id)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (!error && data) {
       return NextResponse.json({
@@ -336,6 +395,12 @@ export async function PATCH(request: NextRequest) {
           slug: data.slug,
           excerpt: data.excerpt,
           category: data.category,
+          attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
+          socialLinks: Array.isArray(data.social_links)
+            ? data.social_links
+            : Array.isArray(data.socialLinks)
+              ? data.socialLinks
+              : publicationData.socialLinks,
           publishedAt: data.published_at,
           createdAt: data.created_at,
         },

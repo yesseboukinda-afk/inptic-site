@@ -1,10 +1,10 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 type Alumni = {
-  id: number;
+  id: number | string;
   nom: string;
   prenom: string;
   filiere: string;
@@ -19,6 +19,7 @@ export default function Alumni() {
   const { t } = useTranslation();
 
   const [alumni, setAlumni] = useState<Alumni[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     nom: '',
@@ -32,6 +33,42 @@ export default function Alumni() {
   });
 
   const [submitted, setSubmitted] = useState(false);
+
+  // Charger les alumni persistés au montage (localStorage + API Supabase)
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('inptic_alumni');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAlumni(parsed);
+        }
+      }
+    } catch {}
+
+    fetch('/api/alumni')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload) => {
+        if (Array.isArray(payload?.data) && payload.data.length > 0) {
+          setAlumni((prev) => {
+            // Combiner les données distantes avec les ajouts locaux récents
+            const map = new Map<string | number, Alumni>();
+            payload.data.forEach((item: Alumni) => map.set(item.id, item));
+            prev.forEach((item) => {
+              if (!map.has(item.id)) map.set(item.id, item);
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('inptic_alumni', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('[Alumni] Erreur de chargement distant:', err);
+      });
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -75,11 +112,13 @@ export default function Alumni() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setSubmitting(true);
 
+    const tempId = `temp-${Date.now()}`;
     const newAlumni: Alumni = {
-      id: Date.now(),
+      id: tempId,
       nom: form.nom.trim(),
       prenom: form.prenom.trim(),
       filiere: form.filiere,
@@ -90,7 +129,14 @@ export default function Alumni() {
       photo: form.photo,
     };
 
-    setAlumni((prev) => [...prev, newAlumni]);
+    // 1. Afficher immédiatement et persister localement
+    setAlumni((prev) => {
+      const next = [newAlumni, ...prev.filter((a) => a.id !== newAlumni.id)];
+      try {
+        localStorage.setItem('inptic_alumni', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     setForm({
       nom: '',
@@ -104,7 +150,6 @@ export default function Alumni() {
     });
 
     setSubmitted(true);
-
     setTimeout(() => {
       setSubmitted(false);
     }, 5000);
@@ -114,6 +159,31 @@ export default function Alumni() {
         behavior: 'smooth',
       });
     }, 100);
+
+    // 2. Sauvegarde asynchrone sur Supabase via /api/alumni
+    try {
+      const res = await fetch('/api/alumni', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAlumni),
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload?.data?.id) {
+          setAlumni((prev) => {
+            const updated = prev.map((a) => (a.id === tempId ? payload.data : a));
+            try {
+              localStorage.setItem('inptic_alumni', JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[Alumni] Sauvegarde distante échouée, conservé en local:', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

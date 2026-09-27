@@ -1,7 +1,9 @@
 'use client';
 
+import AnnoncesPubliques from '@/components/AnnoncesPubliques';
 import PressNewsFeed from '@/components/PressNewsFeed';
 import Link from 'next/link';
+import { Megaphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function Actualites() {
@@ -21,7 +23,22 @@ export default function Actualites() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
+      {/* ── Section Annonces publiées par les admins ─────────────────── */}
+      <section className="mx-auto max-w-6xl px-4 py-12 md:px-8">
+        <header className="mb-8 flex items-start gap-4">
+          <span className="mt-1 rounded-xl bg-blue-100 p-2.5 text-blue-700">
+            <Megaphone size={22} />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">INPTIC · Communications</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">Annonces de l&apos;Institut</h2>
+            <p className="mt-1 text-sm text-slate-500">Retrouvez ici toutes les annonces officielles publiées par l&apos;administration.</p>
+          </div>
+        </header>
+        <AnnoncesPubliques />
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-8 md:px-8">
         <div className="grid gap-6 md:grid-cols-3">
           {[
             {
