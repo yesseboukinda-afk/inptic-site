@@ -76,7 +76,7 @@ export default function Header() {
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
-  const [staffRole, setStaffRole] = useState<'scolarite' | 'chef_departement' | 'direction_etudes' | null>(null);
+  const [staffRole, setStaffRole] = useState<'scolarite' | 'direction_etudes' | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchNotification, setSearchNotification] = useState('');
@@ -107,7 +107,7 @@ export default function Header() {
     const staff = staffRaw ? JSON.parse(staffRaw) : null;
     setIsDirector(Boolean(director));
     setIsStudent(Boolean(student));
-    setStaffRole(['scolarite', 'chef_departement', 'direction_etudes'].includes(staff?.role) ? staff.role : null);
+    setStaffRole(['scolarite', 'direction_etudes'].includes(staff?.role) ? staff.role : null);
   };
 
   const changeLanguage = (lang: 'fr' | 'en' | 'zh' | 'ar') => {
@@ -329,7 +329,7 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.professionalSpace')}>
+                <Link href={staffRole === 'scolarite' ? '/scolarite' : '/direction-etudes'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.professionalSpace')}>
                   <LayoutDashboard size={16} aria-hidden="true" />
                   <span className="btn-label">{t('common.professionalSpace')}</span>
                 </Link>
@@ -340,9 +340,9 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/vie-etudiante" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.myAccount')}>
+                <Link href="/vie-etudiante" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={16} aria-hidden="true" />
-                  <span className="btn-label">{t('common.myAccount')}</span>
+                  <span className="btn-label">{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
@@ -371,7 +371,7 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
+                <Link href={staffRole === 'scolarite' ? '/scolarite' : '/direction-etudes'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
                   <LayoutDashboard size={14} aria-hidden="true" />
                   <span>{t('common.professionalSpace')}</span>
                 </Link>
@@ -382,9 +382,9 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.myAccount')}>
+                <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={14} aria-hidden="true" />
-                  <span>{t('common.myAccount')}</span>
+                  <span>{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
                 <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
                   <LogOut size={14} aria-hidden="true" />
@@ -489,6 +489,12 @@ export default function Header() {
           </Link>
           <Link href="/contact" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
             {t('common.contact')}
+          </Link>
+           <Link href="/annonces"
+            className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+            role="menuitem"
+          >
+            {t('common.annonce')}
           </Link>
         </div>
       </nav>

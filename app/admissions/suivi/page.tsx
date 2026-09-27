@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { translateNotification } from '@/lib/authMessages';
@@ -133,6 +133,8 @@ const defaultForm = (stored: Partial<CandidateProfile>) => ({
   dossierNumero: stored.dossierNumero || 'INPTIC-000000',
 });
 
+type PaymentStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'failed';
+
 export default function Suivi() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -142,6 +144,15 @@ export default function Suivi() {
   const [message, setMessage] = useState('');
   const [isDossierModalOpen, setIsDossierModalOpen] = useState(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [paymentOperator, setPaymentOperator] = useState<'airtel' | 'moov' | ''>('');
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState('');
+
+  const pollingRef = useRef<{ intervalId?: ReturnType<typeof setInterval>; attempts: number }>({ attempts: 0 });
 
   useEffect(() => {
     const storedRaw = localStorage.getItem('inptic_user');
@@ -172,6 +183,17 @@ export default function Suivi() {
       router.replace('/vie-etudiante');
     }
   }, [profile, router]);
+
+  const stopPolling = () => {
+    if (pollingRef.current.intervalId) {
+      clearInterval(pollingRef.current.intervalId);
+      pollingRef.current.intervalId = undefined;
+    }
+  };
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
 
   const dossierStatus = profile?.status === 'valide'
     ? 'Validé'
@@ -238,6 +260,18 @@ export default function Suivi() {
       return;
     }
 
+    // Ouvrir le modal de paiement avant la soumission
+    setPaymentPhone(form.phone || '');
+    setPaymentOperator('');
+    setPaymentError('');
+    setPaymentStatus('idle');
+    setPaymentStatusMessage('');
+    setIsPaymentModalOpen(true);
+  };
+
+  const finalizeDossierSubmission = async (transactionId: string, provider: 'airtel' | 'moov', reference: string) => {
+    if (!profile) return;
+
     const nextProfile: CandidateProfile = {
       ...profile,
       ...form,
@@ -249,14 +283,17 @@ export default function Suivi() {
       status: 'en_attente',
       notifications: addNotification(
         profile.notifications,
-        'Votre dossier a été soumis avec succès. Il est désormais en cours de validation par l’administration.',
-        'info'
+        'Votre dossier a été soumis avec succès après paiement. Il est en cours de validation.',
+        'success'
       ),
     };
 
     updateStoredProfile(nextProfile);
     setProfile(nextProfile);
-    setMessage('Votre dossier a été transmis. Vous restez sur le suivi du dossier jusqu’à validation.');
+    setPaymentStatus('success');
+    setIsPaymentModalOpen(false);
+    setIsDossierModalOpen(false);
+    setMessage('Paiement et dossier transmis avec succès. Vous serez notifié dès validation.');
 
     try {
       const response = await fetch('/api/candidat/profile', {
@@ -264,6 +301,9 @@ export default function Suivi() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...nextProfile,
+          paymentTransactionId: transactionId,
+          paymentProvider: provider,
+          paymentReference: reference,
           documents: (nextProfile.documents ?? []).map((document) => ({
             name: document.name,
             type: document.type,
@@ -278,6 +318,99 @@ export default function Suivi() {
       }
     } catch {
       // local-only fallback already saved
+    }
+  };
+
+  const pollPaymentStatus = (transactionId: string, provider: 'airtel' | 'moov', reference: string) => {
+    pollingRef.current.attempts = 0;
+    const maxAttempts = 20; // ~60s a raison d'un appel toutes les 3s
+
+    const intervalId = setInterval(async () => {
+      pollingRef.current.attempts += 1;
+
+      try {
+        const res = await fetch(`/api/payment/status?transactionId=${encodeURIComponent(transactionId)}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+
+        if (data?.status === 'success') {
+          stopPolling();
+          setIsPaymentLoading(false);
+          await finalizeDossierSubmission(transactionId, provider, reference);
+          return;
+        }
+
+        if (data?.status === 'failed') {
+          stopPolling();
+          setIsPaymentLoading(false);
+          setPaymentStatus('failed');
+          setPaymentError(data?.statusMessage || 'Le paiement a été refusé ou annulé.');
+          return;
+        }
+
+        setPaymentStatusMessage(data?.statusMessage || 'En attente de confirmation sur votre téléphone…');
+      } catch {
+        // on ignore les erreurs réseau transitoires pendant le polling
+      }
+
+      if (pollingRef.current.attempts >= maxAttempts) {
+        stopPolling();
+        setIsPaymentLoading(false);
+        setPaymentStatus('failed');
+        setPaymentError('Délai d’attente dépassé. Vérifiez votre téléphone puis réessayez.');
+      }
+    }, 3000);
+
+    pollingRef.current.intervalId = intervalId;
+  };
+
+  const submitWithPayment = async () => {
+    if (!profile) return;
+
+    if (!paymentOperator) {
+      setPaymentError('Veuillez sélectionner un opérateur de paiement.');
+      return;
+    }
+
+    if (!paymentPhone || paymentPhone.trim().length < 8) {
+      setPaymentError('Veuillez entrer un numéro de téléphone valide (min. 8 chiffres).');
+      return;
+    }
+
+    setIsPaymentLoading(true);
+    setPaymentError('');
+    setPaymentStatus('initiating');
+
+    try {
+      const paymentRef = `INPTIC-${profile.dossierNumero || form.dossierNumero}-${Date.now()}`;
+
+      const paymentRes = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: 20000,
+          phone: paymentPhone.trim(),
+          operator: paymentOperator,
+          reference: paymentRef,
+          description: 'Frais de dossier concours INPTIC',
+        }),
+      });
+
+      const data = await paymentRes.json().catch(() => ({}));
+
+      if (!paymentRes.ok || !data?.success || !data?.transactionId) {
+        setPaymentError(data?.error || 'Le paiement a échoué. Veuillez réessayer.');
+        setIsPaymentLoading(false);
+        setPaymentStatus('failed');
+        return;
+      }
+
+      setPaymentStatus('pending');
+      setPaymentStatusMessage(data?.message || 'Validez la demande sur votre téléphone.');
+      pollPaymentStatus(data.transactionId, paymentOperator, paymentRef);
+    } catch {
+      setPaymentError('Une erreur est survenue lors du paiement. Veuillez réessayer.');
+      setIsPaymentLoading(false);
+      setPaymentStatus('failed');
     }
   };
 
@@ -399,181 +532,277 @@ export default function Suivi() {
                   </div>
 
                   <form onSubmit={saveDossier}>
-                <div className="mt-6 border-b border-slate-200 pb-5">
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">1. {t('application.identity')}</p>
-                <p className="mt-1 text-sm text-slate-500">{t('application.identityHelp')}</p>
-                </div>
+                    <div className="mt-6 border-b border-slate-200 pb-5">
+                      <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">1. {t('application.identity')}</p>
+                      <p className="mt-1 text-sm text-slate-500">{t('application.identityHelp')}</p>
+                    </div>
 
-              <div className="mt-6 grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.fullName')}</span>
-                    <input
-                      value={form.name}
-                      onChange={(e) => handleChange('name', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
+                    <div className="mt-6 grid gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.fullName')}</span>
+                          <input
+                            value={form.name}
+                            onChange={(e) => handleChange('name', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.email')}</span>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => handleChange('email', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
-                </div>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.email')}</span>
+                          <input
+                            type="email"
+                            value={form.email}
+                            onChange={(e) => handleChange('email', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
+                      </div>
 
-                <div className="md:col-span-2 border-t border-slate-200 pt-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">2. {t('application.program')}</p>
-                  <p className="mt-1 text-sm text-slate-500">{t('application.programHelp')}</p>
-                </div>
+                      <div className="md:col-span-2 border-t border-slate-200 pt-5">
+                        <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">2. {t('application.program')}</p>
+                        <p className="mt-1 text-sm text-slate-500">{t('application.programHelp')}</p>
+                      </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.phone')}</span>
-                    <input
-                      value={form.phone}
-                      onChange={(e) => handleChange('phone', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.phone')}</span>
+                          <input
+                            value={form.phone}
+                            onChange={(e) => handleChange('phone', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.level')}</span>
-                    <input
-                      value={form.niveau}
-                      onChange={(e) => handleChange('niveau', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
-                </div>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.level')}</span>
+                          <input
+                            value={form.niveau}
+                            onChange={(e) => handleChange('niveau', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
+                      </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.path')}</span>
-                    <input
-                      value={form.parcours}
-                      onChange={(e) => handleChange('parcours', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.path')}</span>
+                          <input
+                            value={form.parcours}
+                            onChange={(e) => handleChange('parcours', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.track')}</span>
-                    <select
-                      value={form.filiere}
-                      onChange={(e) => handleChange('filiere', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-                      <option value="">{t('application.selectTrack')}</option>
-                      {filieres.map((filiere) => (
-                        <option key={filiere} value={filiere}>{filiere}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.track')}</span>
+                          <select
+                            value={form.filiere}
+                            onChange={(e) => handleChange('filiere', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          >
+                            <option value="">{t('application.selectTrack')}</option>
+                            {filieres.map((filiere) => (
+                              <option key={filiere} value={filiere}>{filiere}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.institution')}</span>
-                    <input
-                      value={form.etablissement}
-                      onChange={(e) => handleChange('etablissement', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.institution')}</span>
+                          <input
+                            value={form.etablissement}
+                            onChange={(e) => handleChange('etablissement', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.cohort')}</span>
-                    <input
-                      value={form.promotion}
-                      onChange={(e) => handleChange('promotion', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
-                </div>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.cohort')}</span>
+                          <input
+                            value={form.promotion}
+                            onChange={(e) => handleChange('promotion', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
+                      </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.year')}</span>
-                    <input
-                      value={form.annee}
-                      onChange={(e) => handleChange('annee', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.year')}</span>
+                          <input
+                            value={form.annee}
+                            onChange={(e) => handleChange('annee', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.specialty')}</span>
-                    <input
-                      value={form.specialite}
-                      onChange={(e) => handleChange('specialite', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
-                </div>
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.specialty')}</span>
+                          <input
+                            value={form.specialite}
+                            onChange={(e) => handleChange('specialite', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
+                      </div>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.diploma')}</span>
-                  <input
-                    value={form.diplome}
-                    onChange={(e) => handleChange('diplome', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.diploma')}</span>
+                        <input
+                          value={form.diplome}
+                          onChange={(e) => handleChange('diplome', e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </label>
 
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.motivation')}</span>
-                  <textarea
-                    value={form.bio}
-                    onChange={(e) => handleChange('bio', e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </label>
+                      <label className="block md:col-span-2">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.motivation')}</span>
+                        <textarea
+                          value={form.bio}
+                          onChange={(e) => handleChange('bio', e.target.value)}
+                          rows={4}
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </label>
 
-                <div className="md:col-span-2 border-t border-slate-200 pt-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">3. {t('application.documents')}</p>
-                  <p className="mt-1 text-sm text-slate-500">{t('application.documentsHelp')}</p>
-                </div>
+                      <div className="md:col-span-2 border-t border-slate-200 pt-5">
+                        <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">3. {t('application.documents')}</p>
+                        <p className="mt-1 text-sm text-slate-500">{t('application.documentsHelp')}</p>
+                      </div>
 
-                <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.uploadDocuments')}</span>
-                    <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocumentsChange} className="w-full" />
-                  </label>
+                      <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700">{t('application.uploadDocuments')}</span>
+                          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocumentsChange} className="w-full" />
+                        </label>
 
-                  {form.documents.length ? (
-                    <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                      {form.documents.map((document, index) => (
-                        <li key={`${document.name}-${index}`} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
-                          <span className="truncate">{document.name}</span>
-                          <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-700">
-                            {document.type.includes('pdf') ? 'PDF' : 'Fichier'}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-3 text-sm text-slate-500">{t('application.noDocuments')}</p>
-                  )}
-                </div>
-              </div>
+                        {form.documents.length ? (
+                          <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                            {form.documents.map((document, index) => (
+                              <li key={`${document.name}-${index}`} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
+                                <span className="truncate">{document.name}</span>
+                                <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-700">
+                                  {document.type.includes('pdf') ? 'PDF' : 'Fichier'}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-3 text-sm text-slate-500">{t('application.noDocuments')}</p>
+                        )}
+                      </div>
+                    </div>
 
-              {message && <p className="mt-4 text-sm text-blue-700">{message}</p>}
+                    {message && <p className="mt-4 text-sm text-blue-700">{message}</p>}
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="submit"
-                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-                >
-                  Soumettre le dossier
-                </button>
-              </div>
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                      >
+                        Soumettre le dossier
+                      </button>
+                    </div>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {isPaymentModalOpen && (
+              <div
+                className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="payment-modal-title"
+                onClick={() => {
+                  if (!isPaymentLoading) setIsPaymentModalOpen(false);
+                }}
+              >
+                <div
+                  className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl md:p-8"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="mb-6 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Frais de dossier</p>
+                      <h3 id="payment-modal-title" className="mt-1 text-2xl font-bold text-slate-900">Paiement Mobile Money</h3>
+                    </div>
+                    {!isPaymentLoading && (
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(false)}
+                        aria-label="Fermer le paiement"
+                        className="rounded-lg p-2 text-2xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="mb-4 text-sm text-slate-600">
+                    Un montant de <span className="font-semibold text-slate-900">20 000 FCFA</span> sera débité via Airtel Money ou Moov Money pour finaliser votre dossier.
+                  </p>
+
+                  {paymentStatus === 'pending' ? (
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-center">
+                      <p className="font-semibold text-blue-800">Demande envoyée</p>
+                      <p className="mt-1 text-sm text-blue-700">{paymentStatusMessage || 'Validez la transaction sur votre téléphone.'}</p>
+                      <div className="mt-4 flex justify-center">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentOperator('airtel')}
+                          className={`rounded-xl border p-3 text-sm font-semibold transition ${
+                            paymentOperator === 'airtel'
+                              ? 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          Airtel Money
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentOperator('moov')}
+                          className={`rounded-xl border p-3 text-sm font-semibold transition ${
+                            paymentOperator === 'moov'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          Moov Money
+                        </button>
+                      </div>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">Numéro de téléphone</span>
+                        <input
+                          value={paymentPhone}
+                          onChange={(e) => setPaymentPhone(e.target.value)}
+                          placeholder="074001209"
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </label>
+
+                      {paymentError && <p className="text-sm text-red-600">{paymentError}</p>}
+
+                      <button
+                        type="button"
+                        onClick={submitWithPayment}
+                        disabled={isPaymentLoading}
+                        className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isPaymentLoading ? 'Initialisation du paiement…' : 'Payer et soumettre le dossier'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -663,7 +892,7 @@ export default function Suivi() {
                 onClick={() => router.push('/vie-etudiante')}
                 className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700"
               >
-                Accéder à mon profil
+                Accéder à ma convocation et mon espace concours
               </button>
             ) : null}
           </aside>

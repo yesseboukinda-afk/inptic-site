@@ -16,6 +16,7 @@ const resources = {
         dashboard: 'Tableau de bord',
         logout: 'Déconnexion',
         myAccount: 'Mon compte',
+        concoursSpace: 'Espace Concours',
         professionalSpace: 'Espace professionnel',
         switchLanguage: 'Changer la langue',
       },
@@ -156,6 +157,7 @@ const resources = {
         intro: 'Structure organisationnelle de l’Institut National de la Poste, des Technologies de l’Information et de la Communication.',
         board: 'Président du conseil d’Administration',
         director: 'Directeur Général',
+        deputyDirector: 'Directeur Général Adjoint',
         studiesOfficer: 'Chargés d’études',
         controller: 'Contrôleur de Gestion',
         serviceHead: 'Chef de Service',
@@ -285,6 +287,7 @@ const resources = {
         dashboard: 'Dashboard',
         logout: 'Logout',
         myAccount: 'My account',
+        concoursSpace: 'Exam Portal',
         professionalSpace: 'Professional space',
         switchLanguage: 'Switch language',
       },
@@ -436,7 +439,7 @@ const resources = {
         title: 'Presentation', intro: 'INPTIC Gabon is a leading institution that develops digital talent through excellence, innovation and professional integration.', identity: 'Our identity', future: 'A school focused on the future', identityText: 'Designed to support students in their academic and professional development, INPTIC Gabon combines quality teaching, human support and strong links with economic stakeholders.', strengths: 'Strengths', market: 'Programs aligned with market needs', personalized: 'Personalized support', approach: 'Innovative teaching approach', international: 'International outlook', orgChart: 'View the organization chart'
       },
       organization: {
-        label: 'INPTIC', title: 'Organization chart', intro: 'Organizational structure of the National Institute of Post, Information Technologies and Communication.', board: 'Chairman of the Board', director: 'Director General', studiesOfficer: 'Studies Officers', controller: 'Management Controller', serviceHead: 'Head of Service', advisors: 'Advisors', assistant: 'Director General’s Assistant', studiesDirector: 'Director of Studies and Pedagogy', continuingDirector: 'Director of Continuing Education', technicalDirector: 'Director of Technical Resources and Innovation', unescoDirector: 'Director of the UNESCO-INPTIC Center', secretary: 'Secretary General'
+        label: 'INPTIC', title: 'Organization chart', intro: 'Organizational structure of the National Institute of Post, Information Technologies and Communication.', board: 'Chairman of the Board', director: 'Director General', deputyDirector: 'Deputy Director General', studiesOfficer: 'Studies Officers', controller: 'Management Controller', serviceHead: 'Head of Service', advisors: 'Advisors', assistant: 'Director General’s Assistant', studiesDirector: 'Director of Studies and Pedagogy', continuingDirector: 'Director of Continuing Education', technicalDirector: 'Director of Technical Resources and Innovation', unescoDirector: 'Director of the UNESCO-INPTIC Center', secretary: 'Secretary General'
       },
     },
   },
@@ -448,12 +451,14 @@ const resources = {
         home: '首页',
         news: '新闻',
         contact: '联系我们',
+        annonces: '公告',
         companies: '企业',
         login: '登录',
         profile: '个人资料',
         dashboard: '控制台',
         logout: '退出登录',
         myAccount: '我的账户',
+        concoursSpace: '考试空间',
         professionalSpace: '专业空间',
         switchLanguage: '切换语言',
       },
@@ -509,6 +514,7 @@ const resources = {
         dashboard: 'لوحة التحكم',
         logout: 'تسجيل الخروج',
         myAccount: 'حسابي',
+        concoursSpace: 'فضاء المسابقة',
         professionalSpace: 'الفضاء المهني',
         switchLanguage: 'تغيير اللغة',
       },
@@ -625,7 +631,7 @@ Object.assign(resources.zh.translation, {
     title: '学院', intro: '自成立以来，INPTIC Gabon已成为数字职业培训领域的重要机构，培养有能力、创新并致力于国家经济发展的专业人才。', about: '关于我们', aboutTitle: '关于INPTIC Gabon', aboutText: 'INPTIC Gabon致力于培养优秀的数字领域专业人才。', missionTitle: '我们的使命', missionText: '培养高素质数字人才，应对当代技术挑战并推动加蓬经济发展。', directorMessage: '院长寄语', quote: '学术卓越与教学创新是我们培养未来数字领袖的核心。', director: '院长', strengths: '我们的优势', strengthsTitle: '助力成功的坚实基础', personalized: '个性化指导', personalizedText: '在学习过程中为每位学生提供个性化支持。', certifications: '认可的认证', certificationsText: '获得国家和企业认可的文凭与认证。', international: '国际开放性', internationalText: '与世界各地大学和机构建立合作。'
   },
   presentation: { title: '学院介绍', intro: 'INPTIC Gabon是一所卓越、创新并重视职业融入的数字人才培养机构。', identity: '我们的定位', future: '面向未来的学校', identityText: '学院将优质教学、人文指导和与经济界的紧密联系相结合，支持学生的学术与职业发展。', strengths: '优势', market: '课程与市场需求相匹配', personalized: '个性化指导', approach: '创新教学方法', international: '面向国际', orgChart: '查看组织架构' },
-  organization: { label: 'INPTIC', title: '组织架构', intro: '国家邮政、信息技术与通信学院的组织结构。', board: '董事会主席', director: '院长', studiesOfficer: '研究负责人', controller: '管理控制员', serviceHead: '服务负责人', advisors: '顾问', assistant: '院长助理', studiesDirector: '教学与教育学主任', continuingDirector: '继续教育主任', technicalDirector: '技术资源与创新主任', unescoDirector: 'UNESCO-INPTIC中心主任', secretary: '秘书长' }
+  organization: { label: 'INPTIC', title: '组织架构', intro: '国家邮政、信息技术与通信学院的组织结构。', board: '董事会主席', director: '院长', deputyDirector: '副院长', studiesOfficer: '研究负责人', controller: '管理控制员', serviceHead: '服务负责人', advisors: '顾问', assistant: '院长助理', studiesDirector: '教学与教育学主任', continuingDirector: '继续教育主任', technicalDirector: '技术资源与创新主任', unescoDirector: 'UNESCO-INPTIC中心主任', secretary: '秘书长' }
 });
 Object.assign(resources.ar.translation, {
   home: {
@@ -635,7 +641,7 @@ Object.assign(resources.ar.translation, {
     title: 'المعهد', intro: 'منذ إنشائه، أصبح المعهد الوطني للبريد وتقنيات المعلومات والاتصالات مرجعًا في تكوين المهن الرقمية، وتخريج كفاءات مبتكرة ملتزمة بتنمية البلاد.', about: 'من نحن', aboutTitle: 'عن المعهد', aboutText: 'يُعد المعهد مرجعًا في تكوين الكفاءات الرقمية المتميزة والمبتكرة.', missionTitle: 'مهمتنا', missionText: 'تكوين مهنيين رقميين مؤهلين قادرين على مواجهة التحديات التقنية والمساهمة في التنمية الاقتصادية للغابون.', directorMessage: 'رسالة المدير', quote: 'التميز الأكاديمي والابتكار البيداغوجي في صميم مقاربتنا لتكوين قادة الغد الرقميين.', director: 'المدير العام', strengths: 'مزايا المعهد', strengthsTitle: 'أسس متينة لنجاحكم', personalized: 'تأطير شخصي', personalizedText: 'مرافقة فردية لكل طالب خلال مساره.', certifications: 'شهادات معترف بها', certificationsText: 'دبلومات وشهادات معترف بها من الدولة والمؤسسات.', international: 'انفتاح دولي', internationalText: 'شراكات مع جامعات وفاعلين من مختلف أنحاء العالم.'
   },
   presentation: { title: 'عرض المعهد', intro: 'المعهد مؤسسة مرجعية لتكوين المواهب الرقمية وفق التميز والابتكار والإدماج المهني.', identity: 'هويتنا', future: 'مدرسة متجهة نحو المستقبل', identityText: 'يجمع المعهد بين التعليم الجيد والتأطير الإنساني والروابط القوية مع الفاعلين الاقتصاديين.', strengths: 'نقاط القوة', market: 'برامج مواكبة لحاجات السوق', personalized: 'تأطير شخصي', approach: 'مقاربة بيداغوجية مبتكرة', international: 'انفتاح على العالم', orgChart: 'عرض الهيكل التنظيمي' },
-  organization: { label: 'المعهد', title: 'الهيكل التنظيمي', intro: 'الهيكل التنظيمي للمعهد الوطني للبريد وتقنيات المعلومات والاتصالات.', board: 'رئيس مجلس الإدارة', director: 'المدير العام', studiesOfficer: 'مكلفو الدراسات', controller: 'مراقب التسيير', serviceHead: 'رئيس مصلحة', advisors: 'المستشارون', assistant: 'مساعدة المدير العام', studiesDirector: 'مدير الدراسات والبيداغوجيا', continuingDirector: 'مدير التكوين المستمر', technicalDirector: 'مدير الموارد التقنية والابتكار', unescoDirector: 'مدير مركز اليونسكو والمعهد', secretary: 'الأمين العام' }
+  organization: { label: 'المعهد', title: 'الهيكل التنظيمي', intro: 'الهيكل التنظيمي للمعهد الوطني للبريد وتقنيات المعلومات والاتصالات.', board: 'رئيس مجلس الإدارة', director: 'المدير العام', deputyDirector: 'نائب المدير العام', studiesOfficer: 'مكلفو الدراسات', controller: 'مراقب التسيير', serviceHead: 'رئيس مصلحة', advisors: 'المستشارون', assistant: 'مساعدة المدير العام', studiesDirector: 'مدير الدراسات والبيداغوجيا', continuingDirector: 'مدير التكوين المستمر', technicalDirector: 'مدير الموارد التقنية والابتكار', unescoDirector: 'مدير مركز اليونسكو والمعهد', secretary: 'الأمين العام' }
 });
 Object.assign(resources.zh.translation, {
   public: {
@@ -821,6 +827,83 @@ Object.assign(resources.ar.translation, {
     empty: 'لا توجد إشعارات حاليًا.',
   },
 });
+
+Object.assign(resources.fr.translation.organization, {
+  deptReseaux: 'Chef de Département\nRéseaux et Systèmes\nNumériques',
+  deptManagementCommerce: 'Chef de département\nManagement et\nCommerce',
+  deptManagementTIC: 'Chef de département\nManagement des TIC',
+  deptAudiovisuel: 'Chef de Département\nAudiovisuel',
+  serviceStageEmploi: 'Services Stage et\nEmploi',
+  servicePlanification: 'Service Planification\net Evaluation',
+  serviceVeilleTech: 'Service Veille Technologique\net Accompagnement VAE',
+  centreMaintenance: 'Chef du Centre de Maintenance\net Assistance Technique',
+  serviceRessourcesDoc: 'Chef de Service\nRessources Documentaires',
+  serviceInformatique: 'Chef de Service Informatique\net Gestion du Système d’information',
+  expertPedagogique: 'Expert pédagogique',
+  expertTechnique: 'Expert Technique',
+  serviceScolarite: 'Chef de Service\nScolarité',
+  serviceLogistique: 'Chef de Service\nLogistique et Achat',
+  serviceSocial: 'Chef de Service\nSocial',
+  serviceCommunication: 'Chef de Service Communication\net Relations Extérieures',
+});
+
+Object.assign(resources.en.translation.organization, {
+  deptReseaux: 'Head of Networks and Digital\nSystems Department',
+  deptManagementCommerce: 'Head of Management and\nCommerce Department',
+  deptManagementTIC: 'Head of ICT Management\nDepartment',
+  deptAudiovisuel: 'Head of Audiovisual\nDepartment',
+  serviceStageEmploi: 'Internship and Employment\nServices',
+  servicePlanification: 'Planning and Evaluation\nService',
+  serviceVeilleTech: 'Technology Watch and\nVAE Support Service',
+  centreMaintenance: 'Head of Maintenance and\nTechnical Support Center',
+  serviceRessourcesDoc: 'Head of Documentation\nResources Service',
+  serviceInformatique: 'Head of IT and Information\nSystem Management',
+  expertPedagogique: 'Educational Expert',
+  expertTechnique: 'Technical Expert',
+  serviceScolarite: 'Head of Academic Affairs\nService',
+  serviceLogistique: 'Head of Logistics and\nPurchasing Service',
+  serviceSocial: 'Head of Social Service',
+  serviceCommunication: 'Head of Communication and\nExternal Relations Service',
+});
+
+Object.assign((resources.zh.translation as unknown as { organization: Record<string, string> }).organization, {
+  deptReseaux: '网络与数字系统系主任',
+  deptManagementCommerce: '管理与商务系主任',
+  deptManagementTIC: '信息通信技术管理系主任',
+  deptAudiovisuel: '视听系主任',
+  serviceStageEmploi: '实习与就业服务处',
+  servicePlanification: '规划与评估服务处',
+  serviceVeilleTech: '技术监测与VAE支持服务处',
+  centreMaintenance: '维护与技术支持中心主任',
+  serviceRessourcesDoc: '文献资源服务处主任',
+  serviceInformatique: '信息技术与信息系统管理处主任',
+  expertPedagogique: '教学专家',
+  expertTechnique: '技术专家',
+  serviceScolarite: '教务服务处主任',
+  serviceLogistique: '物流与采购服务处主任',
+  serviceSocial: '社会服务处主任',
+  serviceCommunication: '传播与对外关系服务处主任',
+});
+
+Object.assign((resources.ar.translation as unknown as { organization: Record<string, string> }).organization, {
+  deptReseaux: 'رئيس قسم الشبكات\nوالأنظمة الرقمية',
+  deptManagementCommerce: 'رئيس قسم الإدارة\nوالتجارة',
+  deptManagementTIC: 'رئيس قسم إدارة\nتقنيات المعلومات',
+  deptAudiovisuel: 'رئيس قسم السمعي البصري',
+  serviceStageEmploi: 'مصلحة التدريب\nوالتوظيف',
+  servicePlanification: 'مصلحة التخطيط\nوالتقييم',
+  serviceVeilleTech: 'مصلحة الرصد التقني\nودعم اعتماد الخبرات',
+  centreMaintenance: 'رئيس مركز الصيانة\nوالدعم التقني',
+  serviceRessourcesDoc: 'رئيس مصلحة الموارد\nالوثائقية',
+  serviceInformatique: 'رئيس مصلحة المعلوماتية\nوإدارة النظام المعلوماتي',
+  expertPedagogique: 'خبير بيداغوجي',
+  expertTechnique: 'خبير تقني',
+  serviceScolarite: 'رئيس مصلحة الشؤون\nالدراسية',
+  serviceLogistique: 'رئيس مصلحة اللوجستيات\nوالمشتريات',
+  serviceSocial: 'رئيس المصلحة الاجتماعية',
+  serviceCommunication: 'رئيس مصلحة الاتصال\nوالعلاقات الخارجية',
+});
+
 const detectedLanguage = 'fr';
 
 if (!i18next.isInitialized) {
@@ -837,6 +920,16 @@ if (!i18next.isInitialized) {
       useSuspense: false,
     },
   });
+} else {
+  for (const language of supportedLngs) {
+    i18next.addResourceBundle(
+      language,
+      'translation',
+      resources[language].translation,
+      true,
+      true,
+    );
+  }
 }
 
 if (typeof document !== 'undefined') {

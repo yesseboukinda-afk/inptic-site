@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 
-type Role = 'scolarite' | 'chef_departement' | 'direction_etudes';
+type Role = 'scolarite' | 'direction_etudes';
 
 type Student = {
   email: string;
@@ -370,9 +370,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
             <h1 className="text-3xl font-black">
               {role === 'scolarite'
                 ? 'Scolarité'
-                : role === 'direction_etudes'
-                  ? 'Direction des études pédagogiques'
-                  : 'Chef de département'}
+                : 'Direction des études pédagogiques'}
             </h1>
           </div>
 
