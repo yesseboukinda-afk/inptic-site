@@ -9,6 +9,7 @@ const resources = {
         search: 'Rechercher...',
         home: 'Accueil',
         news: 'Actualités',
+        annonces: 'Annonces',
         contact: 'Contact',
         companies: 'Entreprises',
         login: 'Connexion',
