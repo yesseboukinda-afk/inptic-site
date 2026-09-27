@@ -76,7 +76,7 @@ export default function Header() {
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
-  const [staffRole, setStaffRole] = useState<'scolarite' | 'direction_etudes' | null>(null);
+  const [staffRole, setStaffRole] = useState<'scolarite' | 'direction_etudes' | 'communication' | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchNotification, setSearchNotification] = useState('');
@@ -107,7 +107,7 @@ export default function Header() {
     const staff = staffRaw ? JSON.parse(staffRaw) : null;
     setIsDirector(Boolean(director));
     setIsStudent(Boolean(student));
-    setStaffRole(['scolarite', 'direction_etudes'].includes(staff?.role) ? staff.role : null);
+    setStaffRole(['scolarite', 'direction_etudes', 'communication'].includes(staff?.role) ? staff.role : null);
   };
 
   const changeLanguage = (lang: 'fr' | 'en' | 'zh' | 'ar') => {
@@ -329,7 +329,7 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : '/direction-etudes'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.professionalSpace')}>
+                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.professionalSpace')}>
                   <LayoutDashboard size={16} aria-hidden="true" />
                   <span className="btn-label">{t('common.professionalSpace')}</span>
                 </Link>
@@ -371,7 +371,7 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : '/direction-etudes'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
+                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
                   <LayoutDashboard size={14} aria-hidden="true" />
                   <span>{t('common.professionalSpace')}</span>
                 </Link>

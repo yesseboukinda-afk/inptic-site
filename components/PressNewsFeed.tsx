@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 type NewsItem = {
   id: string;
+  slug: string;
   title: string;
   text: string;
   date?: string;
@@ -14,16 +15,19 @@ type NewsItem = {
 const fallbackNews: NewsItem[] = [
   {
     id: 'innovation',
+    slug: 'innovation',
     title: 'Semaine de l’innovation 2025',
     text: 'Conférences, ateliers et hackathons autour des technologies émergentes.',
   },
   {
     id: 'alumni',
+    slug: 'alumni',
     title: 'Lancement de la plateforme INPTIC Alumni',
     text: 'Un nouveau réseau pour réunir diplômés, étudiants et partenaires.',
   },
   {
     id: 'recherche',
+    slug: 'recherche',
     title: 'Nos chercheurs présentent leurs travaux',
     text: 'Les projets de l’Institut en IA, cybersécurité et transformation numérique.',
   },
@@ -36,10 +40,12 @@ const getNewsItems = (payload: unknown): NewsItem[] => {
       ? (payload as { data: unknown[] }).data
       : [];
 
-  return entries.slice(0, 3).map((entry, index) => {
+  return entries.slice(0, 20).map((entry, index) => {
     const item = (entry as { attributes?: Record<string, unknown> } & Record<string, unknown>).attributes || entry as Record<string, unknown>;
+    const id = String((entry as { documentId?: string; id?: string | number }).documentId || (entry as { id?: string | number }).id || index);
     return {
-      id: String((entry as { id?: string | number }).id || index),
+      id,
+      slug: String(item.slug || id),
       title: String(item.title || item.titre || 'Actualité INPTIC'),
       text: String(item.excerpt || item.description || item.resume || item.content || ''),
       date: typeof item.publishedAt === 'string' ? item.publishedAt : undefined,
@@ -50,9 +56,9 @@ const getNewsItems = (payload: unknown): NewsItem[] => {
 export default function PressNewsFeed() {
   const { t, i18n } = useTranslation();
   const localizedFallbackNews: NewsItem[] = [
-    { id: 'innovation', title: t('newsFeed.innovationTitle'), text: t('newsFeed.innovationText') },
-    { id: 'alumni', title: t('newsFeed.alumniTitle'), text: t('newsFeed.alumniText') },
-    { id: 'recherche', title: t('newsFeed.researchTitle'), text: t('newsFeed.researchText') },
+    { id: 'innovation', slug: 'innovation', title: t('newsFeed.innovationTitle'), text: t('newsFeed.innovationText') },
+    { id: 'alumni', slug: 'alumni', title: t('newsFeed.alumniTitle'), text: t('newsFeed.alumniText') },
+    { id: 'recherche', slug: 'recherche', title: t('newsFeed.researchTitle'), text: t('newsFeed.researchText') },
   ];
   const [news, setNews] = useState<NewsItem[]>(localizedFallbackNews);
 
@@ -81,7 +87,7 @@ export default function PressNewsFeed() {
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-200">{t('newsFeed.label')}</p>
       <div className="mt-4 space-y-4">
         {news.map((item) => (
-          <article key={item.id} className="border-b border-white/10 pb-4 last:border-0 last:pb-0">
+          <article id={item.slug} key={item.id} className="scroll-mt-24 border-b border-white/10 pb-4 last:border-0 last:pb-0">
             {item.date && <p className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString(i18n.language === 'zh' ? 'zh-CN' : i18n.language === 'ar' ? 'ar' : i18n.language === 'en' ? 'en-GB' : 'fr-FR')}</p>}
             <h4 className="mt-1 font-semibold text-white">{item.title}</h4>
             <p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p>

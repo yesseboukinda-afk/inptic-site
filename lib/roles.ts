@@ -1,4 +1,4 @@
-export type StaffRole = 'scolarite' | 'direction_etudes';
+export type StaffRole = 'scolarite' | 'direction_etudes' | 'communication';
 export type AppRole = StaffRole | 'directeur' | 'etudiant';
 
 export function normalizeRole(value: unknown): string {
@@ -9,7 +9,7 @@ export function normalizeRole(value: unknown): string {
     .filter(Boolean);
 
   const knownRole = normalized.find((role) =>
-    ['dg', 'directeur', 'director', 'directeur_general', 'scolarite', 'direction_etudes'].includes(role),
+    ['dg', 'directeur', 'director', 'directeur_general', 'scolarite', 'direction_etudes', 'communication', 'responsable_communication', 'responsable_de_communication'].includes(role),
   );
 
   return knownRole || normalized[0] || '';
@@ -17,7 +17,9 @@ export function normalizeRole(value: unknown): string {
 
 export function getStaffRole(value: unknown): StaffRole | '' {
   const role = normalizeRole(value);
-  return role === 'scolarite' || role === 'direction_etudes' ? role : '';
+  if (role === 'scolarite' || role === 'direction_etudes') return role;
+  if (role === 'communication' || role === 'responsable_communication' || role === 'responsable_de_communication') return 'communication';
+  return '';
 }
 
 export function isDirectorRole(value: unknown): boolean {
@@ -28,6 +30,7 @@ export function isDirectorRole(value: unknown): boolean {
 export function getRolePath(role: string): string {
   if (role === 'scolarite') return '/scolarite';
   if (role === 'direction_etudes') return '/direction-etudes';
+  if (role === 'communication') return '/annonces';
   if (role === 'directeur') return '/directeur';
   return '/admissions/suivi';
 }

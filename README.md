@@ -54,6 +54,31 @@ de passe.
 La clé `SUPABASE_SERVICE_ROLE_KEY` est utilisée uniquement par les routes serveur et
 ne doit jamais être préfixée par `NEXT_PUBLIC_`.
 
+## Publications des annonces
+
+La page `/annonces` est l’espace de gestion du directeur général et du responsable
+communication. Le compte DG reconnu par le site est `directeur@inptic.ga`; les
+autres comptes doivent avoir le rôle `communication` ou un rôle DG dans les
+`app_metadata` Supabase. Le rôle `user_metadata` n’est pas accepté pour autoriser
+les écritures. Dans Strapi, la collection `actualites` est définie sous
+`strapi/src/api/actualite` avec les champs `title`, `slug`, `excerpt`, `category`
+et Draft & Publish. Installer les dépendances depuis `strapi/` avec `npm install`,
+puis démarrer le CMS avec `npm run strapi:dev` depuis la racine. Au premier
+démarrage, créer le compte administrateur Strapi dans l’interface.
+
+Dans Strapi, créer un API Token personnalisé avec accès `find`, `findOne`,
+`create` et `update` pour `Actualite`. Pour la lecture publique, ouvrir **Settings
+> Users & Permissions Plugin > Roles > Public** et autoriser `Actualite: find` et
+`findOne`. Renseigner `NEXT_PUBLIC_STRAPI_URL` et `STRAPI_API_TOKEN` dans `.env`
+local et dans les variables serveur de production. La valeur locale de l’URL est
+`http://localhost:1337/api`; le déploiement doit utiliser l’URL publique de
+l’instance Strapi. Ne jamais préfixer le jeton par `NEXT_PUBLIC_`.
+
+La publication crée ou modifie le contenu dans Strapi. Les boutons de partage
+ouvrent WhatsApp, Facebook, LinkedIn ou X avec le lien de l’annonce; ils ne publient
+pas automatiquement sur les comptes officiels. La publication automatique exige
+des applications développeur et autorisations OAuth propres à chaque plateforme.
+
 ## Connexions prévues
 - Frontend: Next.js 15 / React 19 / Tailwind v4.
 - CMS: Strapi REST (`/formations`, `/actualites`).
