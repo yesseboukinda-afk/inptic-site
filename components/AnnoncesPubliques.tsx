@@ -137,7 +137,7 @@ function parsePayload(payload: unknown): Annonce[] {
 const POLL_INTERVAL_MS = 30_000;
 
 export default function AnnoncesPubliques() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [annonces, setAnnonces] = useState<Annonce[]>([]);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'empty'>('loading');
   const [refreshing, setRefreshing] = useState(false);
@@ -213,9 +213,9 @@ export default function AnnoncesPubliques() {
     return (
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
         <Megaphone className="text-slate-400" size={32} />
-        <p className="font-semibold text-slate-600">Aucune annonce publiée pour le moment.</p>
+        <p className="font-semibold text-slate-600">{t('annonces.emptyState')}</p>
         <p className="text-sm text-slate-400">
-          Revenez bientôt pour suivre les actualités de l&apos;Institut.
+          {t('annonces.emptyStateDesc')}
         </p>
       </div>
     );
@@ -228,7 +228,7 @@ export default function AnnoncesPubliques() {
       {refreshing && (
         <p className="flex items-center gap-2 text-xs font-medium text-blue-600">
           <RefreshCw size={12} className="animate-spin" />
-          Mise à jour en temps réel…
+          {t('annonces.updatingRealtime')}
         </p>
       )}
 
@@ -249,7 +249,7 @@ export default function AnnoncesPubliques() {
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${getCategoryColor(annonce.category)}`}
                 >
                   <Tag size={11} />
-                  {annonce.category}
+                  {t(`annonces.categories.${annonce.category}`, annonce.category)}
                 </span>
                 {(annonce.publishedAt ?? annonce.createdAt) && (
                   <span className="flex items-center gap-1 text-xs text-slate-500">
@@ -262,7 +262,7 @@ export default function AnnoncesPubliques() {
                 href={`/annonces#${encodeURIComponent(annonce.slug)}`}
                 className="text-xs font-bold text-blue-600 hover:underline"
               >
-                Ouvrir sur /annonces →
+                {t('annonces.openOnAnnonces')}
               </Link>
             </div>
 
@@ -277,7 +277,7 @@ export default function AnnoncesPubliques() {
               <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
                 <p className="flex items-center gap-1 text-xs font-bold text-slate-600">
                   <Paperclip size={12} className="text-blue-600" />
-                  Pièces jointes téléchargeables :
+                  {t('annonces.downloadDocuments')} :
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {annonce.attachments!.map((file, i) => (
@@ -302,7 +302,7 @@ export default function AnnoncesPubliques() {
             {/* Social links */}
             {hasSocials && (
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-400">Voir aussi sur :</span>
+                <span className="text-xs text-slate-400">{t('annonces.viewAlsoOn')}</span>
                 {annonce.socialLinks!.map((s, i) => (
                   <a
                     key={i}

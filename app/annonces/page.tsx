@@ -5,6 +5,7 @@ import {
   Calendar, ChevronDown, ChevronUp, Copy, Download, ExternalLink,
   Facebook, FileText, Megaphone, MessageCircle, Paperclip, Share2, Tag,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 
 /* ─────────────────────────────────── types ── */
@@ -48,9 +49,10 @@ function getColor(category: string) {
   return CATEGORY_COLORS[category] ?? DEFAULT_COLOR;
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, locale = 'fr') {
   if (!value) return null;
-  return new Date(value).toLocaleDateString('fr-FR', {
+  const l = locale === 'en' ? 'en-GB' : locale === 'ar' ? 'ar' : locale === 'zh' ? 'zh-CN' : 'fr-FR';
+  return new Date(value).toLocaleDateString(l, {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 }
@@ -140,11 +142,12 @@ function getShareUrl(slug: string) {
 
 /* ───────────────────────── AnnonceCard component ── */
 function AnnonceCard({ annonce }: { annonce: Annonce }) {
+  const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const color = getColor(annonce.category);
-  const date = formatDate(annonce.publishedAt ?? annonce.createdAt);
+  const date = formatDate(annonce.publishedAt ?? annonce.createdAt, i18n.language);
 
   // Split: first paragraph as excerpt, rest as full body
   const paragraphs = annonce.excerpt.split(/\n{2,}/);
@@ -163,6 +166,8 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const categoryLabel = t(`annonces.categories.${annonce.category}`, annonce.category);
+
   return (
     <article
       id={annonce.slug}
@@ -176,7 +181,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${color.bg} ${color.text}`}>
             <Tag size={10} />
-            {annonce.category}
+            {categoryLabel}
           </span>
           {date && (
             <span className="flex items-center gap-1.5 text-xs text-slate-400">
@@ -187,7 +192,9 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
           {hasAttachments && (
             <span className="flex items-center gap-1 text-xs text-blue-600 font-semibold bg-blue-50 px-2.5 py-0.5 rounded-full">
               <Paperclip size={11} />
-              {annonce.attachments!.length} document{annonce.attachments!.length > 1 ? 's' : ''}
+              {annonce.attachments!.length === 1
+                ? t('annonces.documentCount_one', { count: 1 })
+                : t('annonces.documentCount_other', { count: annonce.attachments!.length })}
             </span>
           )}
         </div>
@@ -217,9 +224,9 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
             className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${color.bg} ${color.text} hover:opacity-80`}
           >
             {expanded ? (
-              <><ChevronUp size={13} />Réduire</>
+              <><ChevronUp size={13} />{t('annonces.readLess')}</>
             ) : (
-              <><ChevronDown size={13} />Lire l&apos;annonce complète</>
+              <><ChevronDown size={13} />{t('annonces.readMore')}</>
             )}
           </button>
         )}
@@ -229,7 +236,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
           <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 md:p-5">
             <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
               <Paperclip size={13} className="text-blue-600" />
-              Documents à télécharger ({annonce.attachments!.length})
+              {t('annonces.downloadDocuments')} ({annonce.attachments!.length})
             </h4>
             <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
               {annonce.attachments!.map((file, i) => (
@@ -265,7 +272,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
         {hasSocials && (
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
             <span className="text-xs font-bold text-slate-500">
-              Retrouver cette publication :
+              {t('annonces.findPublication')}
             </span>
             {annonce.socialLinks!.map((s, i) => (
               <a
@@ -287,7 +294,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
           <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
             <Share2 size={12} />
-            Partager
+            {t('annonces.share')}
           </span>
 
           {/* WhatsApp */}
@@ -295,7 +302,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
             href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Partager sur WhatsApp"
+            aria-label={t('annonces.shareOn', { network: 'WhatsApp' })}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-green-400 hover:bg-green-50 hover:text-green-700"
           >
             <MessageCircle size={13} />
@@ -307,7 +314,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
             href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Partager sur Facebook"
+            aria-label={t('annonces.shareOn', { network: 'Facebook' })}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
           >
             <Facebook size={13} />
@@ -319,7 +326,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
             href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Partager sur LinkedIn"
+            aria-label={t('annonces.shareOn', { network: 'LinkedIn' })}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
@@ -331,7 +338,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
             href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(annonce.title)}&url=${encodeURIComponent(shareUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Partager sur X"
+            aria-label={t('annonces.shareOn', { network: 'X' })}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-800 hover:bg-slate-900 hover:text-white"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.257 5.63 5.907-5.63Zm-1.161 17.52h1.833L7.084 4.126H5.117Z"/></svg>
@@ -342,11 +349,11 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
           <button
             type="button"
             onClick={() => void copyLink()}
-            aria-label="Copier le lien"
+            aria-label={t('annonces.copyLink')}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
           >
             <Copy size={13} />
-            {copied ? 'Copié !' : 'Copier le lien'}
+            {copied ? t('annonces.copied') : t('annonces.copyLink')}
           </button>
         </div>
       </div>
@@ -356,6 +363,7 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
 
 /* ────────────────────────── Page component ── */
 export default function AnnoncesPublicPage() {
+  const { t } = useTranslation();
   const [annonces, setAnnonces] = useState<Annonce[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('Toutes');
@@ -428,14 +436,13 @@ export default function AnnoncesPublicPage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-xs font-bold text-blue-700">
                 <Megaphone size={13} />
-                Communication officielle INPTIC
+                {t('annonces.officialBadge')}
               </div>
               <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900 md:text-5xl">
-                Annonces & Communiqués
+                {t('annonces.pageTitle')}
               </h1>
               <p className="mt-3 max-w-xl text-base leading-relaxed text-slate-600">
-                Retrouvez toutes les annonces officielles, dates de concours, résultats,
-                événements et informations de la vie étudiante de l&apos;INPTIC.
+                {t('annonces.pageSubtitle')}
               </p>
             </div>
 
@@ -445,7 +452,7 @@ export default function AnnoncesPublicPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              {liveUpdated ? 'Mis à jour à l’instant' : 'Flux en temps réel'}
+              {liveUpdated ? t('annonces.liveUpdated') : t('annonces.realtimeBadge')}
             </div>
           </div>
 
@@ -464,7 +471,7 @@ export default function AnnoncesPublicPage() {
                       : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  {cat}
+                  {cat === 'Toutes' ? t('annonces.allCategories') : t(`annonces.categories.${cat}`, cat)}
                 </button>
               ))}
             </div>
@@ -472,7 +479,7 @@ export default function AnnoncesPublicPage() {
             {/* Search input */}
             <input
               type="search"
-              placeholder="Rechercher une annonce…"
+              placeholder={t('annonces.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 md:w-64"
@@ -503,11 +510,11 @@ export default function AnnoncesPublicPage() {
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
             <Megaphone size={36} className="mx-auto text-slate-300" />
-            <h3 className="mt-4 text-lg font-bold text-slate-700">Aucune annonce trouvée</h3>
+            <h3 className="mt-4 text-lg font-bold text-slate-700">{t('annonces.noAnnoncesTitle')}</h3>
             <p className="mt-1 text-sm text-slate-400">
               {search
-                ? `Aucun résultat pour « ${search} ». Essayez un autre mot-clé.`
-                : 'Les annonces publiées par l’administration apparaîtront ici.'}
+                ? t('annonces.noSearchResults', { query: search })
+                : t('annonces.noAnnoncesDesc')}
             </p>
             {search && (
               <button
@@ -515,14 +522,16 @@ export default function AnnoncesPublicPage() {
                 onClick={() => setSearch('')}
                 className="mt-4 rounded-full border border-slate-200 px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
               >
-                Effacer la recherche
+                {t('annonces.clearSearch')}
               </button>
             )}
           </div>
         ) : (
           <div className="space-y-6">
             <p className="text-xs font-semibold text-slate-400">
-              {filtered.length} annonce{filtered.length > 1 ? 's' : ''} publiée{filtered.length > 1 ? 's' : ''}
+              {filtered.length === 1
+                ? t('annonces.publishedCount_one', { count: 1 })
+                : t('annonces.publishedCount_other', { count: filtered.length })}
             </p>
             {filtered.map((annonce) => (
               <AnnonceCard key={annonce.id} annonce={annonce} />
