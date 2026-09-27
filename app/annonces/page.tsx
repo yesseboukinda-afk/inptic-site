@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Facebook, Link2, Megaphone, MessageCircle, Pencil, Plus, Send, X } from 'lucide-react';
+import { AlertCircle, Facebook, Link2, Megaphone, MessageCircle, Pencil, Plus, Send, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type Publication = {
@@ -48,6 +48,7 @@ export default function AnnoncesPage() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Impossible de charger les publications.');
       setPublications(Array.isArray(result.data) ? result.data : []);
+      setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Impossible de charger les publications.');
     } finally {
@@ -69,30 +70,38 @@ export default function AnnoncesPage() {
         router.replace('/candidat');
         return;
       }
-      const response = await fetch('/api/news?manage=1', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        cache: 'no-store',
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!active) return;
-      if (response.status === 401) {
-        router.replace('/candidat');
-        return;
-      }
-      if (response.status === 403) {
+      try {
+        const response = await fetch('/api/news?manage=1', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store',
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!active) return;
+        if (response.status === 401) {
+          router.replace('/candidat');
+          return;
+        }
+        if (response.status === 403) {
+          setCheckingRole(false);
+          setMessage(result.error || 'Cet espace est réservé aux administrateurs, au directeur général et au responsable de la communication.');
+          return;
+        }
+        setAccessToken(session.access_token);
+        setAuthorized(true);
         setCheckingRole(false);
-        setMessage('Cet espace est réservé au directeur général et au responsable de la communication.');
-        return;
-      }
-      if (!response.ok) {
+        if (!response.ok) {
+          setMessage(result.error || 'Le service de publication est temporairement indisponible.');
+          setPublications([]);
+          return;
+        }
+        setPublications(Array.isArray(result.data) ? result.data : []);
+      } catch (err) {
+        if (!active) return;
+        setAccessToken(session.access_token);
+        setAuthorized(true);
         setCheckingRole(false);
-        setMessage(result.error || 'Le service de publication est indisponible.');
-        return;
+        setMessage('Erreur réseau lors de la communication avec le serveur de publication.');
       }
-      setAccessToken(session.access_token);
-      setAuthorized(true);
-      setPublications(Array.isArray(result.data) ? result.data : []);
-      setCheckingRole(false);
     };
     void verifySession();
     return () => { active = false; };
@@ -173,8 +182,12 @@ export default function AnnoncesPage() {
         <section className="mx-auto max-w-xl border border-slate-200 bg-white p-8 text-center">
           <Megaphone className="mx-auto text-blue-700" size={30} />
           <h1 className="mt-4 text-2xl font-bold text-slate-950">Espace annonces</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{message || 'Connectez-vous avec le compte du directeur général ou du responsable communication pour gérer les publications.'}</p>
-          <button type="button" onClick={() => router.push('/candidat')} className="mt-6 bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800">Aller à la connexion</button>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {message || 'Connectez-vous avec un compte administrateur, directeur général ou responsable communication pour gérer les publications.'}
+          </p>
+          <button type="button" onClick={() => router.push('/candidat')} className="mt-6 bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800">
+            Aller à la connexion
+          </button>
         </section>
       </main>
     );
@@ -199,7 +212,17 @@ export default function AnnoncesPage() {
             <h2 className="text-lg font-bold">Toutes les annonces</h2>
             <button type="button" onClick={() => loadPublications(accessToken)} className="text-sm font-semibold text-blue-700 hover:text-blue-900">Actualiser</button>
           </div>
-          {message && !isComposerOpen && <p role="status" className="border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{message}</p>}
+          {message && !isComposerOpen && (
+            <div role="status" className="border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 flex items-start gap-3">
+              <AlertCircle className="shrink-0 mt-0.5 text-amber-600" size={18} />
+              <div>
+                <p className="font-semibold">{message}</p>
+                <p className="mt-1 text-xs text-amber-700">
+                  Vérifiez que les variables <code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> et <code>SUPABASE_SERVICE_ROLE_KEY</code> sont configurées dans votre projet Vercel.
+                </p>
+              </div>
+            </div>
+          )}
           {isLoading ? <p className="py-10 text-center text-sm text-slate-500">Chargement des publications…</p> : publications.length === 0 ? (
             <div className="border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
               <Megaphone className="mx-auto text-slate-400" size={28} />

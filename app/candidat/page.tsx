@@ -16,6 +16,10 @@ const isSpecialStaffEmail = (email?: string) => {
   return normalized === 'dep@inptic.ga' || normalized === 'dep@inpti.ga';
 };
 const isDirectorAccountEmail = (email?: string) => normalizeAccountEmail(email) === 'directeur@inptic.ga';
+const isAdminAccountEmail = (email?: string) => {
+  const normalized = normalizeAccountEmail(email);
+  return normalized === 'admin@inptic.ga' || normalized.startsWith('admin@');
+};
 
 const socialProviders = [
   { name: 'Google', icon: '/connexion/google_icon.svg' },
@@ -68,6 +72,8 @@ const buildSupabaseProfile = (user: any, fallbackName = 'Étudiant') => {
   const normalizedRole = normalizeRole(rawRole);
   const staffRole = isSpecialStaffEmail(user?.email)
     ? 'direction_etudes'
+    : isAdminAccountEmail(user?.email)
+    ? 'admin'
     : getStaffRole(normalizedRole);
   const isDirector = isDirectorRole(normalizedRole) || isDirectorAccountEmail(user?.email);
 
@@ -330,6 +336,8 @@ export default function Candidat() {
       const normalizedRole = normalizeRole(rawRole);
       const staffRole = isSpecialStaffEmail(user?.email)
         ? 'direction_etudes'
+        : isAdminAccountEmail(user?.email)
+        ? 'admin'
         : getStaffRole(normalizedRole);
       const isDirector =
         isDirectorRole(normalizedRole) ||
@@ -407,7 +415,11 @@ export default function Candidat() {
       if (matchingProfile) {
         const profile = { ...matchingProfile, password: form.password };
         const localRole = normalizeRole(profile.role);
-        const localStaffRole = isSpecialStaffEmail(profile.email) ? 'direction_etudes' : getStaffRole(localRole);
+        const localStaffRole = isSpecialStaffEmail(profile.email)
+          ? 'direction_etudes'
+          : isAdminAccountEmail(profile.email)
+          ? 'admin'
+          : getStaffRole(localRole);
         if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
           localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
           router.push('/directeur');

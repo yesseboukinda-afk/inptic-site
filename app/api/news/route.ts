@@ -1,47 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isDirectorRole, normalizeRole } from '@/lib/roles';
+import { isAdminRole, isDirectorRole, normalizeRole } from '@/lib/roles';
 import { strapi } from '@/lib/strapi';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 const STRAPI_BASE = (process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api').replace(/\/$/, '');
 
 async function authorizeCommunication(request: NextRequest) {
   const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken || !supabaseAdmin) {
-    return { error: NextResponse.json({ error: 'Connexion responsable communication requise.' }, { status: 401 }) };
+  if (!accessToken) {
+    return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!process.env.STRAPI_API_TOKEN) {
-    return { error: NextResponse.json({ error: 'Le jeton serveur STRAPI_API_TOKEN doit être configuré.' }, { status: 503 }) };
+  if (!supabaseAdmin) {
+    return {
+      error: NextResponse.json(
+        { error: 'Configuration serveur Supabase manquante (SUPABASE_SERVICE_ROLE_KEY).' },
+        { status: 500 }
+      ),
+    };
   }
 
   const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
   if (error || !data.user) {
-    return { error: NextResponse.json({ error: 'Session expirée. Reconnectez-vous.' }, { status: 401 }) };
+    return { error: NextResponse.json({ error: 'Session expirée ou invalide. Reconnectez-vous.' }, { status: 401 }) };
   }
 
-  const role = normalizeRole(data.user.app_metadata?.role ?? data.user.app_metadata?.roles);
-  const directorEmail = (data.user.email || '').trim().toLowerCase().replace(/,/g, '.');
-  const isConfiguredDirector = directorEmail === 'directeur@inptic.ga';
-  if (role !== 'communication' && !isDirectorRole(role) && !isConfiguredDirector) {
-    return { error: NextResponse.json({ error: 'Accès réservé au directeur général ou au responsable communication.' }, { status: 403 }) };
+  const role = normalizeRole(
+    data.user.app_metadata?.role ??
+    data.user.app_metadata?.roles ??
+    data.user.user_metadata?.role ??
+    data.user.user_metadata?.roles
+  );
+  const userEmail = (data.user.email || '').trim().toLowerCase().replace(/,/g, '.');
+  const isConfiguredDirector = userEmail === 'directeur@inptic.ga';
+  const isConfiguredAdmin = userEmail === 'admin@inptic.ga' || userEmail.startsWith('admin@');
+
+  const isAuthorized =
+    role === 'communication' ||
+    role === 'responsable_communication' ||
+    role === 'responsable_de_communication' ||
+    isDirectorRole(role) ||
+    isAdminRole(role) ||
+    isConfiguredDirector ||
+    isConfiguredAdmin;
+
+  if (!isAuthorized) {
+    return {
+      error: NextResponse.json(
+        { error: 'Accès réservé aux administrateurs, au directeur général ou au responsable communication.' },
+        { status: 403 }
+      ),
+    };
   }
 
   return { user: data.user };
 }
 
 async function strapiManagementRequest(path: string, init: RequestInit = {}) {
-  const response = await fetch(`${STRAPI_BASE}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.STRAPI_API_TOKEN}`,
-      ...init.headers,
-    },
-    cache: 'no-store',
-  });
-  const payload = await response.json().catch(() => ({}));
-  return { response, payload };
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(`${STRAPI_BASE}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.STRAPI_API_TOKEN}`,
+        ...init.headers,
+      },
+      cache: 'no-store',
+    });
+    clearTimeout(timeoutId);
+
+    const payload = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, payload, error: null };
+  } catch (error) {
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    const message = isAbort
+      ? `Délai d’attente dépassé (5s) vers Strapi (${STRAPI_BASE}).`
+      : error instanceof Error
+        ? error.message
+        : 'Impossible de joindre le serveur CMS Strapi.';
+    return {
+      ok: false,
+      status: 502,
+      payload: null,
+      error: `Erreur de connexion Strapi (${STRAPI_BASE}) : ${message}`,
+    };
+  }
 }
 
 function parsePublication(value: unknown) {
@@ -51,7 +98,7 @@ function parsePublication(value: unknown) {
     ? entry.attributes as Record<string, unknown>
     : entry;
   const id = entry.documentId ?? entry.id;
-  if (typeof id !== 'string' && typeof id !== 'number') return null;
+  if (!id) return null;
 
   return {
     id: String(id),
@@ -59,18 +106,27 @@ function parsePublication(value: unknown) {
     slug: String(attributes.slug || ''),
     excerpt: String(attributes.excerpt || attributes.description || attributes.resume || ''),
     category: String(attributes.category || 'Annonce'),
-    publishedAt: typeof attributes.publishedAt === 'string' ? attributes.publishedAt : null,
-    createdAt: typeof attributes.createdAt === 'string' ? attributes.createdAt : null,
+    publishedAt: typeof attributes.published_at === 'string'
+      ? attributes.published_at
+      : typeof attributes.publishedAt === 'string'
+        ? attributes.publishedAt
+        : null,
+    createdAt: typeof attributes.created_at === 'string'
+      ? attributes.created_at
+      : typeof attributes.createdAt === 'string'
+        ? attributes.createdAt
+        : null,
   };
 }
 
 function createSlug(value: string) {
-  return value
+  const base = value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+  return `${base || 'annonce'}-${Date.now().toString(36).slice(-5)}`;
 }
 
 function validatePublication(body: unknown) {
@@ -88,27 +144,76 @@ export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get('manage') === '1') {
     const authorization = await authorizeCommunication(request);
     if (authorization.error) return authorization.error;
-    const [draftsResult, publishedResult] = await Promise.all([
-      strapiManagementRequest('/actualites?populate=*&sort=updatedAt:desc&status=draft'),
-      strapiManagementRequest('/actualites?populate=*&sort=updatedAt:desc&status=published'),
-    ]);
-    const failedResult = [draftsResult, publishedResult].find(({ response }) => !response.ok);
-    if (failedResult) {
-      return NextResponse.json({ error: `Chargement Strapi impossible (HTTP ${failedResult.response.status}).` }, { status: 502 });
+
+    // 1. Supabase requis pour la gestion (SUPABASE_SERVICE_ROLE_KEY)
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Service de publication indisponible. La variable SUPABASE_SERVICE_ROLE_KEY doit être configurée dans Vercel.' },
+        { status: 503 }
+      );
     }
 
-    const drafts = Array.isArray(draftsResult.payload.data) ? draftsResult.payload.data : [];
-    const published = Array.isArray(publishedResult.payload.data) ? publishedResult.payload.data : [];
-    const publishedById = new Map(published.map((entry: Record<string, unknown>) => [String(entry.documentId ?? entry.id), entry]));
-    const entries = drafts.map((draft: Record<string, unknown>) => {
-      const parsedDraft = parsePublication(draft);
-      if (!parsedDraft) return null;
-      const publishedEntry = publishedById.get(parsedDraft.id);
-      const parsedPublished = publishedEntry ? parsePublication(publishedEntry) : null;
-      return { ...parsedDraft, publishedAt: parsedPublished?.publishedAt ?? null };
-    }).filter(Boolean);
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('actualites')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    return NextResponse.json({ data: entries });
+      if (error) {
+        return NextResponse.json(
+          { error: `Erreur base de données : ${error.message}` },
+          { status: 500 }
+        );
+      }
+
+      const entries = (data ?? []).map((item) => ({
+        id: String(item.id),
+        title: item.title,
+        slug: item.slug,
+        excerpt: item.excerpt,
+        category: item.category || 'Annonce',
+        publishedAt: item.published_at || null,
+        createdAt: item.created_at || null,
+      }));
+      return NextResponse.json({ data: entries, source: 'supabase' });
+    } catch (err) {
+      return NextResponse.json(
+        { error: `Erreur inattendue : ${err instanceof Error ? err.message : 'inconnue'}` },
+        { status: 500 }
+      );
+    }
+  }
+
+
+  // Requête publique (pour PressNewsFeed, /actualites, accueil)
+  if (supabaseAdmin || supabase) {
+    try {
+      const client = supabaseAdmin || supabase;
+      if (client) {
+        const { data, error } = await client
+          .from('actualites')
+          .select('*')
+          .eq('status', 'published')
+          .order('published_at', { ascending: false });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return NextResponse.json({
+            data: data.map((item) => ({
+              id: String(item.id),
+              title: item.title,
+              slug: item.slug,
+              excerpt: item.excerpt,
+              category: item.category || 'Annonce',
+              publishedAt: item.published_at,
+              createdAt: item.created_at,
+            })),
+            source: 'supabase',
+          });
+        }
+      }
+    } catch {
+      // continuer vers Strapi
+    }
   }
 
   try {
@@ -128,23 +233,72 @@ export async function POST(request: NextRequest) {
   }
 
   const { status, ...publicationData } = publication;
-  const statusQuery = status === 'draft' ? '?status=draft' : '';
-  const { response, payload } = await strapiManagementRequest(`/actualites${statusQuery}`, {
-    method: 'POST',
-    body: JSON.stringify({ data: publicationData }),
-  });
-  if (!response.ok) {
-    return NextResponse.json({ error: `Création Strapi refusée (HTTP ${response.status}). Vérifiez les droits du jeton et les champs de la collection.` }, { status: 502 });
+
+  // 1. Enregistrement direct dans Supabase
+  if (supabaseAdmin) {
+    const row = {
+      title: publicationData.title,
+      slug: publicationData.slug,
+      excerpt: publicationData.excerpt,
+      category: publicationData.category,
+      status,
+      published_at: status === 'published' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('actualites')
+      .insert([row])
+      .select()
+      .single();
+
+    if (!error && data) {
+      return NextResponse.json(
+        {
+          data: {
+            id: String(data.id),
+            title: data.title,
+            slug: data.slug,
+            excerpt: data.excerpt,
+            category: data.category,
+            publishedAt: data.published_at,
+            createdAt: data.created_at,
+          },
+        },
+        { status: 201 }
+      );
+    }
+
+    if (error) {
+      return NextResponse.json(
+        { error: `Erreur d’enregistrement dans Supabase : ${error.message}` },
+        { status: 500 }
+      );
+    }
   }
 
-  return NextResponse.json({ data: parsePublication(payload.data) }, { status: 201 });
+  // 2. Fallback Strapi
+  if (process.env.STRAPI_API_TOKEN) {
+    const statusQuery = status === 'draft' ? '?status=draft' : '';
+    const { ok, status: strapiStatus, payload, error } = await strapiManagementRequest(`/actualites${statusQuery}`, {
+      method: 'POST',
+      body: JSON.stringify({ data: publicationData }),
+    });
+    if (!ok) {
+      const detail = error || `Création Strapi refusée (HTTP ${strapiStatus}).`;
+      return NextResponse.json({ error: detail }, { status: 502 });
+    }
+    return NextResponse.json({ data: parsePublication(payload?.data) }, { status: 201 });
+  }
+
+  return NextResponse.json({ error: 'Aucune base de données configurée pour enregistrer.' }, { status: 500 });
 }
 
 export async function PATCH(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
 
-  const body = await request.json().catch(() => null) as { id?: unknown; publication?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { id?: unknown; publication?: unknown } | null;
   if (!body || (typeof body.id !== 'string' && typeof body.id !== 'number')) {
     return NextResponse.json({ error: 'Identifiant de publication requis.' }, { status: 400 });
   }
@@ -154,14 +308,84 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { status, ...publicationData } = publication;
-  const statusQuery = status === 'draft' ? '?status=draft' : '';
-  const { response, payload } = await strapiManagementRequest(`/actualites/${encodeURIComponent(String(body.id))}${statusQuery}`, {
-    method: 'PUT',
-    body: JSON.stringify({ data: publicationData }),
-  });
-  if (!response.ok) {
-    return NextResponse.json({ error: `Modification Strapi refusée (HTTP ${response.status}).` }, { status: 502 });
+
+  // 1. Mise à jour Supabase
+  if (supabaseAdmin) {
+    const updates = {
+      title: publicationData.title,
+      slug: publicationData.slug,
+      excerpt: publicationData.excerpt,
+      category: publicationData.category,
+      status,
+      published_at: status === 'published' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('actualites')
+      .update(updates)
+      .eq('id', body.id)
+      .select()
+      .single();
+
+    if (!error && data) {
+      return NextResponse.json({
+        data: {
+          id: String(data.id),
+          title: data.title,
+          slug: data.slug,
+          excerpt: data.excerpt,
+          category: data.category,
+          publishedAt: data.published_at,
+          createdAt: data.created_at,
+        },
+      });
+    }
+
+    if (error) {
+      return NextResponse.json(
+        { error: `Erreur de mise à jour dans Supabase : ${error.message}` },
+        { status: 500 }
+      );
+    }
   }
 
-  return NextResponse.json({ data: parsePublication(payload.data) });
+  // 2. Fallback Strapi
+  if (process.env.STRAPI_API_TOKEN) {
+    const statusQuery = status === 'draft' ? '?status=draft' : '';
+    const { ok, status: strapiStatus, payload, error } = await strapiManagementRequest(
+      `/actualites/${encodeURIComponent(String(body.id))}${statusQuery}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ data: publicationData }),
+      }
+    );
+    if (!ok) {
+      const detail = error || `Modification Strapi refusée (HTTP ${strapiStatus}).`;
+      return NextResponse.json({ error: detail }, { status: 502 });
+    }
+    return NextResponse.json({ data: parsePublication(payload?.data) });
+  }
+
+  return NextResponse.json({ error: 'Aucune base de données disponible pour modifier.' }, { status: 500 });
+}
+
+export async function DELETE(request: NextRequest) {
+  const authorization = await authorizeCommunication(request);
+  if (authorization.error) return authorization.error;
+
+  const id = request.nextUrl.searchParams.get('id');
+  if (!id) {
+    return NextResponse.json({ error: 'Identifiant de publication requis.' }, { status: 400 });
+  }
+
+  if (supabaseAdmin) {
+    const { error } = await supabaseAdmin.from('actualites').delete().eq('id', id);
+    if (error) {
+      return NextResponse.json({ error: `Erreur de suppression : ${error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  return NextResponse.json({ error: 'Base de données non configurée.' }, { status: 500 });
 }
