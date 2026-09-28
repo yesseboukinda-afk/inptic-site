@@ -1,4 +1,5 @@
 'use client';
+const [showAnnouncements, setShowAnnouncements] = useState(true);
 
 import { Search, ArrowRight, Bot, Box, FileText, GraduationCap, X, Megaphone } from 'lucide-react';
 import Link from 'next/link';
@@ -12,8 +13,41 @@ const quickActions = [
   { label: 'Candidature', icon: FileText, ariaLabel: 'Accéder au formulaire de candidature' },
   { label: 'Alumni', icon: GraduationCap, ariaLabel: 'Accéder à la plateforme Alumni' },
   { label: 'ANDG', icon: GraduationCap, ariaLabel: 'Annuaire national des diplomés du Gabon' },
-  { label: 'Anonces', icon: Megaphone, ariaLabel: 'Accéder aux annonces' },
+  
 ];
+
+{showAnnouncements && (
+  <div className="fixed bottom-6 right-6 z-50">
+    <div className="relative">
+      <Link
+        href="/annonces"
+        aria-label="Accéder aux annonces"
+        className="group flex items-center gap-3 rounded-2xl border border-white/20 bg-slate-900/95 px-4 py-3 pr-10 text-white shadow-2xl backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:bg-slate-800"
+      >
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600">
+          <Megaphone size={20} aria-hidden="true" />
+
+          <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-500 ring-2 ring-slate-900" />
+        </div>
+
+        <div>
+          <p className="text-xs text-slate-400">Nouveautés</p>
+          <p className="font-semibold">Annonces</p>
+        </div>
+      </Link>
+
+      {/* Bouton fermer */}
+      <button
+        type="button"
+        onClick={() => setShowAnnouncements(false)}
+        aria-label="Fermer les annonces"
+        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-white shadow-md transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
+      >
+        <X size={14} aria-hidden="true" />
+      </button>
+    </div>
+  </div>
+)}
 
 const galleryImages = [
   '/ institut/1.webp',
