@@ -924,48 +924,113 @@ export default function Hero() {
         </svg>
       </div>
 
-      {/* ANNONCES - POPUP INDÉPENDANT */}
-      {showAnnouncements && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <div className="relative">
-            <Link
-              href="/annonces"
-              aria-label="Accéder aux annonces"
-              className="group flex items-center gap-3 rounded-2xl border border-white/20 bg-slate-900/95 px-4 py-3 pr-10 text-white shadow-2xl backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:bg-slate-800"
-            >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600">
-                <Megaphone
-                  size={20}
-                  aria-hidden="true"
-                />
 
-                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-500 ring-2 ring-slate-900" />
+      {/* ANNONCES - POPUP CENTRAL AVEC BOUNCE + GLOW */}
+      {showAnnouncements && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-[3px] animate-in fade-in duration-300"
+            aria-hidden="true"
+          />
+
+          {/* Halo extérieur */}
+          <div
+            className="absolute h-72 w-72 rounded-full bg-blue-500/20 blur-3xl animate-pulse"
+            aria-hidden="true"
+          />
+
+          {/* Popup */}
+          <div className="relative animate-bounce-in">
+            {/* Glow principal */}
+            <div
+              className="absolute -inset-2 rounded-[2rem] bg-blue-500/40 blur-xl animate-pulse"
+              aria-hidden="true"
+            />
+
+            {/* Carte */}
+            <div className="relative w-[min(92vw,430px)] overflow-hidden rounded-[1.75rem] border border-blue-300/30 bg-slate-950/95 p-6 text-white shadow-[0_0_60px_rgba(59,130,246,0.45)] backdrop-blur-xl sm:p-8">
+
+              {/* Ligne lumineuse supérieure */}
+              <div
+                className="absolute left-1/2 top-0 h-1 w-32 -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_rgba(34,211,238,0.9)]"
+                aria-hidden="true"
+              />
+
+              {/* Bouton fermer */}
+              <button
+                type="button"
+                onClick={() => setShowAnnouncements(false)}
+                aria-label="Fermer les annonces"
+                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition-all duration-200 hover:scale-110 hover:bg-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] focus:outline-none focus:ring-2 focus:ring-white"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+
+              {/* Icône */}
+              <div className="flex justify-center">
+                <div className="relative">
+                  {/* Anneaux lumineux */}
+                  <div
+                    className="absolute -inset-4 rounded-full border border-blue-400/20 animate-ping"
+                    aria-hidden="true"
+                  />
+
+                  <div
+                    className="absolute -inset-2 rounded-full bg-blue-500/30 blur-md"
+                    aria-hidden="true"
+                  />
+
+                  <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-blue-300/30 bg-gradient-to-br from-blue-500 to-cyan-500 shadow-[0_0_35px_rgba(59,130,246,0.7)]">
+                    <Megaphone
+                      size={38}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+
+                    {/* Point notification */}
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 ring-4 ring-slate-950">
+                      <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <p className="text-xs text-slate-400">
+              {/* Contenu */}
+              <div className="mt-6 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">
                   Nouveautés
                 </p>
 
-                <p className="font-semibold">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
                   Annonces
+                </h2>
+
+                <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-300 sm:text-base">
+                  Découvrez les dernières actualités, informations et annonces de l'INPTIC.
                 </p>
               </div>
-            </Link>
 
-            <button
-              type="button"
-              onClick={() =>
-                setShowAnnouncements(false)
-              }
-              aria-label="Fermer les annonces"
-              className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-white shadow-md transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
-            >
-              <X
-                size={14}
-                aria-hidden="true"
-              />
-            </button>
+              {/* Bouton principal */}
+              <Link
+                href="/annonces"
+                onClick={() => setShowAnnouncements(false)}
+                className="group mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 px-5 py-3.5 font-bold text-white shadow-[0_0_25px_rgba(59,130,246,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_35px_rgba(34,211,238,0.65)] focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+              >
+                <span>Voir les annonces</span>
+
+                <ArrowRight
+                  size={19}
+                  aria-hidden="true"
+                  className="transition-transform duration-300 group-hover:translate-x-1"
+                />
+              </Link>
+
+              {/* Petit indicateur */}
+              <p className="mt-4 text-center text-[11px] text-slate-500">
+                Cliquez sur × pour fermer
+              </p>
+            </div>
           </div>
         </div>
       )}
