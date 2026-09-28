@@ -11,11 +11,13 @@ const quickActions = [
   { label: 'Visite 3D', icon: Box, ariaLabel: 'Visiter le campus en 3D' },
   { label: 'Candidature', icon: FileText, ariaLabel: 'Accéder au formulaire de candidature' },
   { label: 'Alumni', icon: GraduationCap, ariaLabel: 'Accéder à la plateforme Alumni' },
+  { label: 'ANDG', icon: GraduationCap, ariaLabel: 'Annuaire national des diplomés du Gabon' },
+  { label: 'Anonces', icon: GraduationCap, ariaLabel: 'Accéder aux annonces' },
 ];
 
 const galleryImages = [
-  '/institut/1.webp',
-  '/institut/2.webp',
+  '/ institut/1.webp',
+  '/ institut/2.webp',
   '/institut/3.webp',
   '/institut/4.webp',
   '/institut/5.webp',

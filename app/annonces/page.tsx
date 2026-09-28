@@ -1,12 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
-  Calendar, ChevronDown, ChevronUp, Copy, Download, ExternalLink,
-  Facebook, FileText, Megaphone, MessageCircle, Paperclip, Share2, Tag,
+  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronUp, Copy, Download,
+  ExternalLink, Facebook, FileText, Megaphone, MessageCircle, Paperclip,
+  Pencil, Plus, Share2, ShieldCheck, Tag, Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import {
+  Composer,
+  DeleteConfirm,
+  EMPTY_FORM,
+  type PublicationForm,
+} from './gestion/page';
+import { isStaffOrAdminUser } from '@/lib/roles';
 
 /* ─────────────────────────────────── types ── */
 type Attachment = {
@@ -141,7 +150,17 @@ function getShareUrl(slug: string) {
 }
 
 /* ───────────────────────── AnnonceCard component ── */
-function AnnonceCard({ annonce }: { annonce: Annonce }) {
+function AnnonceCard({
+  annonce,
+  isAdmin,
+  onEdit,
+  onDelete,
+}: {
+  annonce: Annonce;
+  isAdmin?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -355,6 +374,28 @@ function AnnonceCard({ annonce }: { annonce: Annonce }) {
             <Copy size={13} />
             {copied ? t('annonces.copied') : t('annonces.copyLink')}
           </button>
+
+          {/* Admin actions: Edit & Delete */}
+          {isAdmin && (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition hover:border-blue-400 hover:bg-blue-100 shadow-2xs"
+              >
+                <Pencil size={12} />
+                Modifier
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:border-red-400 hover:bg-red-100 shadow-2xs"
+              >
+                <Trash2 size={12} />
+                Supprimer
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -370,6 +411,17 @@ export default function AnnoncesPublicPage() {
   const [search, setSearch] = useState('');
   const [liveUpdated, setLiveUpdated] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [accessToken, setAccessToken] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingForm, setEditingForm] = useState<PublicationForm>(EMPTY_FORM);
+  const [deletingAnnonce, setDeletingAnnonce] = useState<Annonce | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null);
 
   /* ── Load ── */
   const fetchAnnonces = useCallback(async (isSilent = false) => {
@@ -390,6 +442,44 @@ export default function AnnoncesPublicPage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    // Detect admin / staff user
+    const checkAdmin = async () => {
+      const staffRaw = typeof window !== 'undefined' ? localStorage.getItem('inptic_staff') : null;
+      const directorRaw = typeof window !== 'undefined' ? localStorage.getItem('inptic_directeur') : null;
+      let staffData: { role?: unknown; email?: string } | null = null;
+      let directorData: { role?: unknown; email?: string } | null = null;
+      try { staffData = staffRaw ? JSON.parse(staffRaw) : null; } catch {}
+      try { directorData = directorRaw ? JSON.parse(directorRaw) : null; } catch {}
+
+      let sessionToken = '';
+      let sessionEmail = '';
+      let sessionRole = '';
+
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          sessionToken = data.session.access_token || '';
+          sessionEmail = data.session.user?.email || '';
+          sessionRole =
+            data.session.user?.app_metadata?.role ||
+            data.session.user?.user_metadata?.role ||
+            '';
+        }
+      }
+
+      const effectiveEmail = sessionEmail || staffData?.email || directorData?.email || '';
+      const effectiveRole = sessionRole || staffData?.role || (directorData ? 'directeur' : '');
+
+      if (active && isStaffOrAdminUser(effectiveEmail, effectiveRole)) {
+        setIsAdmin(true);
+        setAdminEmail(effectiveEmail);
+        if (sessionToken) setAccessToken(sessionToken);
+      }
+    };
+    void checkAdmin();
+
     void fetchAnnonces(false);
 
     // Supabase Realtime
@@ -410,10 +500,37 @@ export default function AnnoncesPublicPage() {
     pollRef.current = setInterval(() => void fetchAnnonces(true), POLL_MS);
 
     return () => {
+      active = false;
       if (channel && sb) void sb.removeChannel(channel);
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [fetchAnnonces]);
+
+  /* ── Delete handler ── */
+  const confirmDelete = async () => {
+    if (!deletingAnnonce) return;
+    if (!accessToken) {
+      setFeedback({ msg: 'Session requise. Veuillez vous reconnecter sur la page de connexion.', ok: false });
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/news?id=${encodeURIComponent(deletingAnnonce.id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Erreur lors de la suppression.');
+      setFeedback({ msg: `« ${deletingAnnonce.title} » a été supprimée avec succès.`, ok: true });
+      setDeletingAnnonce(null);
+      await fetchAnnonces(true);
+      setTimeout(() => setFeedback(null), 4000);
+    } catch (err) {
+      setFeedback({ msg: err instanceof Error ? err.message : 'Erreur de suppression.', ok: false });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   /* ── Filter ── */
   const categories = ['Toutes', ...Array.from(new Set(annonces.map((a) => a.category)))];
@@ -490,6 +607,56 @@ export default function AnnoncesPublicPage() {
 
       {/* ── Content ── */}
       <section className="mx-auto max-w-5xl px-4 py-10 md:px-8">
+        {feedback && (
+          <div className={`mb-6 flex items-center gap-2 rounded-2xl p-4 text-sm font-semibold shadow-xs ${
+            feedback.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            {feedback.ok ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <span>{feedback.msg}</span>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="mb-8 overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50/50 to-white p-5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-blue-600 p-2.5 text-white shadow-xs">
+                  <ShieldCheck size={20} />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">Mode Admin</span>
+                    <p className="text-sm font-bold text-slate-900">Administration des publications</p>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Connecté : <strong className="text-slate-700">{adminEmail}</strong>. Vous pouvez modifier ou supprimer les publications directement ci-dessous.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setEditingForm(EMPTY_FORM);
+                    setComposerOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition"
+                >
+                  <Plus size={14} />
+                  Nouvelle annonce
+                </button>
+                <Link
+                  href="/annonces/gestion"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:border-slate-400 hover:bg-slate-50 transition"
+                >
+                  Espace de gestion complet →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-6">
             {[1, 2, 3].map((n) => (
@@ -534,11 +701,55 @@ export default function AnnoncesPublicPage() {
                 : t('annonces.publishedCount_other', { count: filtered.length })}
             </p>
             {filtered.map((annonce) => (
-              <AnnonceCard key={annonce.id} annonce={annonce} />
+              <AnnonceCard
+                key={annonce.id}
+                annonce={annonce}
+                isAdmin={isAdmin}
+                onEdit={() => {
+                  setEditingId(annonce.id);
+                  setEditingForm({
+                    title: annonce.title,
+                    excerpt: annonce.excerpt,
+                    category: annonce.category,
+                    attachments: Array.isArray(annonce.attachments) ? annonce.attachments : [],
+                    socialLinks: Array.isArray(annonce.socialLinks) ? annonce.socialLinks : [],
+                  });
+                  setComposerOpen(true);
+                }}
+                onDelete={() => setDeletingAnnonce(annonce)}
+              />
             ))}
           </div>
         )}
       </section>
+
+      {/* ── Admin Composer Modal ── */}
+      {composerOpen && (
+        <Composer
+          editingId={editingId}
+          initialForm={editingForm}
+          accessToken={accessToken}
+          onClose={() => setComposerOpen(false)}
+          onSaved={() => {
+            setFeedback({
+              msg: editingId ? 'Annonce modifiée avec succès.' : 'Nouvelle annonce publiée avec succès.',
+              ok: true,
+            });
+            void fetchAnnonces(true);
+            setTimeout(() => setFeedback(null), 4000);
+          }}
+        />
+      )}
+
+      {/* ── Admin Delete Confirm Modal ── */}
+      {deletingAnnonce && (
+        <DeleteConfirm
+          title={deletingAnnonce.title}
+          loading={isDeleting}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setDeletingAnnonce(null)}
+        />
+      )}
     </main>
   );
 }

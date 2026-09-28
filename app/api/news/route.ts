@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import {
+  isAdminAccountEmail,
+  isAdminRole,
+  isCommunicationRole,
+  isDirectorAccountEmail,
+  isDirectorRole,
+  normalizeRole,
+} from '@/lib/roles';
 import { strapi } from '@/lib/strapi';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 
@@ -31,18 +38,14 @@ async function authorizeCommunication(request: NextRequest) {
     data.user.user_metadata?.role ??
     data.user.user_metadata?.roles
   );
-  const userEmail = (data.user.email || '').trim().toLowerCase().replace(/,/g, '.');
-  const isConfiguredDirector = userEmail === 'directeur@inptic.ga';
-  const isConfiguredAdmin = userEmail === 'admin@inptic.ga' || userEmail.startsWith('admin@');
+  const userEmail = data.user.email || '';
 
   const isAuthorized =
-    role === 'communication' ||
-    role === 'responsable_communication' ||
-    role === 'responsable_de_communication' ||
+    isCommunicationRole(role) ||
     isDirectorRole(role) ||
     isAdminRole(role) ||
-    isConfiguredDirector ||
-    isConfiguredAdmin;
+    isAdminAccountEmail(userEmail) ||
+    isDirectorAccountEmail(userEmail);
 
   if (!isAuthorized) {
     return {
@@ -355,15 +358,26 @@ export async function PATCH(request: NextRequest) {
 
   // 1. Mise à jour Supabase
   if (supabaseAdmin) {
+    const { data: existing } = await supabaseAdmin
+      .from('actualites')
+      .select('published_at, slug')
+      .eq('id', body.id)
+      .maybeSingle();
+
+    const publishedAt = status === 'published'
+      ? (existing?.published_at || new Date().toISOString())
+      : null;
+    const finalSlug = existing?.slug || publicationData.slug;
+
     const updates = {
       title: publicationData.title,
-      slug: publicationData.slug,
+      slug: finalSlug,
       excerpt: publicationData.excerpt,
       category: publicationData.category,
       attachments: publicationData.attachments,
       social_links: publicationData.socialLinks,
       status,
-      published_at: status === 'published' ? new Date().toISOString() : null,
+      published_at: publishedAt,
       updated_at: new Date().toISOString(),
     };
 
@@ -448,6 +462,16 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabaseAdmin.from('actualites').delete().eq('id', id);
     if (error) {
       return NextResponse.json({ error: `Erreur de suppression : ${error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  if (process.env.STRAPI_API_TOKEN) {
+    const { ok, status, error } = await strapiManagementRequest(`/actualites/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!ok) {
+      return NextResponse.json({ error: error || `Suppression refusée (${status})` }, { status: 502 });
     }
     return NextResponse.json({ success: true });
   }

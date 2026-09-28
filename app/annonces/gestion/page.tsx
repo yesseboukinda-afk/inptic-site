@@ -37,7 +37,7 @@ type Publication = {
   createdAt: string | null;
 };
 
-type PublicationForm = {
+export type PublicationForm = {
   title: string;
   excerpt: string;
   category: string;
@@ -46,7 +46,7 @@ type PublicationForm = {
 };
 
 /* ─────────────────────── constants ── */
-const EMPTY_FORM: PublicationForm = {
+export const EMPTY_FORM: PublicationForm = {
   title: '',
   excerpt: '',
   category: 'Annonce',
@@ -124,7 +124,7 @@ function renderSocialIcon(label: string) {
 }
 
 /* ──────────────────── DeleteConfirm mini-modal ── */
-function DeleteConfirm({
+export function DeleteConfirm({
   title, onConfirm, onCancel, loading,
 }: { title: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
   return (
@@ -315,7 +315,7 @@ function PublicationCard({
 }
 
 /* ────────────────────── Composer modal ── */
-function Composer({
+export function Composer({
   editingId, initialForm, accessToken, onClose, onSaved,
 }: {
   editingId: string | null;

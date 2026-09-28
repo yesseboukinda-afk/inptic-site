@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import {
+  isAdminAccountEmail,
+  isAdminRole,
+  isCommunicationRole,
+  isDirectorAccountEmail,
+  isDirectorRole,
+  normalizeRole,
+} from '@/lib/roles';
 import { supabaseAdmin } from '@/lib/supabase';
 
 const BUCKET_NAME = 'annonces-attachments';
@@ -30,18 +37,14 @@ async function authorizeAdmin(request: NextRequest) {
     data.user.user_metadata?.role ??
     data.user.user_metadata?.roles
   );
-  const userEmail = (data.user.email || '').trim().toLowerCase().replace(/,/g, '.');
-  const isConfiguredDirector = userEmail === 'directeur@inptic.ga';
-  const isConfiguredAdmin = userEmail === 'admin@inptic.ga' || userEmail.startsWith('admin@');
+  const userEmail = data.user.email || '';
 
   const isAuthorized =
-    role === 'communication' ||
-    role === 'responsable_communication' ||
-    role === 'responsable_de_communication' ||
+    isCommunicationRole(role) ||
     isDirectorRole(role) ||
     isAdminRole(role) ||
-    isConfiguredDirector ||
-    isConfiguredAdmin;
+    isAdminAccountEmail(userEmail) ||
+    isDirectorAccountEmail(userEmail);
 
   if (!isAuthorized) {
     return {

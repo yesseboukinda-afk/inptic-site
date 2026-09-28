@@ -18,7 +18,17 @@ const isSpecialStaffEmail = (email?: string) => {
 const isDirectorAccountEmail = (email?: string) => normalizeAccountEmail(email) === 'directeur@inptic.ga';
 const isAdminAccountEmail = (email?: string) => {
   const normalized = normalizeAccountEmail(email);
-  return normalized === 'admin@inptic.ga' || normalized.startsWith('admin@');
+  const configured = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return (
+    normalized === 'admin@inptic.ga' ||
+    normalized.startsWith('admin@') ||
+    normalized === 'yesseboukinda@gmail.com' ||
+    normalized === 'yessemabicka@gmail.com' ||
+    configured.includes(normalized)
+  );
 };
 
 const socialProviders = [
