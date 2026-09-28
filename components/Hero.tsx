@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, ArrowRight, Bot, Box, FileText, GraduationCap, X } from 'lucide-react';
+import { Search, ArrowRight, Bot, Box, FileText, GraduationCap, X, Megaphone } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
@@ -12,7 +12,7 @@ const quickActions = [
   { label: 'Candidature', icon: FileText, ariaLabel: 'Accéder au formulaire de candidature' },
   { label: 'Alumni', icon: GraduationCap, ariaLabel: 'Accéder à la plateforme Alumni' },
   { label: 'ANDG', icon: GraduationCap, ariaLabel: 'Annuaire national des diplomés du Gabon' },
-  { label: 'Anonces', icon: GraduationCap, ariaLabel: 'Accéder aux annonces' },
+  { label: 'Anonces', icon: Megaphone, ariaLabel: 'Accéder aux annonces' },
 ];
 
 const galleryImages = [
@@ -391,7 +391,7 @@ export default function Hero() {
 
       <div className="relative z-20 mt-6 grid grid-cols-2 gap-2 px-3 sm:gap-3 md:hidden">
         {quickActions.map(({ label, icon: Icon, ariaLabel }, index) => {
-          const actionKey = ['bot', 'visit3d', 'application', 'alumni'][index];
+          const actionKey = ['bot', 'visit3d', 'application', 'alumni', 'andg', 'annonces'][index];
           const localizedLabel = t(`hero.${actionKey}`);
           const localizedAriaLabel = t(`hero.${actionKey}Label`);
           const isSelected = selectedAction === actionKey;
@@ -436,7 +436,7 @@ export default function Hero() {
 
       <div className="absolute right-5 bottom-20 hidden xl:flex flex-col gap-3 bg-slate-900/55 backdrop-blur-sm p-4 rounded-xl text-xs text-center space-y-4 animate-in fade-in slide-in-from-right-8 duration-1000 border border-white/10">
         {quickActions.map(({ label, icon: Icon, ariaLabel }, index) => {
-          const actionKey = ['bot', 'visit3d', 'application', 'alumni'][index];
+          const actionKey = ['bot', 'visit3d', 'application', 'alumni', 'andg', 'annonces'][index];
           const localizedLabel = t(`hero.${actionKey}`);
           const localizedAriaLabel = t(`hero.${actionKey}Label`);
           const isSelected = selectedAction === actionKey;
