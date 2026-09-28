@@ -686,14 +686,11 @@ export default function Hero() {
             )}
         </div>
       </div>
-
+            
       {/* QUICK ACTIONS - MOBILE */}
       <div className="relative z-20 mt-6 grid grid-cols-2 gap-2 px-3 sm:gap-3 md:hidden">
         {quickActions.map(
-          (
-            { label, icon: Icon, ariaLabel },
-            index,
-          ) => {
+          ({ label, icon: Icon, ariaLabel }, index) => {
             const actionKey = [
               'bot',
               'visit3d',
@@ -702,16 +699,9 @@ export default function Hero() {
               'andg',
             ][index];
 
-            const localizedLabel = t(
-              `hero.${actionKey}`,
-            );
-
-            const localizedAriaLabel = t(
-              `hero.${actionKey}Label`,
-            );
-
-            const isSelected =
-              selectedAction === actionKey;
+            const localizedLabel = t(`hero.${actionKey}`);
+            const localizedAriaLabel = t(`hero.${actionKey}Label`);
+            const isSelected = selectedAction === actionKey;
 
             const content = (
               <div
@@ -725,9 +715,7 @@ export default function Hero() {
                   size={18}
                   aria-hidden="true"
                   className={
-                    isSelected
-                      ? 'text-[#F4D06F]'
-                      : 'text-white'
+                    isSelected ? 'text-[#F4D06F]' : 'text-white'
                   }
                 />
 
@@ -737,11 +725,27 @@ export default function Hero() {
               </div>
             );
 
+            {/* ANDG = BACKLINK EXTERNE */}
+            if (actionKey === 'andg') {
+              return (
+                <a
+                  key={label}
+                  href="https://andg.ga"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={localizedAriaLabel}
+                  className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
+                >
+                  {content}
+                </a>
+              );
+            }
+
+            {/* LIENS INTERNES */}
             if (
               actionKey === 'visit3d' ||
               actionKey === 'application' ||
-              actionKey === 'alumni' ||
-              actionKey === 'andg'
+              actionKey === 'alumni'
             ) {
               return (
                 <Link
@@ -751,9 +755,7 @@ export default function Hero() {
                       ? '/visite-3d'
                       : actionKey === 'alumni'
                         ? '/alumni'
-                        : actionKey === 'andg'
-                          ? '/andg'
-                          : '/admissions/depot'
+                        : '/admissions/depot'
                   }
                   aria-label={localizedAriaLabel}
                   className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
@@ -763,6 +765,7 @@ export default function Hero() {
               );
             }
 
+            {/* BOT */}
             return (
               <button
                 key={label}
@@ -786,13 +789,11 @@ export default function Hero() {
         )}
       </div>
 
+
       {/* QUICK ACTIONS - DESKTOP */}
       <div className="absolute bottom-20 right-5 hidden flex-col gap-3 space-y-4 rounded-xl border border-white/10 bg-slate-900/55 p-4 text-center text-xs backdrop-blur-sm animate-in fade-in slide-in-from-right-8 duration-1000 xl:flex">
         {quickActions.map(
-          (
-            { label, icon: Icon, ariaLabel },
-            index,
-          ) => {
+          ({ label, icon: Icon, ariaLabel }, index) => {
             const actionKey = [
               'bot',
               'visit3d',
@@ -801,16 +802,9 @@ export default function Hero() {
               'andg',
             ][index];
 
-            const localizedLabel = t(
-              `hero.${actionKey}`,
-            );
-
-            const localizedAriaLabel = t(
-              `hero.${actionKey}Label`,
-            );
-
-            const isSelected =
-              selectedAction === actionKey;
+            const localizedLabel = t(`hero.${actionKey}`);
+            const localizedAriaLabel = t(`hero.${actionKey}Label`);
+            const isSelected = selectedAction === actionKey;
 
             const commonClassName = `flex flex-col items-center gap-2 rounded-lg p-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/70 ${
               isSelected
@@ -818,11 +812,45 @@ export default function Hero() {
                 : 'text-white hover:bg-white/10'
             }`;
 
+            {/* ANDG = BACKLINK EXTERNE */}
+            if (actionKey === 'andg') {
+              return (
+                <a
+                  key={label}
+                  href="https://andg.ga"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={commonClassName}
+                  aria-label={localizedAriaLabel}
+                >
+                  <Icon
+                    size={20}
+                    aria-hidden="true"
+                    className={
+                      isSelected
+                        ? 'text-[#F4D06F]'
+                        : 'text-white'
+                    }
+                  />
+
+                  <span
+                    className={`font-semibold ${
+                      isSelected
+                        ? 'text-[#F4D06F]'
+                        : 'text-white'
+                    }`}
+                  >
+                    {localizedLabel}
+                  </span>
+                </a>
+              );
+            }
+
+            {/* LIENS INTERNES */}
             if (
               actionKey === 'visit3d' ||
               actionKey === 'application' ||
-              actionKey === 'alumni' ||
-              actionKey === 'andg'
+              actionKey === 'alumni'
             ) {
               return (
                 <Link
@@ -832,9 +860,7 @@ export default function Hero() {
                       ? '/visite-3d'
                       : actionKey === 'alumni'
                         ? '/alumni'
-                        : actionKey === 'andg'
-                          ? '/andg'
-                          : '/admissions/depot'
+                        : '/admissions/depot'
                   }
                   className={commonClassName}
                   aria-label={localizedAriaLabel}
@@ -862,6 +888,7 @@ export default function Hero() {
               );
             }
 
+            {/* BOT */}
             return (
               <button
                 key={label}
