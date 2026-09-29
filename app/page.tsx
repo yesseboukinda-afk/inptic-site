@@ -1,6 +1,7 @@
 "use client";
 
 import Hero from "@/components/Hero";
+import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
@@ -75,19 +76,36 @@ export default function Home() {
               </p>
             </article>
             <div className="space-y-4">
-              <article className="border rounded-xl p-5">
-                <b>{t('home.alumniLaunch')}</b>
+              <Link
+                href="/alumni"
+                className="group block border rounded-xl p-5 hover:border-blue-500 hover:shadow-md transition bg-white"
+              >
+                <div className="flex items-center justify-between">
+                  <b className="group-hover:text-blue-600 transition">{t('home.alumniLaunch')}</b>
+                  <ArrowRight size={16} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition" />
+                </div>
                 <p className="text-sm text-slate-500 mt-2">
                   {t('home.alumniText')}
                 </p>
-              </article>
-              <article className="border rounded-xl p-5">
-                <b>{t('home.researchers')}</b>
-                <p className="text-sm text-slate-500 mt-2">
+              </Link>
+
+              <Link
+                href="/recherche/publications"
+                className="group block border border-blue-100 bg-gradient-to-br from-white to-blue-50/50 rounded-xl p-5 hover:border-blue-500 hover:shadow-md transition ring-1 ring-blue-500/10"
+              >
+                <div className="flex items-center justify-between">
+                  <b className="text-blue-900 group-hover:text-blue-600 transition">{t('home.researchers')}</b>
+                  <ArrowRight size={16} className="text-blue-600 group-hover:translate-x-1 transition" />
+                </div>
+                <p className="text-sm text-slate-600 mt-2">
                   {t('home.researchersText')}
                 </p>
-              </article>
-              <article className="border rounded-xl p-5">
+                <span className="inline-block mt-3 text-xs font-bold text-blue-600 group-hover:underline">
+                  Découvrir les travaux &amp; publications →
+                </span>
+              </Link>
+
+              <article className="border rounded-xl p-5 bg-white">
                 <b>{t('home.clubs')}</b>
                 <p className="text-sm text-slate-500 mt-2">
                   {t('home.clubsText')}

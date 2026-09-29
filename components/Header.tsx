@@ -66,6 +66,7 @@ export default function Header() {
       href: '/recherche',
       description: t('header.researchDescription'),
       submenu: [
+        { id: 'publications', label: 'Publications scientifiques', href: '/recherche/publications', description: 'Travaux et articles de nos chercheurs' },
         { id: 'laboratoires', label: t('header.labs'), href: '/recherche/laboratoires', description: '' },
         { id: 'projets', label: t('header.studentProjects'), href: '/recherche/projets', description: '' },
         { id: 'incubateur', label: t('header.incubator'), href: '/recherche/incubateur', description: '' },
