@@ -2,15 +2,16 @@
 
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, OrbitControls, useGLTF, useProgress } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentRef, RefObject } from 'react';
 import * as THREE from 'three';
 import { zones } from './zones';
 
 const MODEL_URL = '/models/colorz-city.glb';
 type Controls = ComponentRef<typeof OrbitControls>;
+type Vec3 = [number, number, number];
 
-function Model() {
+function Model({ onPick }: { onPick: (p: Vec3) => void }) {
   const { scene } = useGLTF(MODEL_URL);
 
   // Normalise à ~20 unités et centre la ville sur l'origine
@@ -29,8 +30,11 @@ function Model() {
       position={position}
       onClick={(e: { stopPropagation: () => void; point: THREE.Vector3 }) => {
         e.stopPropagation();
-        // À supprimer une fois les zones placées
-        console.log('point:', e.point.toArray().map((n) => +n.toFixed(2)));
+        // Repérage : uniquement en développement
+        if (process.env.NODE_ENV === 'production') return;
+        const p = e.point.toArray().map((n) => +n.toFixed(2)) as Vec3;
+        onPick(p);
+        navigator.clipboard?.writeText(`[${p.join(', ')}]`);
       }}
     />
   );
@@ -55,7 +59,7 @@ function CameraRig({
   controlsRef: RefObject<Controls | null>;
   flying: RefObject<boolean>;
 }) {
-  useFrame((state, delta) => {
+  useFrame((state: { camera: { position: { lerp: (arg0: THREE.Vector3, arg1: number) => void; distanceTo: (arg0: THREE.Vector3) => number; }; }; }, delta: number) => {
     const controls = controlsRef.current;
     if (!flying.current || !controls) return;
     const zone = zones.find((z) => z.id === activeZone);
@@ -82,6 +86,7 @@ export default function TourScene({ activeZone, onZoneSelect, labels }: Props) {
   const controlsRef = useRef<Controls>(null);
   const flying = useRef(false);
   const previousZone = useRef(activeZone);
+  const [picked, setPicked] = useState<Vec3 | null>(null);
 
   // Ne vole que lorsque la zone change réellement (pas au montage)
   useEffect(() => {
@@ -97,8 +102,17 @@ export default function TourScene({ activeZone, onZoneSelect, labels }: Props) {
       <directionalLight position={[10, 15, 5]} intensity={1.6} />
 
       <Suspense fallback={<Loader />}>
-        <Model />
+        <Model onPick={setPicked} />
       </Suspense>
+
+      {/* Repérage (dev uniquement) : coordonnées du point cliqué, déjà copiées */}
+      {picked && (
+        <Html position={picked} center zIndexRange={[20, 0]}>
+          <div className="pointer-events-none whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white">
+            [{picked.join(', ')}] copié
+          </div>
+        </Html>
+      )}
 
       {zones.map((z) => (
         <Html key={z.id} position={z.point} center zIndexRange={[10, 0]}>
