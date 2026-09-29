@@ -20,7 +20,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Lottie } from 'lottie-react';
@@ -551,11 +551,111 @@ function findFormationMatches(
  * =========================================================
  */
 
+/**
+ * Configuration du popup d'annonces de la page d'accueil (Bloc A5)
+ */
+export const POPUP_CONFIG = {
+  APPEAR_DELAY_MS: 1500, // Apparition différée (1.5s après le chargement)
+  AUTO_CLOSE_MS: 8000, // Fermeture automatique (~8s)
+  STORAGE_KEY: 'inptic_annonces_popup_closed_until',
+  REMEMBER_DURATION_MS: 12 * 60 * 60 * 1000, // Mémorisation de fermeture pendant 12 heures
+};
+
 export default function Hero() {
   const { t } = useTranslation();
 
-  const [showAnnouncements, setShowAnnouncements] =
-    useState(true);
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [popupProgress, setPopupProgress] = useState(100);
+  const [isPopupHovered, setIsPopupHovered] = useState(false);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const remainingTimeRef = useRef<number>(POPUP_CONFIG.AUTO_CLOSE_MS);
+  const lastTickRef = useRef<number | null>(null);
+  const isHoveredRef = useRef(false);
+  isHoveredRef.current = isPopupHovered;
+
+  const handleCloseAnnouncements = useCallback((remember = true) => {
+    setShowAnnouncements(false);
+    if (remember && typeof window !== 'undefined') {
+      try {
+        const expireAt = Date.now() + POPUP_CONFIG.REMEMBER_DURATION_MS;
+        localStorage.setItem(POPUP_CONFIG.STORAGE_KEY, String(expireAt));
+      } catch {
+        try {
+          sessionStorage.setItem(POPUP_CONFIG.STORAGE_KEY, 'closed');
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  // 1. Apparition différée après chargement si non mémorisé
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const closedUntil = localStorage.getItem(POPUP_CONFIG.STORAGE_KEY);
+      if (closedUntil && Number(closedUntil) > Date.now()) {
+        return;
+      }
+      if (sessionStorage.getItem(POPUP_CONFIG.STORAGE_KEY)) {
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    const timer = setTimeout(() => {
+      setShowAnnouncements(true);
+      remainingTimeRef.current = POPUP_CONFIG.AUTO_CLOSE_MS;
+      setPopupProgress(100);
+    }, POPUP_CONFIG.APPEAR_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 2. Gestion de la fermeture automatique avec barre de progression et pause au survol
+  useEffect(() => {
+    if (!showAnnouncements) return;
+
+    closeBtnRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseAnnouncements(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    let animId: number;
+    lastTickRef.current = performance.now();
+
+    const tick = (now: number) => {
+      const delta = now - (lastTickRef.current || now);
+      lastTickRef.current = now;
+
+      if (!isHoveredRef.current) {
+        remainingTimeRef.current = Math.max(0, remainingTimeRef.current - delta);
+        const percent = (remainingTimeRef.current / POPUP_CONFIG.AUTO_CLOSE_MS) * 100;
+        setPopupProgress(percent);
+
+        if (remainingTimeRef.current <= 0) {
+          handleCloseAnnouncements(true);
+          return;
+        }
+      }
+
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAnnouncements, handleCloseAnnouncements]);
 
   const [selectedAction, setSelectedAction] =
     useState('visit3d');
@@ -1255,108 +1355,107 @@ export default function Hero() {
           ===================================================== */}
 
       {showAnnouncements && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="annonces-popup-title"
+          aria-describedby="annonces-popup-desc"
+          className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+        >
           <div
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-[3px] animate-in fade-in duration-300"
             aria-hidden="true"
+            onClick={() => handleCloseAnnouncements(true)}
           />
 
           <div
-            className="absolute h-72 w-72 rounded-full bg-blue-500/20 blur-3xl animate-pulse"
+            className="absolute h-72 w-72 rounded-full bg-blue-500/20 blur-3xl motion-safe:animate-pulse pointer-events-none"
             aria-hidden="true"
           />
 
-          <div className="relative animate-bounce-in">
-
+          <div
+            onMouseEnter={() => setIsPopupHovered(true)}
+            onMouseLeave={() => setIsPopupHovered(false)}
+            className="relative motion-safe:animate-bounce-in max-w-full"
+          >
             <div
-              className="absolute -inset-2 rounded-[2rem] bg-blue-500/40 blur-xl animate-pulse"
+              className="absolute -inset-2 rounded-[2rem] bg-blue-500/40 blur-xl motion-safe:animate-pulse pointer-events-none"
               aria-hidden="true"
             />
 
             <div className="relative w-[min(92vw,430px)] overflow-hidden rounded-[1.75rem] border border-blue-300/30 bg-slate-950/95 p-6 text-white shadow-[0_0_60px_rgba(59,130,246,0.45)] backdrop-blur-xl sm:p-8">
+              {/* Barre de progression avec fermeture automatique et pause au survol */}
+              <div
+                className="absolute top-0 left-0 right-0 h-1.5 bg-slate-800 overflow-hidden"
+                role="progressbar"
+                aria-valuenow={Math.round(popupProgress)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Temps avant fermeture automatique de la notification"
+              >
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-[#D4AF37] transition-[width] duration-75 ease-linear"
+                  style={{ width: `${popupProgress}%` }}
+                />
+              </div>
 
               <div
-                className="absolute left-1/2 top-0 h-1 w-32 -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_rgba(34,211,238,0.9)]"
+                className="absolute left-1/2 top-1.5 h-1 w-32 -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_rgba(34,211,238,0.9)]"
                 aria-hidden="true"
               />
 
               <button
+                ref={closeBtnRef}
                 type="button"
-                onClick={() =>
-                  setShowAnnouncements(false)
-                }
-                aria-label="Fermer les annonces"
-                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition-all duration-200 hover:scale-110 hover:bg-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] focus:outline-none focus:ring-2 focus:ring-white"
+                onClick={() => handleCloseAnnouncements(true)}
+                aria-label="Fermer les annonces (Échap)"
+                title="Fermer (Échap)"
+                className="absolute right-3 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition-all duration-200 hover:scale-110 hover:bg-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] focus:outline-none focus:ring-2 focus:ring-cyan-300"
               >
-                <X
-                  size={18}
-                  aria-hidden="true"
-                />
+                <X size={18} aria-hidden="true" />
               </button>
 
-              <div className="flex justify-center">
-
+              <div className="flex justify-center mt-2">
                 <div className="relative">
-
                   <div
-                    className="absolute -inset-4 rounded-full border border-blue-400/20 animate-ping"
+                    className="absolute -inset-4 rounded-full border border-blue-400/20 motion-safe:animate-ping pointer-events-none"
                     aria-hidden="true"
                   />
 
                   <div
-                    className="absolute -inset-2 rounded-full bg-blue-500/30 blur-md"
+                    className="absolute -inset-2 rounded-full bg-blue-500/30 blur-md pointer-events-none"
                     aria-hidden="true"
                   />
 
                   <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-blue-300/30 bg-gradient-to-br from-blue-500 to-cyan-500 shadow-[0_0_35px_rgba(59,130,246,0.7)]">
-
-                    <Megaphone
-                      size={38}
-                      strokeWidth={2}
-                      aria-hidden="true"
-                    />
-
+                    <Megaphone size={38} strokeWidth={2} aria-hidden="true" />
                     <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 ring-4 ring-slate-950">
-
-                      <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-
+                      <span className="h-2 w-2 rounded-full bg-white motion-safe:animate-pulse" />
                     </span>
-
                   </div>
-
                 </div>
-
               </div>
 
               <div className="mt-6 text-center">
-
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-300">
                   Nouveautés
                 </p>
 
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                <h2 id="annonces-popup-title" className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
                   Annonces
                 </h2>
 
-                <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-300 sm:text-base">
-                  Découvrez les dernières actualités,
-                  informations et annonces de l'INPTIC.
+                <p id="annonces-popup-desc" className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-300 sm:text-base">
+                  Découvrez les dernières actualités, informations et annonces de l'INPTIC.
                 </p>
-
               </div>
 
               <Link
                 href="/annonces"
-                onClick={() =>
-                  setShowAnnouncements(false)
-                }
+                onClick={() => handleCloseAnnouncements(true)}
                 className="group mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 px-5 py-3.5 font-bold text-white shadow-[0_0_25px_rgba(59,130,246,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_35px_rgba(34,211,238,0.65)] focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950"
               >
-                <span>
-                  Voir les annonces
-                </span>
-
+                <span>Voir les annonces</span>
                 <ArrowRight
                   size={19}
                   aria-hidden="true"
@@ -1364,10 +1463,12 @@ export default function Hero() {
                 />
               </Link>
 
-              <p className="mt-4 text-center text-[11px] text-slate-500">
-                Cliquez sur × pour fermer
-              </p>
-
+              <div className="mt-4 flex items-center justify-between text-[11px] text-slate-400 px-1">
+                <span>
+                  {isPopupHovered ? '⏸ Pause au survol' : '⏱ Fermeture auto (~8s)'}
+                </span>
+                <span>Touche Échap pour fermer</span>
+              </div>
             </div>
           </div>
         </div>
