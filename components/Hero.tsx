@@ -29,7 +29,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 
 import { useTranslation } from 'react-i18next';
-import Lottie from 'lottie-react';
+import { Lottie } from 'lottie-react';
 
 import visit3dAnimation from '@/public/quickactions/visit3d.json';
 import applicationAnimation from '@/public/quickactions/candidature.json';
@@ -1445,20 +1445,11 @@ export default function Hero() {
 
           actionKey === 'alumni' ? (
 
-            <Lottie
-
-              animationData={quickActionAnimations[actionKey]}
-
-              loop
-
-              autoplay
-
-              aria-hidden="true"
-
-              className="h-7 w-7"
-
-            />
-
+           <Lottie
+            src={Animation}
+            autoplay
+            loop
+          />
           ) : (
 
             <Icon
@@ -1803,18 +1794,10 @@ export default function Hero() {
 
           >
 
-            <Lottie
-
-              animationData={quickActionAnimations[actionKey]}
-
-              loop
-
+           <Lottie
+              src={Animation}
               autoplay
-
-              aria-hidden="true"
-
-              className="h-8 w-8"
-
+              loop
             />
 
 
