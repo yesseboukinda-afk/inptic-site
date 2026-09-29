@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronUp, Copy, Download,
+  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Copy, Download,
   ExternalLink, Facebook, FileText, Megaphone, MessageCircle, Paperclip,
   Pencil, Plus, Share2, ShieldCheck, Tag, Trash2,
 } from 'lucide-react';
@@ -532,11 +532,15 @@ export default function AnnoncesPublicPage() {
     }
   };
 
-  /* ── Filter ── */
-  const categories = ['Toutes', ...Array.from(new Set(annonces.map((a) => a.category)))];
+  /* ── Filter : Sortie du flux général de /annonces (Bloc A2) ── */
+  const categories = ['Toutes', ...Array.from(new Set(annonces.map((a) => a.category))).filter((c) => c !== 'Concours')];
 
   const filtered = annonces.filter((a) => {
-    const matchCat = selectedCategory === 'Toutes' || a.category === selectedCategory;
+    // Si 'Toutes', on sort les concours du flux général des annonces
+    const matchCat =
+      selectedCategory === 'Toutes'
+        ? a.category !== 'Concours'
+        : a.category === selectedCategory;
     const matchSearch =
       !search ||
       a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -546,6 +550,32 @@ export default function AnnoncesPublicPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      {/* ── Encart Espace Concours & Résultats dédié (Bloc A2) ── */}
+      <div className="mx-auto max-w-5xl px-4 pt-6 md:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-xl text-slate-950 font-black shadow-sm">
+              🏆
+            </span>
+            <div>
+              <p className="text-sm font-bold text-slate-900">
+                Portail officiel des Concours &amp; Résultats de l&apos;INPTIC
+              </p>
+              <p className="text-xs text-slate-600">
+                Les concours, calendriers des épreuves, conditions d&apos;admission et procès-verbaux de résultats disposent désormais d&apos;un espace dédié.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/concours"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-blue-600"
+          >
+            <span>Accéder à l&apos;Espace Concours</span>
+            <ChevronRight size={14} />
+          </Link>
+        </div>
+      </div>
+
       {/* ── Hero Banner ── */}
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-5xl px-4 py-12 md:px-8 md:py-16">

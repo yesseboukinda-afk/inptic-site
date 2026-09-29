@@ -54,6 +54,7 @@ export default function Header() {
       description: t('header.admissionsDescription'),
       submenu: [
         { id: 'guide', label: t('header.guideAdmission'), href: '/admissions/guide', description: '' },
+        { id: 'concours', label: 'Concours & Résultats', href: '/concours', description: 'Portail des concours et résultats' },
         { id: 'calculateur', label: t('header.eligibilityCalculator'), href: '/admissions/calculateur', description: '' },
         { id: 'depot', label: t('header.submitApplication'), href: '/admissions/depot', description: '' },
         { id: 'suivi', label: t('header.realTimeTracking'), href: '/admissions/suivi', description: '' },
@@ -340,7 +341,7 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/vie-etudiante" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.concoursSpace', 'Espace Concours')}>
+                <Link href="/concours" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={16} aria-hidden="true" />
                   <span className="btn-label">{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
@@ -382,7 +383,7 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.concoursSpace', 'Espace Concours')}>
+                <Link href="/concours" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={14} aria-hidden="true" />
                   <span>{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>

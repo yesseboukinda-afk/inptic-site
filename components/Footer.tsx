@@ -68,6 +68,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
               <li><a href="/contact" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.writeUs')}</a></li>
               <li><a href="/admissions" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.admissions')}</a></li>
+              <li><a href="/concours" className="transition-colors duration-200 hover:text-[#D4AF37]">Concours &amp; Résultats</a></li>
               <li><a href="/vie-etudiante" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.studentLife')}</a></li>
               <li><a href="/entreprises" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.companies')}</a></li>
             </ul>
