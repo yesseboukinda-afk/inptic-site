@@ -44,8 +44,8 @@ const quickActions = [
 ];
 
 const galleryImages = [
-  '/ institut/1.webp',
-  '/ institut/2.webp',
+  '/institut/1.webp',
+  '/institut/2.webp',
   '/institut/3.webp',
   '/institut/4.webp',
   '/institut/5.webp',
