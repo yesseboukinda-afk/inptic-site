@@ -23,6 +23,11 @@ export function normalizeRole(value: unknown): string {
       'communication',
       'responsable_communication',
       'responsable_de_communication',
+      'rh',
+      'drh',
+      'rh_admin',
+      'rh_gestionnaire',
+      'rh_consultation',
     ].includes(role),
   );
 
@@ -89,13 +94,25 @@ export function isDirectorAccountEmail(email?: string | null): boolean {
   return normalized === 'directeur@inptic.ga';
 }
 
+export function isRHRole(value: unknown): boolean {
+  const role = normalizeRole(value);
+  return (
+    role === 'rh' ||
+    role === 'drh' ||
+    role === 'rh_admin' ||
+    role === 'rh_gestionnaire' ||
+    role === 'rh_consultation'
+  );
+}
+
 export function isStaffOrAdminUser(email?: string | null, role?: unknown): boolean {
   return (
     isAdminAccountEmail(email) ||
     isDirectorAccountEmail(email) ||
     isAdminRole(role) ||
     isDirectorRole(role) ||
-    isCommunicationRole(role)
+    isCommunicationRole(role) ||
+    isRHRole(role)
   );
 }
 
@@ -105,5 +122,6 @@ export function getRolePath(role: string): string {
   if (role === 'direction_etudes') return '/direction-etudes';
   if (role === 'communication') return '/annonces/gestion';
   if (role === 'directeur') return '/directeur';
+  if (isRHRole(role)) return '/admin/rh';
   return '/admissions/suivi';
 }
