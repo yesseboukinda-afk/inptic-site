@@ -1,0 +1,57 @@
+=== 1. FICHIERS ===
+total 28
+drwxrwxr-x  2 yesse yesse 4096 Sep 29 09:46 .
+drwxrwxr-x 22 yesse yesse 4096 Sep 23 20:46 ..
+-rw-rw-r--  1 yesse yesse 9042 Sep 29 09:43 page.tsx
+-rw-rw-r--  1 yesse yesse 4003 Sep 29 09:43 tourScene.tsx
+-rw-rw-r--  1 yesse yesse  654 Sep 29 09:44 zones.ts
+total 2076
+drwxrwxr-x 2 yesse yesse    4096 Sep 29 09:21 .
+drwxrwxr-x 8 yesse yesse    4096 Sep 29 09:20 ..
+-rw-rw-r-- 1 yesse yesse 2113716 Sep 29 09:15 colorz-city.glb
+
+=== 2. VERSIONS ===
+v22.23.2
+10.9.8
+├─┬ @react-three/drei@10.7.9
+├─┬ @react-three/fiber@9.8.1
+├── @types/three@0.186.0
+├─┬ @vercel/analytics@2.0.1
+├─┬ lucide-react@0.468.0
+├─┬ next@16.3.4
+├─┬ react-dom@19.2.8
+├─┬ react-i18next@17.0.13
+├── react@19.2.8
+└── three@0.186.1
+
+=== 3. FIBER : fichiers de types ===
+core
+index.d.ts
+native
+native.d.ts
+three-types.d.ts
+  "version": "9.8.1",
+  "main": "dist/react-three-fiber.cjs.js",
+  "module": "dist/react-three-fiber.esm.js",
+  "types": "dist/react-three-fiber.cjs.d.ts",
+
+=== 4. TSCONFIG ===
+11:    "strict": true,
+15:    "moduleResolution": "bundler",
+24:    "jsx": "react-jsx",
+32:  "include": [
+
+=== 5. CONTENU zones.ts ===
+export type Zone = {
+  id: string;
+  labelKey: string;
+  point: [number, number, number]; // où se trouve le repère
+  camera: [number, number, number]; // d'où la caméra regarde
+
+=== 6. IMPORTS DANS LA PAGE ===
+app/visite-3d/page.tsx:8:import { zones } from './zones';
+app/visite-3d/page.tsx:10:const TourScene = dynamic(() => import('./tourScene'), {
+app/visite-3d/tourScene.tsx:8:import { zones } from './zones';
+
+=== 7. TYPESCRIPT (tsc --noEmit) ===
+tsc terminé (code: 0)
