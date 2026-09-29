@@ -38,8 +38,8 @@ import alumniAnimation from '@/public/quickactions/alumni.json';
 /**
  * Association entre une action et son animation Lottie.
  *
- * Les actions "bot" et "andg" n'ont volontairement
- * pas d'animation Lottie.
+ * Les actions "bot" et "andg" utilisent leurs icônes/logos
+ * classiques.
  */
 const quickActionAnimations = {
   visit3d: visit3dAnimation,
@@ -51,9 +51,6 @@ const quickActionAnimations = {
  * =========================================================
  * QUICK ACTIONS
  * =========================================================
- *
- * Le "key" est directement défini ici.
- * Cela évite de dépendre de l'index du tableau.
  */
 
 const quickActions = [
@@ -104,7 +101,7 @@ const galleryImages = [
 ];
 
 /**
- * On duplique les images afin de permettre
+ * Duplication des images pour créer
  * une animation de slider continue.
  */
 const sliderImages = [...galleryImages, ...galleryImages];
@@ -467,14 +464,6 @@ const formationRecommendations: FormationRecommendation[] = [
  * =========================================================
  * NORMALISATION DES RECHERCHES
  * =========================================================
- *
- * Permet de comparer :
- *
- * "Cybersécurité"
- * avec
- * "cybersecurite"
- *
- * sans tenir compte des accents ou des majuscules.
  */
 
 function normalizeSearchValue(value: string) {
@@ -495,7 +484,9 @@ function findFormationMatches(
   domain: string,
   level: string,
 ) {
-  const normalizedQuery = normalizeSearchValue(query.trim());
+  const normalizedQuery = normalizeSearchValue(
+    query.trim(),
+  );
 
   const queryWords = normalizedQuery
     .split(/\s+/)
@@ -503,11 +494,8 @@ function findFormationMatches(
 
   return formationRecommendations
     .map((formation) => {
-      /**
-       * Nombre de mots-clés correspondants.
-       */
-      const keywordMatches = formation.keywords.filter(
-        (keyword) => {
+      const keywordMatches =
+        formation.keywords.filter((keyword) => {
           const normalizedKeyword =
             normalizeSearchValue(keyword);
 
@@ -519,28 +507,20 @@ function findFormationMatches(
                 word.includes(normalizedKeyword),
             )
           );
-        },
-      ).length;
+        }).length;
 
-      /**
-       * Correspondance avec le domaine.
-       */
       const domainMatch =
-        domain && formation.domains.includes(domain)
+        domain &&
+        formation.domains.includes(domain)
           ? 4
           : 0;
 
-      /**
-       * Correspondance avec le niveau.
-       */
       const levelMatch =
-        level && formation.levels.includes(level)
+        level &&
+        formation.levels.includes(level)
           ? 1
           : 0;
 
-      /**
-       * Calcul du score.
-       */
       const score =
         keywordMatches * 3 +
         domainMatch +
@@ -551,24 +531,11 @@ function findFormationMatches(
         score,
       };
     })
-
-    /**
-     * On place les meilleurs résultats en premier.
-     */
     .sort(
       (first, second) =>
         second.score - first.score,
     )
-
-    /**
-     * On limite à 3 formations.
-     */
     .slice(0, 3)
-
-    /**
-     * Conversion du score interne
-     * en pourcentage visuel.
-     */
     .map(({ formation, score }) => ({
       ...formation,
       score: Math.min(
@@ -587,41 +554,23 @@ function findFormationMatches(
 export default function Hero() {
   const { t } = useTranslation();
 
-  /**
-   * Affichage de la popup d'annonces.
-   */
   const [showAnnouncements, setShowAnnouncements] =
     useState(true);
 
-  /**
-   * Action actuellement sélectionnée.
-   */
   const [selectedAction, setSelectedAction] =
     useState('visit3d');
 
-  /**
-   * Domaine sélectionné dans le finder.
-   */
   const [formationDomain, setFormationDomain] =
     useState('');
 
-  /**
-   * Niveau sélectionné dans le finder.
-   */
   const [formationLevel, setFormationLevel] =
     useState('');
 
-  /**
-   * Résultats de recherche.
-   */
   const [formationMatches, setFormationMatches] =
     useState<
       ReturnType<typeof findFormationMatches>
     >([]);
 
-  /**
-   * Affichage des résultats.
-   */
   const [showFormationResults, setShowFormationResults] =
     useState(false);
 
@@ -660,7 +609,6 @@ export default function Hero() {
                 aria-hidden="true"
               />
 
-              {/* Voile sombre sur les images */}
               <div
                 className="absolute inset-0 bg-slate-950/35"
                 aria-hidden="true"
@@ -671,7 +619,6 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Dégradé général du Hero */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-slate-950/45 to-slate-950/55" />
 
       {/* =====================================================
@@ -698,7 +645,6 @@ export default function Hero() {
 
           </div>
 
-          {/* Bouton principal */}
           <a
             href="/formations"
             className="icon-only-mobile mt-4 inline-flex w-full items-center justify-center gap-3 rounded-lg bg-blue-600 px-6 py-3 font-semibold transition-all duration-200 hover:bg-blue-700 active:bg-blue-800 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 sm:w-auto md:mt-8 md:px-8 md:py-4"
@@ -724,7 +670,6 @@ export default function Hero() {
 
         <div className="relative mx-auto w-full max-w-md lg:ml-auto">
 
-          {/* Panneau principal */}
           <div
             className={`formation-finder-panel w-full rounded-2xl p-5 shadow-lg transition-all duration-300 sm:p-6 md:p-8 ${
               showFormationResults
@@ -756,7 +701,6 @@ export default function Hero() {
               }}
             >
 
-              {/* Domaine */}
               <select
                 className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
                 aria-label={t('hero.studyDomain')}
@@ -790,7 +734,6 @@ export default function Hero() {
                 </option>
               </select>
 
-              {/* Niveau */}
               <select
                 className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
                 aria-label={t('hero.studyLevel')}
@@ -812,7 +755,6 @@ export default function Hero() {
                 </option>
               </select>
 
-              {/* Bouton recherche */}
               <button
                 type="submit"
                 className="icon-only-mobile flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-semibold text-white transition-all duration-200 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900 hover:shadow-lg active:scale-95 md:py-4"
@@ -848,7 +790,6 @@ export default function Hero() {
                 aria-live="polite"
               >
 
-                {/* Header */}
                 <div className="flex items-start justify-between gap-3">
 
                   <div>
@@ -861,7 +802,6 @@ export default function Hero() {
                     </h3>
                   </div>
 
-                  {/* Fermer */}
                   <button
                     type="button"
                     onClick={() =>
@@ -883,7 +823,6 @@ export default function Hero() {
 
                 </div>
 
-                {/* Liste des résultats */}
                 <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
 
                   {formationMatches.map((match) => (
@@ -936,31 +875,18 @@ export default function Hero() {
         {quickActions.map(
           ({
             key: actionKey,
-            label,
             icon: Icon,
           }) => {
 
-            /**
-             * Traductions.
-             */
             const localizedLabel =
               t(`hero.${actionKey}`);
 
             const localizedAriaLabel =
               t(`hero.${actionKey}Label`);
 
-            /**
-             * Action sélectionnée.
-             */
             const isSelected =
               selectedAction === actionKey;
 
-            /**
-             * Animation Lottie.
-             *
-             * Seules visit3d, application et alumni
-             * possèdent une animation.
-             */
             const animation =
               actionKey in quickActionAnimations
                 ? quickActionAnimations[
@@ -969,24 +895,43 @@ export default function Hero() {
                 : undefined;
 
             /**
-             * Contenu visuel commun.
+             * Contenu commun des boutons mobiles.
              */
             const content = (
               <div
-                className={`flex flex-col items-center justify-center gap-1 rounded-lg border border-white/15 bg-slate-900/70 px-2 py-2 text-center shadow-lg backdrop-blur-sm transition-all duration-200 ${
-                  isSelected
-                    ? 'border-[#D4AF37]/80 bg-[#D4AF37]/15 text-[#F4D06F]'
-                    : 'text-white hover:bg-white/10'
-                }`}
+                className={`
+                  flex
+                  min-h-[64px]
+                  w-full
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-1
+                  rounded-lg
+                  border
+                  border-white/15
+                  bg-slate-900/70
+                  px-2
+                  py-2
+                  text-center
+                  shadow-lg
+                  backdrop-blur-sm
+                  transition-all
+                  duration-200
+                  ${
+                    isSelected
+                      ? 'border-[#D4AF37]/80 bg-[#D4AF37]/15 text-[#F4D06F]'
+                      : 'text-white hover:bg-white/10'
+                  }
+                `}
               >
 
-                {/* Animation pour les actions internes */}
                 {animation ? (
                   <Lottie
                     src={animation}
                     autoplay
                     loop
-                    className="h-10 w-10"
+                    className="h-8 w-8 shrink-0"
                   />
                 ) : (
                   <Icon
@@ -1008,11 +953,8 @@ export default function Hero() {
             );
 
             /**
-             * =================================================
-             * ANDG = LIEN EXTERNE
-             * =================================================
+             * ANDG
              */
-
             if (actionKey === 'andg') {
               return (
                 <a
@@ -1023,22 +965,27 @@ export default function Hero() {
                   aria-label={localizedAriaLabel}
                   className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
                 >
-                  <img
-                    src="/backlinks/ANDCG.svg"
-                    alt="Logo ANDCG - Annuaire National des Diplômés et Certifiés du Gabon"
-                    className="mx-auto h-24 w-auto"
-                    loading="lazy"
-                  />
+                  <div className="flex min-h-[64px] w-full flex-col items-center justify-center gap-1 rounded-lg border border-white/15 bg-slate-900/70 px-2 py-2 text-center shadow-lg backdrop-blur-sm">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white p-1">
+                      <img
+                        src="/backlinks/ANDCG.svg"
+                        alt="Logo ANDCG - Annuaire National des Diplômés et Certifiés du Gabon"
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                      />
+                    </span>
+
+                    <span className="text-[10px] font-semibold leading-tight text-white">
+                      {localizedLabel}
+                    </span>
+                  </div>
                 </a>
               );
             }
 
             /**
-             * =================================================
-             * LIENS INTERNES
-             * =================================================
+             * Liens internes.
              */
-
             if (
               actionKey === 'visit3d' ||
               actionKey === 'application' ||
@@ -1063,11 +1010,8 @@ export default function Hero() {
             }
 
             /**
-             * =================================================
-             * BOT
-             * =================================================
+             * Bot.
              */
-
             return (
               <button
                 key={actionKey}
@@ -1094,33 +1038,23 @@ export default function Hero() {
           QUICK ACTIONS - DESKTOP
           ===================================================== */}
 
-      <div className="absolute bottom-20 right-5 hidden flex-col gap-3 space-y-4 rounded-xl border border-white/10 bg-slate-900/55 p-4 text-center text-xs backdrop-blur-sm animate-in fade-in slide-in-from-right-8 duration-1000 xl:flex">
+      <div className="absolute bottom-20 right-5 z-30 hidden w-[92px] flex-col gap-2 rounded-xl border border-white/10 bg-slate-900/55 p-2 text-center text-xs backdrop-blur-sm animate-in fade-in slide-in-from-right-8 duration-1000 xl:flex">
 
         {quickActions.map(
           ({
             key: actionKey,
-            label,
             icon: Icon,
           }) => {
 
-            /**
-             * Traductions.
-             */
             const localizedLabel =
               t(`hero.${actionKey}`);
 
             const localizedAriaLabel =
               t(`hero.${actionKey}Label`);
 
-            /**
-             * État sélectionné.
-             */
             const isSelected =
               selectedAction === actionKey;
 
-            /**
-             * Animation correspondante.
-             */
             const animation =
               actionKey in quickActionAnimations
                 ? quickActionAnimations[
@@ -1129,17 +1063,34 @@ export default function Hero() {
                 : undefined;
 
             /**
-             * Classes communes.
+             * Taille uniforme de toutes les actions.
              */
-            const commonClassName = `flex flex-col items-center gap-2 rounded-lg p-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/70 ${
-              isSelected
-                ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
-                : 'text-white hover:bg-white/10'
-            }`;
+            const commonClassName = `
+              flex
+              min-h-[68px]
+              w-full
+              flex-col
+              items-center
+              justify-center
+              gap-1
+              rounded-lg
+              px-1.5
+              py-2
+              transition-all
+              duration-200
+              focus:outline-none
+              focus:ring-2
+              focus:ring-white/70
+              ${
+                isSelected
+                  ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
+                  : 'text-white hover:bg-white/10'
+              }
+            `;
 
             /**
              * =================================================
-             * ANDG = LIEN EXTERNE
+             * ANDG
              * =================================================
              */
 
@@ -1154,7 +1105,7 @@ export default function Hero() {
                   aria-label={localizedAriaLabel}
                 >
 
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white p-1">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white p-1">
                     <img
                       src="/backlinks/ANDCG_logo.svg"
                       alt=""
@@ -1164,7 +1115,7 @@ export default function Hero() {
                   </span>
 
                   <span
-                    className={`font-semibold ${
+                    className={`text-[10px] font-semibold leading-tight ${
                       isSelected
                         ? 'text-[#F4D06F]'
                         : 'text-white'
@@ -1202,18 +1153,17 @@ export default function Hero() {
                   aria-label={localizedAriaLabel}
                 >
 
-                  {/* Animation Lottie */}
                   {animation && (
                     <Lottie
                       src={animation}
                       autoplay
                       loop
-                      className="h-10 w-10"
+                      className="h-8 w-8 shrink-0"
                     />
                   )}
 
                   <span
-                    className={`font-semibold ${
+                    className={`text-[10px] font-semibold leading-tight ${
                       isSelected
                         ? 'text-[#F4D06F]'
                         : 'text-white'
@@ -1248,7 +1198,7 @@ export default function Hero() {
               >
 
                 <Icon
-                  size={20}
+                  size={18}
                   aria-hidden="true"
                   className={
                     isSelected
@@ -1258,7 +1208,7 @@ export default function Hero() {
                 />
 
                 <span
-                  className={`font-semibold ${
+                  className={`text-[10px] font-semibold leading-tight ${
                     isSelected
                       ? 'text-[#F4D06F]'
                       : 'text-white'
@@ -1307,37 +1257,30 @@ export default function Hero() {
       {showAnnouncements && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
 
-          {/* Overlay */}
           <div
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-[3px] animate-in fade-in duration-300"
             aria-hidden="true"
           />
 
-          {/* Halo extérieur */}
           <div
             className="absolute h-72 w-72 rounded-full bg-blue-500/20 blur-3xl animate-pulse"
             aria-hidden="true"
           />
 
-          {/* Popup */}
           <div className="relative animate-bounce-in">
 
-            {/* Glow */}
             <div
               className="absolute -inset-2 rounded-[2rem] bg-blue-500/40 blur-xl animate-pulse"
               aria-hidden="true"
             />
 
-            {/* Carte */}
             <div className="relative w-[min(92vw,430px)] overflow-hidden rounded-[1.75rem] border border-blue-300/30 bg-slate-950/95 p-6 text-white shadow-[0_0_60px_rgba(59,130,246,0.45)] backdrop-blur-xl sm:p-8">
 
-              {/* Ligne lumineuse supérieure */}
               <div
                 className="absolute left-1/2 top-0 h-1 w-32 -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_rgba(34,211,238,0.9)]"
                 aria-hidden="true"
               />
 
-              {/* Bouton fermer */}
               <button
                 type="button"
                 onClick={() =>
@@ -1352,27 +1295,20 @@ export default function Hero() {
                 />
               </button>
 
-              {/* =================================================
-                  ICÔNE
-                  ================================================= */}
-
               <div className="flex justify-center">
 
                 <div className="relative">
 
-                  {/* Anneau lumineux */}
                   <div
                     className="absolute -inset-4 rounded-full border border-blue-400/20 animate-ping"
                     aria-hidden="true"
                   />
 
-                  {/* Halo */}
                   <div
                     className="absolute -inset-2 rounded-full bg-blue-500/30 blur-md"
                     aria-hidden="true"
                   />
 
-                  {/* Icône principale */}
                   <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-blue-300/30 bg-gradient-to-br from-blue-500 to-cyan-500 shadow-[0_0_35px_rgba(59,130,246,0.7)]">
 
                     <Megaphone
@@ -1381,7 +1317,6 @@ export default function Hero() {
                       aria-hidden="true"
                     />
 
-                    {/* Badge notification */}
                     <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 ring-4 ring-slate-950">
 
                       <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
@@ -1393,10 +1328,6 @@ export default function Hero() {
                 </div>
 
               </div>
-
-              {/* =================================================
-                  CONTENU
-                  ================================================= */}
 
               <div className="mt-6 text-center">
 
@@ -1414,10 +1345,6 @@ export default function Hero() {
                 </p>
 
               </div>
-
-              {/* =================================================
-                  BOUTON DES ANNONCES
-                  ================================================= */}
 
               <Link
                 href="/annonces"
@@ -1437,7 +1364,6 @@ export default function Hero() {
                 />
               </Link>
 
-              {/* Petit indicateur */}
               <p className="mt-4 text-center text-[11px] text-slate-500">
                 Cliquez sur × pour fermer
               </p>
