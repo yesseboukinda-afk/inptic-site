@@ -901,53 +901,79 @@ export default function GestionAnnoncesPage() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 space-y-8">
-          {/* ── Veille Technologique Internationale Carrousel ── */}
-          <TechVeilleFeed />
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+          <div className="grid gap-8 lg:grid-cols-[1fr_440px] items-start">
+            {/* Colonne Principale (Gauche) */}
+            <div className="space-y-8">
+              {/* ── Veille Technologique Internationale Carrousel ── */}
+              <TechVeilleFeed />
 
-          {/* ── Veille & E-réputation Dashboard ── */}
-          <EReputationDashboard />
-
-          {/* ── Stats bar ── */}
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: 'Total', value: publications.length, color: 'text-slate-700', bg: 'bg-white' },
-              { label: 'Publiées', value: published, color: 'text-emerald-700', bg: 'bg-emerald-50' },
-              { label: 'Brouillons', value: drafts, color: 'text-amber-700', bg: 'bg-amber-50' },
-            ].map(s => (
-              <div key={s.label} className={`rounded-2xl border border-slate-200 ${s.bg} px-5 py-4 shadow-sm`}>
-                <p className="text-xs font-semibold text-slate-400">{s.label}</p>
-                <p className={`mt-1 text-3xl font-black ${s.color}`}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Global message ── */}
-          {globalMsg && (
-            <div className={`mb-5 flex items-start gap-3 rounded-xl border p-4 text-sm ${
-              globalOk
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-amber-200 bg-amber-50 text-amber-900'
-            }`}>
-              {globalOk ? <CheckCircle2 size={17} className="mt-0.5 shrink-0" /> : <AlertCircle size={17} className="mt-0.5 shrink-0" />}
-              <p className="font-medium">{globalMsg}</p>
-              <button onClick={() => setGlobalMsg('')} className="ml-auto shrink-0 opacity-60 hover:opacity-100"><X size={15} /></button>
-            </div>
-          )}
-
-          {/* ── List ── */}
-          {isLoading ? (
-            <div className="flex flex-col gap-4">
-              {[1, 2, 3].map(n => (
-                <div key={n} className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
-                  <div className="mb-3 h-4 w-32 rounded-full bg-slate-200" />
-                  <div className="h-6 w-2/3 rounded-lg bg-slate-200" />
-                  <div className="mt-3 space-y-2">
-                    <div className="h-3.5 w-full rounded bg-slate-100" />
-                    <div className="h-3.5 w-5/6 rounded bg-slate-100" />
+              {/* ── Stats bar ── */}
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'Total', value: publications.length, color: 'text-slate-700', bg: 'bg-white' },
+                  { label: 'Publiées', value: published, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'Brouillons', value: drafts, color: 'text-amber-700', bg: 'bg-amber-50' },
+                ].map(s => (
+                  <div key={s.label} className={`rounded-2xl border border-slate-200 ${s.bg} px-5 py-4 shadow-sm`}>
+                    <p className="text-xs font-semibold text-slate-400">{s.label}</p>
+                    <p className={`mt-1 text-3xl font-black ${s.color}`}>{s.value}</p>
                   </div>
+                ))}
+              </div>
+
+              {/* ── Global message ── */}
+              {globalMsg && (
+                <div className={`mb-5 flex items-start gap-3 rounded-xl border p-4 text-sm ${
+                  globalOk
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-amber-200 bg-amber-50 text-amber-900'
+                }`}>
+                  {globalOk ? <CheckCircle2 size={17} className="mt-0.5 shrink-0" /> : <AlertCircle size={17} className="mt-0.5 shrink-0" />}
+                  <p className="font-medium">{globalMsg}</p>
+                  <button onClick={() => setGlobalMsg('')} className="ml-auto shrink-0 opacity-60 hover:opacity-100"><X size={15} /></button>
                 </div>
-              ))}
+              )}
+
+              {/* ── List ── */}
+              {isLoading ? (
+                <div className="flex flex-col gap-4">
+                  {[1, 2, 3].map(n => (
+                    <div key={n} className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
+                      <div className="mb-3 h-4 w-32 rounded-full bg-slate-200" />
+                      <div className="h-6 w-2/3 rounded-lg bg-slate-200" />
+                      <div className="mt-3 space-y-2">
+                        <div className="h-3.5 w-full rounded bg-slate-100" />
+                        <div className="h-3.5 w-5/6 rounded bg-slate-100" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : publications.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
+                  <Megaphone className="mx-auto text-slate-400" size={32} />
+                  <p className="mt-3 font-bold text-slate-700">Aucune annonce publiée pour le moment.</p>
+                  <p className="mt-1 text-xs text-slate-400">Cliquez sur « Nouvelle annonce » pour créer votre première publication.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {publications.map(pub => (
+                    <PublicationCard
+                      key={pub.id}
+                      pub={pub}
+                      onEdit={() => handleOpenEdit(pub)}
+                      onDelete={() => setDeletingPub(pub)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar Droite (E-réputation) */}
+            <aside className="lg:sticky lg:top-24 max-h-[88vh] overflow-y-auto pr-1">
+              <EReputationDashboard />
+            </aside>
+          </div>
             </div>
           ) : publications.length === 0 ? (
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white px-8 py-20 text-center">
