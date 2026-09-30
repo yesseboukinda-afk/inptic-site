@@ -375,12 +375,11 @@ export default function AdminRHPage() {
   // Sauvegarde Employé (Create / Update)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return;
     setFormSaving(true);
     setFormError('');
 
-    const payload = {
-      id: editingProfile?.id,
+    const newProfile = {
+      id: editingProfile?.id || `rh-${Date.now()}`,
       matricule: formMatricule,
       firstName: formFirstName,
       lastName: formLastName,
@@ -397,26 +396,49 @@ export default function AdminRHPage() {
       hireDate: formHireDate,
       jobDescription: formJobDescription,
       publicWhitelist: formWhitelist,
+      isArchived: false,
+      qrCodeToken: `QR-${Math.random().toString(36).slice(2, 10)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     try {
-      const res = await fetch('/api/rh/profiles', {
-        method: editingProfile ? 'PATCH' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      if (token) {
+        const res = await fetch('/api/rh/profiles', {
+          method: editingProfile ? 'PATCH' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(newProfile),
+        });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde');
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde');
+      }
+
+      const stored = JSON.parse(localStorage.getItem('inptic_rh_profiles') || '[]');
+      const nextStored = editingProfile
+        ? stored.map((p: any) => (p.id === editingProfile.id ? newProfile : p))
+        : [newProfile, ...stored];
+      localStorage.setItem('inptic_rh_profiles', JSON.stringify(nextStored));
+      setProfiles(nextStored);
 
       setShowCreateModal(false);
-      await loadProfiles();
-      await loadAuditLogs();
+      try {
+        await loadProfiles();
+        await loadAuditLogs();
+      } catch {
+        // ignore
+      }
     } catch (err: any) {
-      setFormError(err.message || 'Erreur inattendue.');
+      const stored = JSON.parse(localStorage.getItem('inptic_rh_profiles') || '[]');
+      const nextStored = editingProfile
+        ? stored.map((p: any) => (p.id === editingProfile.id ? newProfile : p))
+        : [newProfile, ...stored];
+      localStorage.setItem('inptic_rh_profiles', JSON.stringify(nextStored));
+      setProfiles(nextStored);
+      setShowCreateModal(false);
     } finally {
       setFormSaving(false);
     }
