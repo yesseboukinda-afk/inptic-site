@@ -535,16 +535,6 @@ export default function Header() {
             </Link>
           )}
 
-          {(isDirector || staffRole === 'direction_etudes') && (
-            <Link
-              href="/direction-etudes"
-              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-purple-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-              role="menuitem"
-            >
-              {t('common.directionEtudes', 'Direction Études')}
-            </Link>
-          )}
-
           {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
             <Link
               href="/annonces/gestion"
@@ -634,12 +624,6 @@ export default function Header() {
             {isDirector && (
               <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.espaceDg', 'Espace DG')}
-              </Link>
-            )}
-
-            {(isDirector || staffRole === 'direction_etudes') && (
-              <Link href="/direction-etudes" className="block px-4 py-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                {t('common.directionEtudes', 'Direction des Études')}
               </Link>
             )}
 

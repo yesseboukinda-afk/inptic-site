@@ -680,7 +680,7 @@ export default function Candidat() {
       );
 
       if (data.session) {
-        router.push('/admissions/suivi');
+        router.push('/admissions/depot');
       }
     } catch (error) {
       const profile = {
@@ -716,8 +716,9 @@ export default function Candidat() {
         persistLocalProfile(profile);
       }
 
-      setMsg('Inscription enregistrée localement. Vous pouvez maintenant compléter votre dossier.');
-      router.push('/admissions/suivi');
+      setMsg('Inscription enregistrée. Veuillez compléter votre dossier de candidature.');
+      router.push('/admissions/depot');
+    }
     }
   }
 
