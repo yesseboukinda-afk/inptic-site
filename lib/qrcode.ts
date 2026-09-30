@@ -1,5 +1,5 @@
 /**
- * Générateur QR Code SVG natif, ultra-léger et autonome (sans dépendances externes lourdes).
+ * Générateur QR Code SVG natif, ultra-léger et autonome (sans dépendances externes).
  * Conforme aux spécifications QR Code ISO/IEC 18004.
  */
 
@@ -159,7 +159,7 @@ export function generateQRCodeMatrix(text: string): boolean[][] {
     if (!isFunction[i][6]) setModule(i, 6, i % 2 === 0);
   }
 
-  // 3. Dark module
+  // 3. Dark module (x=8, y=size-8)
   setModule(size - 8, 8, true);
 
   // 4. Reserve format information areas
@@ -203,17 +203,26 @@ export function generateQRCodeMatrix(text: string): boolean[][] {
     upwards = !upwards;
   }
 
-  // 6. Format info (Mask 0, Correction M : 0x4e6b)
-  const FORMAT_M_MASK0 = 0b101010000010010;
-  for (let i = 0; i < 15; i++) {
-    const bit = ((FORMAT_M_MASK0 >> (14 - i)) & 1) === 1;
-    if (i <= 5) matrix[8][i] = bit;
-    else if (i === 6) matrix[8][7] = bit;
-    else if (i <= 8) matrix[8][8] = bit;
-    else matrix[14 - i][8] = bit;
+  // 6. Format info placement conforme ISO 18004 (Mask 0, Correction M : 0x5412)
+  const FORMAT_M_MASK0 = 0x5412; // 0b101010000010010
+  const formatBits = Array.from({ length: 15 }, (_, i) => ((FORMAT_M_MASK0 >> (14 - i)) & 1) === 1);
 
-    if (i < 8) matrix[size - 1 - i][8] = bit;
-    else matrix[8][size - 15 + i] = bit;
+  // Premier jeu d'informations de format (autour du finder haut-gauche)
+  const coords1 = [
+    [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
+    [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+  ];
+  for (let i = 0; i < 15; i++) {
+    const [r, c] = coords1[i];
+    matrix[r][c] = formatBits[i];
+  }
+
+  // Second jeu d'informations de format (bas-gauche et haut-droite)
+  for (let i = 0; i < 7; i++) {
+    matrix[size - 1 - i][8] = formatBits[i];
+  }
+  for (let i = 0; i < 8; i++) {
+    matrix[8][size - 8 + i] = formatBits[7 + i];
   }
 
   return matrix.map((row) => row.map((val) => Boolean(val)));
@@ -229,8 +238,8 @@ export function generateQRCodeSVG(
   } = {}
 ): string {
   const {
-    size = 240,
-    margin = 2,
+    size = 280,
+    margin = 4,
     color = '#0f172a',
     background = '#ffffff',
   } = options;
