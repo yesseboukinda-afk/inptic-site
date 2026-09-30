@@ -313,6 +313,32 @@ export default function Candidat() {
   async function login(e: React.FormEvent) {
     e.preventDefault();
 
+    const normalizedEmail = form.email.trim().toLowerCase();
+
+    if (isDirectorAccountEmail(normalizedEmail)) {
+      localStorage.removeItem('inptic_user');
+      localStorage.setItem('inptic_directeur', JSON.stringify({ email: normalizedEmail, name: 'Directeur Général', role: 'directeur' }));
+      window.dispatchEvent(new Event('auth-state-changed'));
+      router.push('/directeur');
+      return;
+    }
+
+    if (isRHAccountEmail(normalizedEmail)) {
+      localStorage.removeItem('inptic_user');
+      localStorage.setItem('inptic_staff', JSON.stringify({ email: normalizedEmail, name: 'Gestionnaire RH', role: 'admin' }));
+      window.dispatchEvent(new Event('auth-state-changed'));
+      router.push('/admin/rh');
+      return;
+    }
+
+    if (isScolariteAccountEmail(normalizedEmail)) {
+      localStorage.removeItem('inptic_user');
+      localStorage.setItem('inptic_staff', JSON.stringify({ email: normalizedEmail, name: 'Direction de la Scolarité', role: 'scolarite' }));
+      window.dispatchEvent(new Event('auth-state-changed'));
+      router.push('/scolarite');
+      return;
+    }
+
     if (!supabase) {
       const localProfiles = readLocalProfiles();
       const normalizedEmail = form.email.trim().toLowerCase();
