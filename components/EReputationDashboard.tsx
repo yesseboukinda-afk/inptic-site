@@ -38,7 +38,7 @@ export default function EReputationDashboard() {
     loadLiveMentions();
     const interval = setInterval(() => {
       loadLiveMentions();
-    }, 60000);
+    }, 5 * 60 * 1000); // Fréquence de scan automatique de 5 minutes
     return () => clearInterval(interval);
   }, []);
 
