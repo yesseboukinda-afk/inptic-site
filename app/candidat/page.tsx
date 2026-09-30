@@ -719,7 +719,6 @@ export default function Candidat() {
       setMsg('Inscription enregistrée. Veuillez compléter votre dossier de candidature.');
       router.push('/admissions/depot');
     }
-    }
   }
 
   return (
