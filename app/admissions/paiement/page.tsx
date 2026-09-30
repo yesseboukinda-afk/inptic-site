@@ -204,8 +204,23 @@ export default function PaiementPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* En-tête Héro */}
-      <section className="bg-slate-950 py-12 text-white">
-        <div className="container-x px-4 md:px-0 text-center max-w-3xl mx-auto">
+      <section className="relative overflow-hidden bg-slate-950 py-16 text-white md:py-20">
+        <img
+          src="/banniere/2.webp"
+          alt=""
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div
+          className="absolute inset-0 z-[1]"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, rgba(7, 25, 60, 0.94) 0%, rgba(14, 43, 102, 0.88) 55%, rgba(20, 48, 107, 0.75) 100%)',
+          }}
+        />
+        <div className="container-x relative z-10 px-4 md:px-0 text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-300">
             <ShieldCheck size={14} className="text-[#D4AF37]" />
             Règlement Officiel d&apos;Admission INPTIC

@@ -1,0 +1,148 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Megaphone, ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
+
+const announcements = [
+  {
+    id: 1,
+    tag: 'Concours 2026',
+    title: 'Dépôt des dossiers et paiement des frais de dossier en ligne ouverts',
+    description: 'Déposez vos pièces justificatives, obtenez votre accusé de réception et réglez via Airtel/Moov Money.',
+    link: '/admissions/depot',
+    cta: 'Déposer mon dossier',
+  },
+  {
+    id: 2,
+    tag: 'Événement',
+    title: 'Semaine de l’Innovation Numérique & Hackathon INPTIC',
+    description: 'Rejoignez les ateliers et conférences sur l’Intelligence Artificielle et la Cybersécurité.',
+    link: '/actualites',
+    cta: 'En savoir plus',
+  },
+  {
+    id: 3,
+    tag: 'Espace Alumni & ANDG',
+    title: 'Lancement de l’Annuaire National des Diplômés (ANDG)',
+    description: 'Diplômés de l’INPTIC, rejoignez le réseau professionnel officiel du Gabon.',
+    link: '/alumni',
+    cta: 'Rejoindre le réseau',
+  },
+];
+
+export default function AnnouncementsCarousel() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    // Vérifier si l'annonce a été fermée il y a moins de 3 minutes
+    const closedAt = sessionStorage.getItem('inptic_announcement_closed_at');
+    if (closedAt) {
+      const elapsed = Date.now() - parseInt(closedAt, 10);
+      if (elapsed < 3 * 60 * 1000) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+    } else {
+      setIsVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % announcements.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, [isVisible]);
+
+  const handleClose = () => {
+    setIsVisible(false);
+    sessionStorage.setItem('inptic_announcement_closed_at', Date.now().toString());
+  };
+
+  if (!isVisible) return null;
+
+  const current = announcements[currentIndex];
+
+  return (
+    <div className="container-x my-4 px-4 md:px-0 relative z-[1000]">
+      <div className="relative overflow-hidden rounded-2xl border-2 border-[#D4AF37]/80 bg-gradient-to-r from-slate-950 via-[#14306b] to-slate-950 p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(212,175,55,0.35)] ring-2 ring-[#D4AF37]/25">
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-[#D4AF37]/20 blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/30">
+              <Megaphone size={20} className="animate-bounce" />
+            </div>
+
+            <div key={currentIndex} className="transition-all">
+              <style jsx>{`
+                @keyframes slideInFromRight {
+                  0% {
+                    opacity: 0;
+                    transform: translateX(80px);
+                  }
+                  100% {
+                    opacity: 1;
+                    transform: translateX(0);
+                  }
+                }
+                .slide-in-1s {
+                  animation: slideInFromRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+              `}</style>
+              <div className="slide-in-1s">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-300 border border-amber-400/30">
+                    {current.tag}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Annonce {currentIndex + 1} / {announcements.length}</span>
+                </div>
+                <h3 className="mt-1 text-sm sm:text-base font-black text-white">{current.title}</h3>
+                <p className="text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">{current.description}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+            <Link
+              href={current.link}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 shadow-lg hover:bg-[#e6c141] transition transform hover:scale-105 active:scale-95"
+            >
+              <span>{current.cta}</span>
+              <Sparkles size={13} />
+            </Link>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length)}
+                className="rounded-lg bg-white/10 p-1.5 hover:bg-white/20 transition text-slate-200"
+                aria-label="Annonce précédente"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
+                className="rounded-lg bg-white/10 p-1.5 hover:bg-white/20 transition text-slate-200"
+                aria-label="Annonce suivante"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button
+                onClick={handleClose}
+                className="rounded-lg bg-white/10 p-1.5 hover:bg-red-500/30 transition text-slate-400 hover:text-white ml-2"
+                aria-label="Fermer l'annonce"
+                title="Masquer (réapparaîtra dans 3 minutes)"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

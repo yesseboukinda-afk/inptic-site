@@ -1,6 +1,7 @@
 "use client";
 
 import Hero from "@/components/Hero";
+import AnnouncementsCarousel from "@/components/AnnouncementsCarousel";
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,6 +23,7 @@ export default function Home() {
 
   return (
     <>
+      <AnnouncementsCarousel />
       <Hero />
       <main className="container-x">
         <section className="-mt-10 relative z-10 bg-white rounded-2xl shadow-xl grid grid-cols-2 md:grid-cols-6 gap-4 p-6 text-center">

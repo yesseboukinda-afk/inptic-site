@@ -141,32 +141,46 @@ export default function FullChatbotPage() {
   return (
     <main className="flex h-screen w-full flex-col bg-slate-950 text-slate-100 overflow-hidden">
       {/* Top Navbar */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/90 px-6 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 transition">
-            <ArrowLeft size={15} />
-            <span>Accueil INPTIC</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5">
-              <Image src={inpticLogo} alt="INPTIC" width={60} height={30} className="h-auto w-full object-contain" />
+      <header className="relative overflow-hidden flex h-20 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+        <img
+          src="/banniere/5.webp"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div
+          className="absolute inset-0 z-[1]"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, rgba(7, 25, 60, 0.96) 0%, rgba(14, 43, 102, 0.90) 55%, rgba(20, 48, 107, 0.80) 100%)',
+          }}
+        />
+        <div className="relative z-10 flex w-full items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 transition">
+              <ArrowLeft size={15} />
+              <span>Accueil INPTIC</span>
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5">
+                <Image src={inpticLogo} alt="INPTIC" width={60} height={30} className="h-auto w-full object-contain" />
+              </div>
+              <span className="font-black text-sm tracking-wide text-white">Assistant IA Avancé</span>
             </div>
-            <span className="font-black text-sm tracking-wide text-white">Assistant IA Avancé</span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
-            <Sparkles size={13} className="text-[#D4AF37]" />
-            <span>{selectedModelBadge}</span>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+              <Sparkles size={13} className="text-[#D4AF37]" />
+              <span>{selectedModelBadge}</span>
+            </div>
+            <button
+              onClick={() => setMessages([{ id: 'welcome', role: 'assistant', content: 'Nouvelle conversation initialisée. Comment puis-je vous aider ?' }])}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+            >
+              <Plus size={15} />
+              <span>Nouveau chat</span>
+            </button>
           </div>
-          <button
-            onClick={() => setMessages([{ id: 'welcome', role: 'assistant', content: 'Nouvelle conversation initialisée. Comment puis-je vous aider ?' }])}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
-          >
-            <Plus size={15} />
-            <span>Nouveau chat</span>
-          </button>
         </div>
       </header>
 

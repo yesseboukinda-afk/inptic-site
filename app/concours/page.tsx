@@ -416,75 +416,67 @@ export default function ConcoursPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* ── BANNIÈRE HÉRO DU PORTAIL CONCOURS ── */}
-      <section className="relative overflow-hidden bg-slate-950 py-16 text-white md:py-24">
-        {/* Cercles de fond lumineux */}
-        <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-blue-600/25 blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-[#D4AF37]/15 blur-3xl" />
+      <section className="relative isolate overflow-hidden text-white bg-slate-950">
+        <img src="/banniere/6.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+          <h1 className="text-4xl font-black md:text-6xl">Concours, Admissions &amp; Résultats</h1>
+          <p className="mt-5 max-w-3xl text-lg text-slate-200">
+            Consultez les concours ouverts et à venir pour intégrer l&apos;INPTIC Gabon, téléchargez les règlements officiels et accédez aux procès-verbaux des résultats.
+          </p>
 
-        <div className="container-x relative z-10 px-4 md:px-0">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="max-w-2xl">
-
-
-              <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
-                Concours, Admissions &amp; Résultats
-              </h1>
-
-              <p className="mt-4 text-base leading-relaxed text-slate-300 sm:text-lg">
-                Consultez les concours ouverts et à venir pour intégrer l&apos;INPTIC Gabon,
-                téléchargez les règlements officiels et accédez aux procès-verbaux des résultats.
-              </p>
+          {/* Statistiques rapides */}
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
+              <span className="text-2xl font-black text-white">{stats.enCours}</span>
+              <p className="mt-1 text-xs font-medium text-emerald-400">En cours</p>
             </div>
-
-            {/* Statistiques rapides */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
-                <span className="text-2xl font-black text-white">{stats.enCours}</span>
-                <p className="mt-1 text-xs font-medium text-emerald-400">En cours</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
-                <span className="text-2xl font-black text-white">{stats.aVenir}</span>
-                <p className="mt-1 text-xs font-medium text-amber-400">À venir</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
-                <span className="text-2xl font-black text-white">{stats.termines}</span>
-                <p className="mt-1 text-xs font-medium text-slate-400">Archives</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
-                <span className="text-2xl font-black text-[#D4AF37]">{stats.resultatsPublies}</span>
-                <p className="mt-1 text-xs font-medium text-[#D4AF37]">Résultats dispo</p>
-              </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
+              <span className="text-2xl font-black text-white">{stats.aVenir}</span>
+              <p className="mt-1 text-xs font-medium text-amber-400">À venir</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
+              <span className="text-2xl font-black text-white">{stats.termines}</span>
+              <p className="mt-1 text-xs font-medium text-slate-400">Archives</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
+              <span className="text-2xl font-black text-[#D4AF37]">{stats.resultatsPublies}</span>
+              <p className="mt-1 text-xs font-medium text-[#D4AF37]">Résultats dispo</p>
             </div>
           </div>
 
           {/* Raccourcis Admissions */}
-          <div className="mt-8">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+          <div className="mt-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-300">
               Admissions &amp; Concours
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {[
-                { label: "Guide d'admission",         href: '/admissions/guide',        icon: '📋' },
-                { label: 'Concours & Résultats',      href: '/concours',                icon: '🏆' },
-                { label: "Calculateur d'éligibilité", href: '/admissions/calculateur',  icon: '🧮' },
-                { label: 'Dépôt de dossier',          href: '/admissions/depot',        icon: '📂' },
-                { label: 'Suivi en temps réel',       href: '/admissions/suivi',        icon: '📡' },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="inline-flex items-center justify-center sm:justify-start gap-2 rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
-                >
-                  <span aria-hidden="true">{item.icon}</span>
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              ))}
+                { label: "Guide d'admission",         href: '/admissions/guide',        icon: FileText },
+                { label: 'Concours & Résultats',      href: '/concours',                icon: Award },
+                { label: "Calculateur d'éligibilité", href: '/admissions/calculateur',  icon: Sparkles },
+                { label: 'Dépôt de dossier',          href: '/admissions/depot',        icon: UploadCloud },
+                { label: 'Suivi en temps réel',       href: '/admissions/suivi',        icon: FileCheck },
+              ].map((item) => {
+                const IconComp = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="inline-flex items-center justify-center sm:justify-start gap-2 rounded-xl border border-white/15 bg-white/15 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/25 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                  >
+                    <IconComp size={16} aria-hidden="true" className="text-[#D4AF37]" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
           {/* Action admin si connecté */}
           {isStaff && (
-            <div className="mt-8 flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-950/40 p-4 backdrop-blur-md">
+            <div className="mt-6 flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-950/60 p-4 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <Lock size={18} className="text-cyan-400" />
                 <span className="text-sm font-semibold text-cyan-200">

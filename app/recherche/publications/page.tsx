@@ -335,28 +335,20 @@ export default function PublicationsPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* ── BANNIÈRE HÉRO ── */}
-      <section className="relative overflow-hidden bg-slate-950 py-16 text-white md:py-24">
-        <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-cyan-500/15 blur-3xl" />
-
-        <div className="container-x relative z-10 px-4 md:px-0">
-          <div className="flex flex-wrap items-center justify-between gap-6">
+      <section className="relative isolate overflow-hidden text-white bg-slate-950">
+        <img src="/banniere/7.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <div className="flex items-center justify-between gap-6">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                <BookOpen size={14} className="text-[#D4AF37]" />
-                Recherche Appliquée &amp; Innovation Scientifique
-              </div>
-
-              <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
-                Publications des Chercheurs de l&apos;INPTIC
-              </h1>
-
-              <p className="mt-4 text-base leading-relaxed text-slate-300 sm:text-lg">
-                Explorez les travaux de recherche, articles de revues et actes de conférences publiés par le corps professoral et les laboratoires de l&apos;Institut National de la Poste, des Technologies de l&apos;Information et de la Communication du Gabon.
+              <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+              <h1 className="text-4xl font-black md:text-6xl">Publications des Chercheurs de l&apos;INPTIC</h1>
+              <p className="mt-5 max-w-3xl text-lg text-slate-200">
+                Explorez les travaux de recherche, articles de revues et actes de conférences publiés par le corps professoral et les laboratoires de l&apos;Institut.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md text-center min-w-[200px]">
+            <div className="hidden md:block rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md text-center min-w-[200px]">
               <span className="text-4xl font-black text-white">{publications.length}</span>
               <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">
                 Travaux Référencés
