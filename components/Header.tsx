@@ -48,19 +48,6 @@ export default function Header() {
       ],
     },
     {
-      id: 'admissions',
-      label: t('header.admissions'),
-      href: '/admissions',
-      description: t('header.admissionsDescription'),
-      submenu: [
-        { id: 'guide', label: t('header.guideAdmission'), href: '/admissions/guide', description: '' },
-        { id: 'concours', label: 'Concours & Résultats', href: '/concours', description: 'Portail des concours et résultats' },
-        { id: 'calculateur', label: t('header.eligibilityCalculator'), href: '/admissions/calculateur', description: '' },
-        { id: 'depot', label: t('header.submitApplication'), href: '/admissions/depot', description: '' },
-        { id: 'suivi', label: t('header.realTimeTracking'), href: '/admissions/suivi', description: '' },
-      ],
-    },
-    {
       id: 'recherche',
       label: t('header.research'),
       href: '/recherche',

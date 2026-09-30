@@ -360,6 +360,31 @@ export default function ConcoursPage() {
             </div>
           </div>
 
+          {/* Raccourcis Admissions */}
+          <div className="mt-8">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+              Admissions &amp; Concours
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Guide d'admission",         href: '/admissions/guide',        icon: '📋' },
+                { label: 'Concours & Résultats',      href: '/concours',                icon: '🏆' },
+                { label: "Calculateur d'éligibilité", href: '/admissions/calculateur',  icon: '🧮' },
+                { label: 'Dépôt de dossier',          href: '/admissions/depot',        icon: '📂' },
+                { label: 'Suivi en temps réel',       href: '/admissions/suivi',        icon: '📡' },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                >
+                  <span aria-hidden="true">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* Action admin si connecté */}
           {isStaff && (
             <div className="mt-8 flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-950/40 p-4 backdrop-blur-md">
