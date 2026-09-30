@@ -11,6 +11,7 @@ type TechItem = {
   url: string;
   domain: 'IA' | 'Base de données' | 'Développement' | 'Réseaux';
   date: string;
+  coverImage?: string;
 };
 
 const INITIAL_TECH_NEWS: TechItem[] = [
@@ -22,6 +23,7 @@ const INITIAL_TECH_NEWS: TechItem[] = [
     url: 'https://dev.to',
     domain: 'IA',
     date: 'En direct',
+    coverImage: '',
   },
 ];
 
@@ -56,7 +58,7 @@ export default function TechVeilleFeed() {
     loadLiveTechNews();
     const interval = setInterval(() => {
       loadLiveTechNews();
-    }, 30 * 60 * 1000); // Fréquence de scan automatique de 30 minutes pour les nouveautés IT mondiales
+    }, 30 * 60 * 1000); // 30 minutes
     return () => clearInterval(interval);
   }, []);
 
@@ -78,7 +80,6 @@ export default function TechVeilleFeed() {
 
     const formattedPost = `🚀 [VEILLE IT & IA - INPTIC GABON]\n\n${item.title}\n\n📌 Résumé : ${item.summary}\n\n🔗 Source officielle : ${item.url}\n\n#INPTIC #Gabon #Tech #IA #Innovation #Digital`;
 
-    // 1. Publier sur les pages du site si requis
     if (targetPage === 'actualites' || targetPage === 'both') {
       try {
         await fetch('/api/news', {
@@ -97,14 +98,12 @@ export default function TechVeilleFeed() {
       }
     }
 
-    // 2. Copier le message structuré dans le presse-papier
     try {
       await navigator.clipboard.writeText(formattedPost);
     } catch {
       // ignore
     }
 
-    // 3. Ouvrir les fenêtres de partage pour les réseaux sélectionnés
     const activeNets = Object.entries(selectedNetworks).filter(([_, active]) => active).map(([net]) => net);
 
     if (activeNets.includes('whatsapp')) {
@@ -120,7 +119,7 @@ export default function TechVeilleFeed() {
       window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(formattedPost)}`, '_blank');
     }
 
-    setSuccessMsg(`Publication structurée ! Texte copié dans le presse-papier et diffusion lancée sur les réseaux sélectionnés.`);
+    setSuccessMsg(`Publication structurée ! Texte copié et diffusion lancée sur les réseaux sélectionnés.`);
     setPublishingId(null);
     setTimeout(() => setSuccessMsg(''), 6000);
   };
@@ -155,7 +154,7 @@ export default function TechVeilleFeed() {
 
         <div className="flex items-center gap-2 text-xs">
           <span className="rounded-full bg-blue-500/20 px-3 py-1 font-bold text-cyan-300 border border-blue-400/30">
-            {currentIndex + 1} / {news.length}
+            {currentIndex + 1} / {news.length} (Flux direct)
           </span>
           <button
             onClick={loadLiveTechNews}
@@ -176,6 +175,12 @@ export default function TechVeilleFeed() {
 
       {/* Carrousel Slide */}
       <div className="mt-6 space-y-4">
+        {current.coverImage && (
+          <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-md">
+            <img src={current.coverImage} alt={current.title} className="h-full w-full object-cover" />
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-amber-300">
             {getDomainIcon(current.domain)}

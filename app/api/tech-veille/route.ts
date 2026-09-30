@@ -26,6 +26,7 @@ export async function GET() {
             url: art.url || 'https://dev.to',
             domain,
             date: new Date(art.published_at || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+            coverImage: art.cover_image || art.social_image || '',
           };
         })
       : [];
@@ -44,6 +45,7 @@ export async function GET() {
           url: 'https://dev.to',
           domain: 'IA',
           date: 'En direct',
+          coverImage: '',
         },
       ],
     });
