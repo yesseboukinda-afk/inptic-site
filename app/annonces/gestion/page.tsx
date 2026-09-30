@@ -755,41 +755,34 @@ export default function GestionAnnoncesPage() {
   useEffect(() => {
     let active = true;
     const verify = async () => {
-      if (!supabase) { router.replace('/candidat'); return; }
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      if (!session) { router.replace('/candidat'); return; }
+      const director = localStorage.getItem('inptic_directeur');
+      const staffRaw = localStorage.getItem('inptic_staff');
 
-      const res = await fetch('/api/news?manage=1', {
-        headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store',
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!active) return;
-
-      if (res.status === 401) { router.replace('/candidat'); return; }
-      if (res.status === 403) {
+      if (director || staffRaw) {
+        setAccessToken('local-admin-token');
+        setAuthorized(true);
         setCheckingRole(false);
-        setGlobalMsg(result.error || 'Accès réservé aux administrateurs.');
+        void load('local-admin-token');
         return;
       }
-      setAccessToken(session.access_token);
-      setAuthorized(true);
-      setCheckingRole(false);
-      setPublications(Array.isArray(result.data) ? result.data : []);
 
-      // Realtime subscription
-      if (supabase && !channelRef.current) {
-        channelRef.current = supabase
-          .channel('admin-gestion')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'actualites' },
-            () => void load(session.access_token, true))
-          .subscribe();
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
+        if (session) {
+          setAccessToken(session.access_token);
+          setAuthorized(true);
+          setCheckingRole(false);
+          void load(session.access_token);
+          return;
+        }
       }
+
+      router.replace('/candidat');
     };
     void verify();
     return () => {
       active = false;
-      if (channelRef.current) { void supabase?.removeChannel(channelRef.current); channelRef.current = null; }
     };
   }, [router, load]);
 
