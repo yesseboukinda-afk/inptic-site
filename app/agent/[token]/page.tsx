@@ -227,7 +227,23 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
     );
   }
 
-  const agent = result.data;
+  const agent = result?.data;
+  if (!agent) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-12 text-white">
+        <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-red-500/30 bg-slate-900/90 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-red-400">
+            <XCircle size={36} />
+          </div>
+          <h1 className="mt-5 text-xl font-black text-white">Carte Non Reconnue</h1>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">Données agent introuvables.</p>
+          <Link href="/" className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-slate-800 py-3 text-xs font-bold text-white transition hover:bg-slate-700">
+            Retour au site officiel
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   // Cas 3 : Carte valide & vérifiée
   return (
