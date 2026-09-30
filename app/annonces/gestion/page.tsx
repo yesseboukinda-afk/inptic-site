@@ -974,40 +974,6 @@ export default function GestionAnnoncesPage() {
               <EReputationDashboard />
             </aside>
           </div>
-            </div>
-          ) : publications.length === 0 ? (
-            <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white px-8 py-20 text-center">
-              <span className="rounded-2xl bg-blue-50 p-4 text-blue-400"><Megaphone size={32} /></span>
-              <p className="text-lg font-bold text-slate-700">Aucune annonce pour l&apos;instant</p>
-              <p className="text-sm text-slate-400">Cliquez sur « Nouvelle annonce » pour commencer.</p>
-              <button onClick={() => { setEditingId(null); setEditingForm(EMPTY_FORM); setComposerOpen(true); }}
-                className="mt-2 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700">
-                <Plus size={15} />Créer la première annonce
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-5">
-              {publications.map(pub => (
-                <PublicationCard
-                  key={pub.id}
-                  pub={pub}
-                  token={accessToken}
-                  onEdit={() => {
-                    setEditingId(pub.id);
-                    setEditingForm({
-                      title: pub.title,
-                      excerpt: pub.excerpt,
-                      category: pub.category,
-                      attachments: Array.isArray(pub.attachments) ? pub.attachments : [],
-                      socialLinks: Array.isArray(pub.socialLinks) ? pub.socialLinks : [],
-                    });
-                    setComposerOpen(true);
-                  }}
-                  onDelete={() => setDeletingPub(pub)}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </main>
     </>
