@@ -526,32 +526,36 @@ export default function Header() {
           </Link>
 
           {isDirector && (
-            <>
-              <Link
-                href="/directeur"
-                className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-                role="menuitem"
-              >
-                {t('common.espaceDg', 'Espace DG')}
-              </Link>
-              <Link
-                href="/direction-etudes"
-                className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-purple-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-                role="menuitem"
-              >
-                {t('common.directionEtudes', 'Direction Études')}
-              </Link>
-              <Link
-                href="/annonces/gestion"
-                className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-                role="menuitem"
-              >
-                {t('common.gestionAnnonces', 'Gestion Annonces')}
-              </Link>
-            </>
+            <Link
+              href="/directeur"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.espaceDg', 'Espace DG')}
+            </Link>
           )}
 
-          {(isDirector || isRH || isScolarite) && (
+          {(isDirector || staffRole === 'direction_etudes') && (
+            <Link
+              href="/direction-etudes"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-purple-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.directionEtudes', 'Direction Études')}
+            </Link>
+          )}
+
+          {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
+            <Link
+              href="/annonces/gestion"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.gestionAnnonces', 'Gestion Annonces')}
+            </Link>
+          )}
+
+          {(isDirector || isScolarite) && (
             <Link
               href="/scolarite"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -628,20 +632,24 @@ export default function Header() {
             </Link>
 
             {isDirector && (
-              <>
-                <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                  {t('common.espaceDg', 'Espace DG')}
-                </Link>
-                <Link href="/direction-etudes" className="block px-4 py-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                  {t('common.directionEtudes', 'Direction des Études')}
-                </Link>
-                <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                  {t('common.gestionAnnonces', 'Gestion Annonces')}
-                </Link>
-              </>
+              <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.espaceDg', 'Espace DG')}
+              </Link>
             )}
 
-            {(isDirector || isRH || isScolarite) && (
+            {(isDirector || staffRole === 'direction_etudes') && (
+              <Link href="/direction-etudes" className="block px-4 py-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.directionEtudes', 'Direction des Études')}
+              </Link>
+            )}
+
+            {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
+              <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.gestionAnnonces', 'Gestion Annonces')}
+              </Link>
+            )}
+
+            {(isDirector || isScolarite) && (
               <Link href="/scolarite" className="block px-4 py-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-cyan-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.scolarite', 'Scolarité')}
               </Link>
