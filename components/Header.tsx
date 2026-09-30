@@ -331,9 +331,9 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={staffRole === 'admin' ? 'Gestion des annonces' : t('common.professionalSpace')}>
+                <Link href={staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
                   <LayoutDashboard size={16} aria-hidden="true" />
-                  <span className="btn-label">{staffRole === 'admin' ? 'Gestion annonces' : t('common.professionalSpace')}</span>
+                  <span className="btn-label">{staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
                 </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
@@ -373,9 +373,9 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={staffRole === 'admin' ? 'Gestion des annonces' : t('common.professionalSpace')}>
+                <Link href={staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
                   <LayoutDashboard size={14} aria-hidden="true" />
-                  <span>{staffRole === 'admin' ? 'Gestion annonces' : t('common.professionalSpace')}</span>
+                  <span>{staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
                 </Link>
                 <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
                   <LogOut size={14} aria-hidden="true" />
@@ -450,6 +450,10 @@ export default function Header() {
             {t('common.news')}
           </Link>
 
+          <Link href="/concours" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+            Concours
+          </Link>
+
           {menuItems.map((item) => (
             <div key={item.id} className="relative group" role="none" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
               <Link href={item.href} className="nav-link flex items-center gap-1 transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] group-hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem" aria-haspopup={item.submenu ? 'menu' : undefined} aria-expanded={openMenuId === item.id}>
@@ -515,6 +519,10 @@ export default function Header() {
 
             <Link href="/actualites" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.news')}
+            </Link>
+
+            <Link href="/concours" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+              Concours
             </Link>
 
             {menuItems.map((item) => (
