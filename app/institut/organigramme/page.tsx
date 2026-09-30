@@ -5,13 +5,9 @@ import { useTranslation } from 'react-i18next';
 
 type CardVariant = 'root' | 'manager' | 'teal' | 'light' | 'mini';
 
-/**
- * Photos pour l'organigramme (silhouette automatique si vide)
- */
 const photos: Record<string, string> = {
   board: '/connexion/github.png',
   director: '/banniere/DG.webp',
-  deputyDirector: '/banniere/DGA.webp',
   serviceAdminFinancier: '',
   advisors: '',
   controller: '',
@@ -40,7 +36,6 @@ const photos: Record<string, string> = {
   serviceSocial: '',
 };
 
-// Dégradés par palier hiérarchique
 const GRADIENTS: Record<CardVariant, [string, string]> = {
   root: ['#ff8a3d', '#e63963'],
   manager: ['#b155f0', '#7c3aed'],
@@ -49,7 +44,6 @@ const GRADIENTS: Record<CardVariant, [string, string]> = {
   mini: ['#14b8a6', '#0e9bb5'],
 };
 
-// Hexagone SVG à coins arrondis
 const HEX_OUTER =
   'M33 4 L67 4 Q75 4 78.82 11.03 L96.18 42.97 Q100 50 96.18 57.03 ' +
   'L78.82 88.97 Q75 96 67 96 L33 96 Q25 96 21.18 88.97 L3.82 57.03 ' +
@@ -97,111 +91,19 @@ function HexPhoto({ id, photoSrc, size }: { id: string; photoSrc: string; size: 
   );
 }
 
-function Bracket({ count = 5, height = 34 }: { count?: number; height?: number }) {
-  const centerX = 50;
-  const dropY = 9;
-  const bottomY = height - 2;
-  const spacing = 100 / count;
-  const positions = Array.from({ length: count }, (_, i) => (i + 0.5) * spacing);
-  const r = Math.min(6, spacing / 2 - 1.5);
-
-  return (
-    <svg
-      className="org-bracket"
-      viewBox={`0 0 100 ${height}`}
-      preserveAspectRatio="none"
-      style={{ height }}
-    >
-      <line
-        x1={centerX} y1={0} x2={centerX} y2={dropY}
-        stroke="#000000" strokeWidth={2} vectorEffect="non-scaling-stroke"
-      />
-      {positions.map((x, i) => {
-        if (Math.abs(x - centerX) < 0.01) {
-          return (
-            <line
-              key={i}
-              x1={x} y1={dropY} x2={x} y2={bottomY}
-              stroke="#000000" strokeWidth={2} vectorEffect="non-scaling-stroke"
-            />
-          );
-        }
-        const towardCenter = x < centerX ? 1 : -1;
-        const bendX = x + towardCenter * r;
-        const d = `M ${centerX} ${dropY} H ${bendX} Q ${x} ${dropY} ${x} ${dropY + r} V ${bottomY}`;
-        return (
-          <path
-            key={i}
-            d={d}
-            fill="none"
-            stroke="#000000"
-            strokeWidth={2}
-            vectorEffect="non-scaling-stroke"
-          />
-        );
-      })}
-    </svg>
-  );
-}
-
 export default function OrganigrammePage() {
   const { t } = useTranslation();
 
-  const attachedRow = [
-    { key: 'serviceAdminFinancier', label: 'Chef de Service\nAdministratif & Financier' },
-    { key: 'advisors', label: 'Conseillers' },
-    { key: 'controller', label: 'Contrôleur\nde Gestion' },
-    { key: 'assistant', label: 'Assistante\ndu DG' },
-    { key: 'chargestudes', label: 'Chargés\nd’études' },
-  ];
-
-  const middleRow = [
-    { key: 'studiesDirector', label: 'Directeur des Études\net de la Pédagogie' },
-    { key: 'continuingDirector', label: 'Directeur de la\nFormation Continue' },
-    { key: 'technicalDirector', label: 'Directeur des Ressources\nTechniques & Innovation' },
-    { key: 'unescoDirector', label: 'Directeur du Centre\nAvicenne-UNESCO-INPTIC' },
-    { key: 'secretary', label: 'Secrétaire\nGénéral' },
-  ];
-
-  const lowerCols = [
-    [
-      { key: 'deptReseaux', label: 'Chef de Département Réseaux & Systèmes Numériques' },
-      { key: 'deptManagementCommerce', label: 'Chef de Département Management & Commerce' },
-      { key: 'deptManagementTIC', label: 'Chef de Département Management des TIC' },
-      { key: 'deptAudiovisuel', label: 'Chef de Département Audiovisuel' },
-    ],
-    [
-      { key: 'serviceStageEmploi', label: 'Services Stage et Emploi' },
-      { key: 'servicePlanification', label: 'Service Planification et Évaluation' },
-      { key: 'serviceVeilleTech', label: 'Service Veille Technologique & VAE' },
-    ],
-    [
-      { key: 'centreMaintenance', label: 'Chef du Centre de Maintenance & Assistance' },
-      { key: 'serviceRessourcesDoc', label: 'Chef de Centre de Ressources Documentaires' },
-      { key: 'serviceInformatique', label: 'Chef de Service Informatique & SI' },
-    ],
-    [
-      { key: 'expertPedagogique', label: 'Expert Pédagogique' },
-      { key: 'expertTechnique', label: 'Expert Technique' },
-    ],
-    [
-      { key: 'serviceScolarite', label: 'Chef de Service Scolarité' },
-      { key: 'serviceCommunication', label: 'Chef de Service Communication & Relations Extérieures' },
-      { key: 'serviceLogistique', label: 'Chef de Service Logistique et Achats' },
-      { key: 'serviceSocial', label: 'Chef de Service Social' },
-    ],
-  ];
-
-  const renderCard = (key: string, label: string, variant: CardVariant) => {
+  const renderCard = (key: string, label: string, variant: CardVariant, cardWidth = 170) => {
     const photoSrc = photos[key] ?? '';
     const isBig = variant === 'root' || variant === 'manager';
-    const size = isBig ? 104 : 88;
+    const size = isBig ? 100 : 76;
     const [gradFrom, gradTo] = GRADIENTS[variant];
 
     return (
       <div
         className={`org-card org-card-${variant}`}
-        style={{ '--gradFrom': gradFrom, '--gradTo': gradTo } as React.CSSProperties}
+        style={{ width: cardWidth, '--gradFrom': gradFrom, '--gradTo': gradTo } as React.CSSProperties}
       >
         <HexPhoto id={key} photoSrc={photoSrc} size={size} />
         <div className="org-pill">
@@ -245,61 +147,116 @@ export default function OrganigrammePage() {
             <img src="/logoinptic.png" alt="INPTIC" className="mx-auto mb-4 h-10 w-auto object-contain" />
             <h1 className="text-3xl font-black md:text-5xl">Organigramme Institutionnel Officiel</h1>
             <p className="mt-3 text-sm text-slate-200">
-              Arborescence hiérarchique complète de la Présidence, la Direction Générale, les Directions Opérationnelles et les Services Spécialisés de l&apos;INPTIC Gabon.
+              Arborescence hiérarchique officielle de la Présidence, la Direction Générale, les Services Rattachés et les 5 Directions Opérationnelles de l&apos;INPTIC Gabon.
             </p>
           </div>
         </section>
 
         <div className="org-chart-shell">
           <div className="org-chart-stage">
+
             {/* 1. Président du Conseil d'Administration */}
-            <div className="org-root org-node">
-              {renderCard('board', 'Président du Conseil\nd’Administration', 'root')}
+            <div className="org-node">
+              {renderCard('board', 'Président du Conseil\nd’Administration', 'root', 260)}
             </div>
-            <div className="org-line org-line-vertical root-line" />
+            <div className="v-line" />
 
             {/* 2. Directeur Général */}
-            <div className="org-manager org-node">
-              {renderCard('director', 'Directeur Général', 'manager')}
+            <div className="org-node">
+              {renderCard('director', 'Directeur Général', 'manager', 240)}
             </div>
-            <div className="org-line org-line-vertical deputy-line" />
+            <div className="v-line" />
 
-            {/* 3. Services rattachés au DG */}
-            <Bracket count={5} />
+            {/* 3. Services Rattachés au DG (Spine centrale à 2 colonnes) */}
+            <div className="relative border-2 border-slate-400 bg-white/60 p-4 rounded-2xl backdrop-blur-sm space-y-3">
+              <span className="text-[10px] font-black uppercase text-slate-500 block text-center">Services &amp; Staff rattachés au DG</span>
 
-            <div className="org-row row-top">
-              {attachedRow.map((item) => (
-                <div key={item.key} className="org-col-item org-node">
-                  {renderCard(item.key, item.label, 'teal')}
+              <div className="flex gap-4 items-center justify-center">
+                {renderCard('serviceAdminFinancier', 'Chef de Service\nAdministratif & Financier', 'teal', 160)}
+                <div className="h-full w-0.5 bg-slate-300" />
+                {renderCard('advisors', 'Conseillers', 'teal', 160)}
+              </div>
+
+              <div className="flex gap-4 items-center justify-center">
+                {renderCard('controller', 'Contrôleur\nde Gestion', 'teal', 160)}
+                <div className="h-full w-0.5 bg-slate-300" />
+                {renderCard('assistant', 'Assistante\ndu DG', 'teal', 160)}
+              </div>
+
+              <div className="flex justify-center pt-1">
+                {renderCard('chargestudes', 'Chargés d’études', 'teal', 200)}
+              </div>
+            </div>
+
+            {/* Connecting line to the 5 Directions */}
+            <div className="v-line" />
+            <div className="h-1 bg-slate-400 w-[92%]" />
+
+            {/* 4. Les 5 Colonnes des Grandes Directions Opérationnelles */}
+            <div className="grid grid-cols-5 gap-6 w-full pt-4 items-start">
+
+              {/* COLONNE 1 : DEP */}
+              <div className="flex flex-col items-center space-y-4">
+                {renderCard('studiesDirector', 'Directeur des Études\net de la Pédagogie', 'light', 200)}
+                <div className="v-line" />
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {renderCard('deptReseaux', 'Chef de Département Réseaux &\nSystèmes Numériques', 'mini', 125)}
+                  {renderCard('deptManagementCommerce', 'Chef de Département Management &\nCommerce', 'mini', 125)}
+                  {renderCard('deptManagementTIC', 'Chef de Département Management\ndes TIC', 'mini', 125)}
+                  {renderCard('deptAudiovisuel', 'Chef de Département\nAudiovisuel', 'mini', 125)}
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <Bracket count={5} />
-
-            {/* 4. Les 5 Grandes Directions */}
-            <div className="org-row row-middle">
-              {middleRow.map((item) => (
-                <div key={item.key} className="org-col-item org-node">
-                  {renderCard(item.key, item.label, 'light')}
+              {/* COLONNE 2 : Formation Continue */}
+              <div className="flex flex-col items-center space-y-4">
+                {renderCard('continuingDirector', 'Directeur de la\nFormation Continue', 'light', 200)}
+                <div className="v-line" />
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {renderCard('serviceStageEmploi', 'Services Stage\net Emploi', 'mini', 125)}
+                  {renderCard('servicePlanification', 'Service Planification\net Évaluation', 'mini', 125)}
+                  <div className="col-span-2 flex justify-center">
+                    {renderCard('serviceVeilleTech', 'Service Veille Technologique\n& Accompagnement VAE', 'mini', 180)}
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <Bracket count={5} />
-
-            {/* 5. Sous-départements & Services */}
-            <div className="org-lower-grid">
-              {lowerCols.map((col, colIndex) => (
-                <div key={`col-${colIndex}`} className="org-lower-col">
-                  {col.map((item) => (
-                    <div key={item.key} className="org-lower-item org-node">
-                      {renderCard(item.key, item.label, 'mini')}
-                    </div>
-                  ))}
+              {/* COLONNE 3 : Ressources Techniques & Innovation */}
+              <div className="flex flex-col items-center space-y-4">
+                {renderCard('technicalDirector', 'Directeur des Ressources\nTechniques & Innovation', 'light', 210)}
+                <div className="v-line" />
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {renderCard('centreMaintenance', 'Chef du Centre de\nMaintenance & Assistance', 'mini', 125)}
+                  {renderCard('serviceRessourcesDoc', 'Chef de Centre de\nRessources Documentaires', 'mini', 125)}
+                  <div className="col-span-2 flex justify-center">
+                    {renderCard('serviceInformatique', 'Chef de Service Informatique &\nGestion du SI', 'mini', 180)}
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* COLONNE 4 : Centre Avicenne UNESCO */}
+              <div className="flex flex-col items-center space-y-4">
+                {renderCard('unescoDirector', 'Directeur du Centre\nAvicenne-UNESCO-INPTIC', 'light', 200)}
+                <div className="v-line" />
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {renderCard('expertPedagogique', 'Expert\nPédagogique', 'mini', 125)}
+                  {renderCard('expertTechnique', 'Expert\nTechnique', 'mini', 125)}
+                </div>
+              </div>
+
+              {/* COLONNE 5 : Secrétaire Général */}
+              <div className="flex flex-col items-center space-y-4">
+                {renderCard('secretary', 'Secrétaire\nGénéral', 'light', 200)}
+                <div className="v-line" />
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {renderCard('serviceScolarite', 'Chef de Service\nScolarité', 'mini', 125)}
+                  {renderCard('serviceCommunication', 'Chef de Service Communication\n& Relations Extérieures', 'mini', 125)}
+                  {renderCard('serviceLogistique', 'Chef de Service\nLogistique & Achats', 'mini', 125)}
+                  {renderCard('serviceSocial', 'Chef de Service\nSocial', 'mini', 125)}
+                </div>
+              </div>
+
             </div>
+
           </div>
         </div>
       </div>
@@ -316,32 +273,30 @@ export default function OrganigrammePage() {
         .org-container {
           position: relative;
           z-index: 2;
-          max-width: 1550px;
+          max-width: 1600px;
           margin: 0 auto;
         }
 
         .org-chart-shell {
           position: relative;
           overflow-x: auto;
-          padding: 2.5rem 1.5rem 3rem;
+          padding: 2rem 1rem;
           -webkit-overflow-scrolling: touch;
         }
 
         .org-chart-stage {
           position: relative;
-          min-width: 1200px;
+          min-width: 1380px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 1rem 0 0.75rem;
         }
 
         .org-node { position: relative; z-index: 5; }
 
-        .root-line,
-        .deputy-line {
+        .v-line {
           width: 2px;
-          height: 34px;
+          height: 24px;
           background: #000000;
         }
 
@@ -350,43 +305,42 @@ export default function OrganigrammePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          width: 180px;
           text-align: center;
         }
 
         .org-hex-svg {
           position: relative;
           z-index: 2;
-          filter: drop-shadow(0 8px 10px rgba(45, 51, 70, 0.25));
+          filter: drop-shadow(0 6px 8px rgba(45, 51, 70, 0.22));
         }
 
         .org-pill {
           width: 100%;
-          margin-top: -10px;
-          padding: 20px 0.75rem 0.9rem;
-          border-radius: 60px !important;
+          margin-top: -8px;
+          padding: 16px 0.5rem 0.75rem;
+          border-radius: 50px !important;
           background: linear-gradient(160deg, var(--gradFrom), var(--gradTo));
-          box-shadow: 0 12px 20px rgba(1, 1, 3, 0.18);
+          box-shadow: 0 10px 18px rgba(1, 1, 3, 0.18);
         }
 
         .org-card-root .org-pill,
         .org-card-manager .org-pill {
-          margin-top: -12px;
-          padding-top: 24px;
-          border-radius: 60px !important;
+          margin-top: -10px;
+          padding-top: 20px;
+          border-radius: 50px !important;
         }
 
         .org-card-label {
           width: 100%;
           color: #ffffff;
-          font-size: 0.78rem;
+          font-size: 0.72rem;
           font-weight: 700;
-          line-height: 1.3;
+          line-height: 1.25;
         }
 
         .org-card-root .org-card-label,
         .org-card-manager .org-card-label {
-          font-size: 0.9rem;
+          font-size: 0.88rem;
           font-weight: 800;
         }
 
@@ -397,73 +351,13 @@ export default function OrganigrammePage() {
         .org-label-secondary {
           display: inline;
           font-weight: 500;
-          opacity: 0.88;
-          font-size: 0.94em;
-        }
-
-        .org-bracket {
-          display: block;
-          width: 100%;
-          box-sizing: border-box;
-          padding: 0 1rem;
-        }
-
-        .org-row {
-          position: relative;
-          display: grid;
-          width: 100%;
-          gap: 1.35rem;
-          justify-items: center;
-          padding: 0 1rem;
-        }
-
-        .row-top,
-        .row-middle {
-          grid-template-columns: repeat(5, minmax(170px, 1fr));
-        }
-
-        .org-lower-grid {
-          position: relative;
-          display: grid;
-          grid-template-columns: repeat(5, minmax(170px, 1fr));
-          width: 100%;
-          margin-top: 0;
-          padding: 0 1rem;
-        }
-
-        .org-lower-col {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          align-items: stretch;
-        }
-
-        .org-lower-item {
-          display: flex;
-          justify-content: center;
-        }
-
-        .org-lower-item:not(:last-child)::after {
-          position: absolute;
-          top: 100%;
-          left: 50%;
-          width: 2px;
-          height: 1rem;
-          background: #000000;
-          content: '';
-          transform: translateX(-50%);
+          opacity: 0.9;
+          font-size: 0.92em;
         }
 
         @media (max-width: 900px) {
-          .org-page { padding: 2.5rem 0.5rem; }
-          .org-chart-shell { padding: 2rem 0.5rem 2.5rem; }
-          .org-chart-stage { min-width: 1050px; }
-        }
-
-        @media (max-width: 540px) {
-          .org-chart-stage { min-width: 980px; }
-          .org-card { width: 158px; }
+          .org-page { padding: 2rem 0.5rem; }
+          .org-chart-shell { padding: 1rem 0.25rem; }
         }
       `}</style>
     </main>
