@@ -54,6 +54,10 @@ export default function TechVeilleFeed() {
 
   useEffect(() => {
     loadLiveTechNews();
+    const interval = setInterval(() => {
+      loadLiveTechNews();
+    }, 30 * 60 * 1000); // Fréquence de scan automatique de 30 minutes pour les nouveautés IT mondiales
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
