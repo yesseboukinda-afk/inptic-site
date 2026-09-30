@@ -112,11 +112,6 @@ export default function QuittanceVerificationPage() {
           </p>
         </div>
       </section>
-          <p className="mt-1 text-xs text-slate-300">
-            Contrôle d&apos;authenticité des règlements de frais de dossier auprès de la Direction de la Scolarité.
-          </p>
-        </div>
-      </section>
 
       <section className="container-x mt-8 px-4 md:px-0 max-w-2xl mx-auto">
         {data && data.status === 'valide' ? (
