@@ -372,14 +372,18 @@ export default function AdminRHPage() {
     setShowCreateModal(true);
   };
 
-  // Sauvegarde Employé (Create / Update)
+  // Sauvegarde Employé (Create / Update sur Supabase)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!token) {
+      setFormError('Session administrative Supabase requise. Veuillez vous reconnecter.');
+      return;
+    }
     setFormSaving(true);
     setFormError('');
 
-    const newProfile = {
-      id: editingProfile?.id || `rh-${Date.now()}`,
+    const payload = {
+      id: editingProfile?.id,
       matricule: formMatricule,
       firstName: formFirstName,
       lastName: formLastName,
@@ -396,49 +400,26 @@ export default function AdminRHPage() {
       hireDate: formHireDate,
       jobDescription: formJobDescription,
       publicWhitelist: formWhitelist,
-      isArchived: false,
-      qrCodeToken: `QR-${Math.random().toString(36).slice(2, 10)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
     try {
-      if (token) {
-        const res = await fetch('/api/rh/profiles', {
-          method: editingProfile ? 'PATCH' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(newProfile),
-        });
+      const res = await fetch('/api/rh/profiles', {
+        method: editingProfile ? 'PATCH' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde');
-      }
-
-      const stored = JSON.parse(localStorage.getItem('inptic_rh_profiles') || '[]');
-      const nextStored = editingProfile
-        ? stored.map((p: any) => (p.id === editingProfile.id ? newProfile : p))
-        : [newProfile, ...stored];
-      localStorage.setItem('inptic_rh_profiles', JSON.stringify(nextStored));
-      setProfiles(nextStored);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde sur la base de données Supabase');
 
       setShowCreateModal(false);
-      try {
-        await loadProfiles();
-        await loadAuditLogs();
-      } catch {
-        // ignore
-      }
+      await loadProfiles();
+      await loadAuditLogs();
     } catch (err: any) {
-      const stored = JSON.parse(localStorage.getItem('inptic_rh_profiles') || '[]');
-      const nextStored = editingProfile
-        ? stored.map((p: any) => (p.id === editingProfile.id ? newProfile : p))
-        : [newProfile, ...stored];
-      localStorage.setItem('inptic_rh_profiles', JSON.stringify(nextStored));
-      setProfiles(nextStored);
-      setShowCreateModal(false);
+      setFormError(err.message || 'Erreur de communication avec la base de données Supabase.');
     } finally {
       setFormSaving(false);
     }
