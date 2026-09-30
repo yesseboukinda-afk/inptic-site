@@ -6,6 +6,7 @@ import {
   isAdminRole,
   isDirectorAccountEmail,
   isDirectorRole,
+  isRHAccountEmail,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -237,12 +238,12 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
   const email = data.user.email || '';
 
   const isDirecteur = isDirectorRole(role) || isDirectorAccountEmail(email);
-  const isAdmin = isAdminRole(role) || isAdminAccountEmail(email);
-  const isRHAdmin = role === 'rh_admin' || role === 'rh' || role === 'drh';
+  const isAdmin = isAdminRole(role) || isAdminAccountEmail(email) || isRHAccountEmail(email);
+  const isRHAdmin = role === 'rh_admin' || role === 'rh' || role === 'drh' || isRHAccountEmail(email);
   const isRHGestionnaire = role === 'rh_gestionnaire';
   const isRHConsultation = role === 'rh_consultation';
 
-  const hasAccess = isDirecteur || isAdmin || isRHAdmin || isRHGestionnaire || isRHConsultation;
+  const hasAccess = isDirecteur || isAdmin || isRHAdmin || isRHGestionnaire || isRHConsultation || isRHAccountEmail(email);
 
   if (!hasAccess) {
     return {

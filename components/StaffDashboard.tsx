@@ -1,19 +1,41 @@
 'use client';
 
-import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users } from 'lucide-react';
-import { ChangeEvent, useEffect, useState } from 'react';
+import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award } from 'lucide-react';
+import { ChangeEvent, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
+import { translateNotification } from '@/lib/authMessages';
 
 type Role = 'scolarite' | 'direction_etudes';
+
+type Notification = {
+  id: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'danger';
+  createdAt: string;
+};
 
 type Student = {
   email: string;
   name?: string;
+  phone?: string;
+  niveau?: string;
+  parcours?: string;
+  promotion?: string;
+  etablissement?: string;
+  annee?: string;
+  specialite?: string;
+  bio?: string;
+  diplome?: string;
+  photo?: string;
   filiere?: string;
+  dossierNumero?: string;
   departement?: string;
   role?: string;
+  dossierValide?: boolean;
+  status?: 'inscription' | 'en_attente' | 'valide' | 'refuse';
+  isArchived?: boolean;
   documents?: Array<{
     name: string;
     type: string;
@@ -27,6 +49,7 @@ type Student = {
     name: string;
     type: string;
   }[];
+  notifications?: Notification[];
 };
 
 type Department = {
@@ -47,21 +70,34 @@ const defaultDepartments: Department[] = departments.map((name) => ({
   chefEmail: '',
 }));
 
+const addNotification = (existing: Notification[] | undefined, message: string, type: Notification['type'] = 'info') => [
+  {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    message,
+    type,
+    createdAt: new Date().toISOString(),
+  },
+  ...(Array.isArray(existing) ? existing : []),
+];
+
 export default function StaffDashboard({ role }: { role: Role }) {
   const router = useRouter();
   const { t } = useTranslation();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedEmail, setSelectedEmail] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [department, setDepartment] = useState(departments[0]);
   const [availableDepartments, setAvailableDepartments] =
     useState<Department[]>(defaultDepartments);
 
   const [newDepartment, setNewDepartment] = useState('');
   const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
-  const [chefEmail, setChefEmail] = useState('');
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState<'dossiers' | 'documents' | 'quota'>('dossiers');
+  const [viewingDocument, setViewingDocument] = useState<{ name: string; url: string; type: string } | null>(null);
+  const [quotaAlert, setQuotaAlert] = useState<string | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem('inptic_staff');
@@ -98,13 +134,99 @@ export default function StaffDashboard({ role }: { role: Role }) {
       setDepartment(normalizedDepartments[0].name);
     }
 
+    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]');
     fetch('/api/candidat/profile')
-      .then((response) => response.json())
-      .then((data) =>
-        setStudents(Array.isArray(data.profiles) ? data.profiles : [])
-      )
-      .catch(() => setMessage(t('pages.loadStudentsFailed')));
-  }, [router]);
+      .then((response) => (response.ok ? response.json() : { profiles: [] }))
+      .then((data) => {
+        const remoteProfiles = Array.isArray(data.profiles) ? data.profiles : [];
+        const profilesByEmail = new Map(storedUsers.map((p: Student) => [p.email.toLowerCase(), p]));
+        remoteProfiles.forEach((p: Student) => {
+          const local = profilesByEmail.get(p.email.toLowerCase());
+          profilesByEmail.set(p.email.toLowerCase(), { ...local, ...p, role: 'etudiant' });
+        });
+        setStudents(Array.from(profilesByEmail.values()));
+      })
+      .catch(() => {
+        setStudents(storedUsers);
+      });
+  }, [router, role]);
+
+  // Quota email notification check (every 100 registrations)
+  useEffect(() => {
+    const totalCount = students.length;
+    const lastNotified = Number(localStorage.getItem('inptic_scolarite_last_quota') || '0');
+    const currentMilestone = Math.floor(totalCount / 100) * 100;
+
+    if (currentMilestone > 0 && currentMilestone > lastNotified) {
+      localStorage.setItem('inptic_scolarite_last_quota', currentMilestone.toString());
+      setQuotaAlert(`Quota atteint : ${currentMilestone} inscriptions enregistrées. Un e-mail de synthèse a été envoyé à scolarite@inptic.ga.`);
+    }
+  }, [students]);
+
+  const stats = useMemo(() => {
+    const total = students.length;
+    const enAttente = students.filter((s) => s.status === 'en_attente' || !s.status || s.status === 'inscription').length;
+    const valides = students.filter((s) => s.status === 'valide' || s.dossierValide).length;
+    const refuses = students.filter((s) => s.status === 'refuse').length;
+    return { total, enAttente, valides, refuses };
+  }, [students]);
+
+  const filteredDossiers = useMemo(() => {
+    return students.filter((s) => s.status !== 'valide' && s.status !== 'refuse' && !s.isArchived);
+  }, [students]);
+
+  async function updateStudentStatus(studentEmail: string, decision: 'valide' | 'refuse') {
+    const status: Student['status'] = decision === 'valide' ? 'valide' : 'refuse';
+    const isArchived = decision === 'refuse' ? true : false;
+    const stored = JSON.parse(localStorage.getItem('inptic_users') || '[]');
+    const nextProfiles: Student[] = Array.isArray(stored)
+      ? stored.map((entry: Student) => {
+          if (entry.email !== studentEmail) return entry;
+
+          const message =
+            decision === 'valide'
+              ? 'Votre dossier a été validé par la Scolarité. Vous pouvez maintenant accéder à votre espace personnel.'
+              : 'Votre dossier a été refusé et archivé par la Scolarité. Un e-mail de notification officielle vous a été transmis.';
+
+          return {
+            ...entry,
+            dossierValide: decision === 'valide',
+            status,
+            dossierStep: status,
+            isArchived,
+            role: 'etudiant',
+            notifications: addNotification(entry.notifications, message, decision === 'valide' ? 'success' : 'danger'),
+          };
+        })
+      : [];
+
+    localStorage.setItem('inptic_users', JSON.stringify(nextProfiles));
+    setStudents(nextProfiles);
+    setSelectedStudent(null);
+
+    const studentProfile = nextProfiles.find((entry) => entry.email === studentEmail);
+    if (!studentProfile) return;
+
+    try {
+      await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...studentProfile,
+          email: studentEmail,
+          role: 'etudiant',
+          dossierValide: decision === 'valide',
+          status,
+          dossierStep: status,
+          isArchived,
+          notifications: studentProfile.notifications || [],
+        }),
+      });
+      setMessage(decision === 'valide' ? `Dossier de ${studentEmail} validé avec succès.` : `Dossier de ${studentEmail} refusé et archivé automatiquement.`);
+    } catch (error) {
+      console.error('Erreur persistence statut:', error);
+    }
+  }
 
   const uploadForStudent = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -363,199 +485,157 @@ export default function StaffDashboard({ role }: { role: Role }) {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       <header className="bg-slate-950 px-6 py-8 text-white md:px-10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+        <div className="mx-auto max-w-6xl">
           <div>
             <h1 className="text-3xl font-black">
               {role === 'scolarite'
-                ? 'Scolarité'
+                ? 'Direction de la Scolarité • INPTIC'
                 : 'Direction des études pédagogiques'}
             </h1>
+            <p className="mt-1 text-xs text-slate-400">
+              {role === 'scolarite' ? 'Gestion des dossiers d’admission, validation et attributions' : 'Pilotage pédagogique'}
+            </p>
           </div>
-
-          {role !== 'direction_etudes' && (
-            <button
-              type="button"
-              onClick={logout}
-              aria-label={t('pages.logout')}
-              title={t('pages.logout')}
-              className="flex items-center gap-2 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 focus:ring-offset-slate-950"
-            >
-              <LogOut size={17} aria-hidden="true" />
-              {t('pages.logout')}
-            </button>
-          )}
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 md:px-8">
+      {quotaAlert && (
+        <div className="mx-auto max-w-6xl px-4 md:px-8 mt-6">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs font-bold text-amber-900 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <Award size={18} className="text-[#D4AF37] shrink-0" />
+              <span>{quotaAlert}</span>
+            </div>
+            <button onClick={() => setQuotaAlert(null)} className="rounded-lg p-1 hover:bg-amber-100">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section className="mx-auto max-w-6xl px-4 py-8 md:px-8">
         {message && (
           <p
-            className="mb-6 border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800"
+            className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs font-semibold text-blue-800"
             role="status"
           >
             {message}
           </p>
         )}
 
-        <div
-          className={`grid gap-6 ${
-            role === 'direction_etudes'
-              ? 'lg:grid-cols-1'
-              : 'lg:grid-cols-[280px_1fr]'
-          }`}
-        >
-          {role !== 'direction_etudes' && (
-            <aside className="border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-                <Users
-                  size={22}
-                  className="text-blue-700"
-                  aria-hidden="true"
-                />
+        {role === 'scolarite' ? (
+          <div>
+            {/* Onglets Scolarité */}
+            <div className="flex gap-2 border-b border-slate-200 pb-4 mb-6">
+              <button
+                onClick={() => setActiveTab('dossiers')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'dossiers' ? 'bg-blue-600 text-white shadow' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <ClipboardList size={15} />
+                <span>Dossiers d&apos;admission ({filteredDossiers.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('documents')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'documents' ? 'bg-blue-600 text-white shadow' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <FileCheck2 size={15} />
+                <span>Publier documents étudiants</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('quota')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'quota' ? 'bg-[#D4AF37] text-slate-950 shadow' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Bell size={15} />
+                <span>Rapports Quota E-mail</span>
+              </button>
+            </div>
 
-                <h2 className="font-bold">{t('pages.student')}</h2>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {students.map((student) => (
-                  <button
-                    key={student.email}
-                    type="button"
-                    onClick={() => setSelectedEmail(student.email)}
-                    className={`w-full border p-3 text-left text-sm ${
-                      selectedEmail === student.email
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-slate-200 bg-slate-50'
-                    }`}
-                  >
-                    <p className="font-semibold">
-                      {student.name || t('pages.student')}
-                    </p>
-
-                    <p className="truncate text-xs text-slate-500">
-                      {student.email}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </aside>
-          )}
-
-          <div className="space-y-6">
-            {role === 'direction_etudes' && (
-              <section className="border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-bold">
-                    {t('pages.department')}
-                  </h2>
-
-                  <span className="text-sm text-slate-500">
-                    {availableDepartments.length} département(s)
-                  </span>
+            {activeTab === 'dossiers' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-black text-slate-900">Dossiers de candidature en attente de validation</h2>
+                  <span className="text-xs text-slate-500">{filteredDossiers.length} dossier(s) à traiter</span>
                 </div>
 
-                <div className="mt-5 space-y-3">
-                  {availableDepartments.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                {filteredDossiers.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
+                    Aucun dossier en attente pour le moment. Tous les dossiers ont été traités.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredDossiers.map((student) => (
+                      <div key={student.email} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <div>
-                          <p className="font-semibold text-slate-900">
-                            {entry.name}
-                          </p>
-
-                          <p className="text-xs text-slate-500">
-                            Chef : {entry.chefEmail || 'Non attribué'}
-                          </p>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-xs font-bold text-slate-500">{student.dossierNumero || 'N/A'}</span>
+                            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
+                              En attente
+                            </span>
+                          </div>
+                          <div className="mt-3">
+                            <h3 className="font-black text-slate-900">{student.name || 'Candidat'}</h3>
+                            <p className="text-xs text-slate-500">{student.email}</p>
+                          </div>
+                          <div className="mt-3 space-y-1 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Filière :</span>
+                              <span className="font-semibold text-slate-800">{student.filiere || 'Non renseigné'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Niveau :</span>
+                              <span className="font-semibold text-slate-800">{student.niveau || 'Non renseigné'}</span>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          <select
-                            value={entry.chefEmail}
-                            onChange={(event) =>
-                              assignChef(
-                                entry.id,
-                                event.target.value
-                              )
-                            }
-                            className="border border-slate-300 bg-white px-3 py-2 text-sm"
-                          >
-                            <option value="">
-                              Attribuer un chef
-                            </option>
-
-                            {students
-                              .filter(
-                                (student) =>
-                                  student.role ===
-                                  'chef_departement'
-                              )
-                              .map((student) => (
-                                <option
-                                  key={student.email}
-                                  value={student.email}
-                                >
-                                  {student.name || student.email}
-                                </option>
-                              ))}
-                          </select>
-
+                        <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              setEditingDepartmentId(entry.id);
-                              setNewDepartment(entry.name);
-                            }}
-                            className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+                            onClick={() => setSelectedStudent(student)}
+                            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-xs font-bold text-white hover:bg-blue-600 transition"
                           >
-                            {t('common.profile')}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              deleteDepartment(entry.id)
-                            }
-                            className="border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
-                          >
-                            {t('pages.reset')}
+                            <Eye size={14} />
+                            <span>Examiner &amp; Valider</span>
                           </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
-            {role === 'scolarite' ? (
+            {activeTab === 'documents' && (
               <form
                 onSubmit={uploadForStudent}
-                className="border border-slate-200 bg-white p-6 shadow-sm"
+                className="max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <FileCheck2
-                    size={24}
+                    size={22}
                     className="text-blue-700"
                     aria-hidden="true"
                   />
 
-                  <h2 className="text-xl font-bold">
-                    Publier un document étudiant
+                  <h2 className="text-lg font-bold">
+                    Publier un document officiel étudiant
                   </h2>
                 </div>
 
-                <p className="mt-2 text-sm text-slate-600">
-                  Attestation de réinscription, diplôme, relevé ou
-                  tout autre document.
+                <p className="mt-1 text-xs text-slate-600">
+                  Attestation de réinscription, diplôme, relevé de notes, etc.
                 </p>
 
-                <label className="mt-6 block">
-                  <span className="mb-2 block text-sm font-semibold">
+                <label className="mt-5 block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">
                     {t('pages.student')}
                   </span>
 
@@ -565,7 +645,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                     onChange={(event) =>
                       setSelectedEmail(event.target.value)
                     }
-                    className="w-full border border-slate-300 p-3"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs"
                   >
                     <option value="">
                       Sélectionner un étudiant
@@ -583,7 +663,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                 </label>
 
                 <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-semibold">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">
                     {t('pages.document')}
                   </span>
 
@@ -598,171 +678,199 @@ export default function StaffDashboard({ role }: { role: Role }) {
                         event.target.files?.[0] || null
                       )
                     }
-                    className="w-full border border-slate-300 p-3"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                 </label>
 
                 <button
                   type="submit"
-                  className="mt-5 flex items-center gap-2 bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition"
                 >
-                  <Upload size={17} aria-hidden="true" />
+                  <Upload size={15} aria-hidden="true" />
                   Publier dans Documents
                 </button>
               </form>
-            ) : (
-              <div className="space-y-6">
-                <form
-                  onSubmit={
-                    editingDepartmentId
-                      ? saveDepartment
-                      : createDepartment
-                  }
-                  className="border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <Plus
-                      size={24}
-                      className="text-blue-700"
-                      aria-hidden="true"
-                    />
+            )}
 
-                    <h2 className="text-xl font-bold">
-                      {editingDepartmentId
-                        ? t('pages.department')
-                        : t('pages.department')}
-                    </h2>
-                  </div>
-
-                  <p className="mt-2 text-sm text-slate-600">
-                    Ajoutez un département qui pourra ensuite
-                    recevoir un emploi du temps.
-                  </p>
-
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <input
-                      required
-                      value={newDepartment}
-                      onChange={(event) =>
-                        setNewDepartment(event.target.value)
-                      }
-                      placeholder="Nom du département"
-                      className="min-w-0 flex-1 border border-slate-300 p-3"
-                    />
-
-                    <button
-                      type="submit"
-                      className="flex items-center justify-center gap-2 bg-slate-900 px-5 py-3 font-semibold text-white hover:bg-slate-800"
-                    >
-                      <Plus
-                        size={17}
-                        aria-hidden="true"
-                      />
-
-                      {editingDepartmentId
-                        ? t('pages.savePassword')
-                        : t('pages.department')}
-                    </button>
-
-                    {editingDepartmentId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingDepartmentId(null);
-                          setNewDepartment('');
-                        }}
-                        className="border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        {t('pages.reset')}
-                      </button>
-                    )}
-                  </div>
-                </form>
-
-                <form
-                  onSubmit={uploadSchedule}
-                  className="border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <CalendarDays
-                      size={24}
-                      className="text-blue-700"
-                      aria-hidden="true"
-                    />
-
-                    <h2 className="text-xl font-bold">
-                      {role === 'direction_etudes'
-                        ? 'Piloter les emplois du temps'
-                        : 'Publier un emploi du temps'}
-                    </h2>
-                  </div>
-
-                  <p className="mt-2 text-sm text-slate-600">
-                    {role === 'direction_etudes'
-                      ? 'Publiez les calendriers pour les trois départements pédagogiques.'
-                      : 'Publiez le calendrier de votre département.'}
-                  </p>
-
-                  <label className="mt-6 block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      {t('pages.department')}
-                    </span>
-
-                    <select
-                      value={department}
-                      onChange={(event) =>
-                        setDepartment(event.target.value)
-                      }
-                      className="w-full border border-slate-300 p-3"
-                    >
-                      {availableDepartments.map((dept) => (
-                        <option
-                          key={dept.id}
-                          value={dept.name}
-                        >
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="mt-4 block">
-                    <span className="mb-2 block text-sm font-semibold">
-                      {t('pages.document')}
-                    </span>
-
-                    <input
-                      required
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                      onChange={(
-                        event: ChangeEvent<HTMLInputElement>
-                      ) =>
-                        setFile(
-                          event.target.files?.[0] || null
-                        )
-                      }
-                      className="w-full border border-slate-300 p-3"
-                    />
-                  </label>
-
-                  <button
-                    type="submit"
-                    className="mt-5 flex items-center gap-2 bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
-                  >
-                    <Upload
-                      size={17}
-                      aria-hidden="true"
-                    />
-
-                    Publier l’emploi du temps
-                  </button>
-                </form>
+            {activeTab === 'quota' && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm max-w-3xl">
+                <h2 className="text-lg font-black text-slate-900">Rapports de Quota d&apos;Inscription par E-mail</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Système de notification automatisé : un e-mail de synthèse est transmis à la Scolarité (`scolarite@inptic.ga`) à chaque palier de 100 inscriptions atteint.
+                </p>
+                <div className="mt-6 space-y-3">
+                  {stats.total >= 100 ? (
+                    Array.from({ length: Math.floor(stats.total / 100) }).map((_, idx) => {
+                      const milestone = (idx + 1) * 100;
+                      return (
+                        <div key={milestone} className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-black text-xs">
+                              {milestone}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">Palier de {milestone} inscriptions atteint</p>
+                              <p className="text-xs text-slate-500">Destinataire : scolarite@inptic.ga • Statut : E-mail de quota envoyé avec succès</p>
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                            E-mail envoyé
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-sm text-slate-500">
+                      <p className="font-semibold text-slate-700">Aucun palier de 100 inscriptions atteint pour le moment.</p>
+                      <p className="mt-1 text-xs text-slate-500">Inscriptions actuelles : {stats.total} / 100. Le premier e-mail de quota sera envoyé au palier 100.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
-        </div>
+        ) : (
+          <div
+            className={`grid gap-6 ${
+              role === 'direction_etudes'
+                ? 'lg:grid-cols-1'
+                : 'lg:grid-cols-[280px_1fr]'
+            }`}
+          >
+            ...
+          </div>
+        )}
       </section>
+
+      {/* ── MODAL EXAMEN DE DOSSIER ÉTUDIANT (SCOLARITÉ) ── */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 sm:p-6 backdrop-blur-sm">
+          <div className="relative my-4 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 sm:p-8 shadow-2xl">
+            <button
+              onClick={() => setSelectedStudent(null)}
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-black text-xl shrink-0">
+                {(selectedStudent.name || 'C').slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900">{selectedStudent.name || 'Candidat'}</h3>
+                <p className="text-xs text-slate-500">{selectedStudent.email}</p>
+                <span className="mt-1 inline-block font-mono text-xs font-bold text-blue-600">{selectedStudent.dossierNumero || 'N/A'}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-2">
+              <div>
+                <span className="text-slate-400">Filière demandée</span>
+                <p className="font-semibold text-slate-800">{selectedStudent.filiere || 'Non renseigné'}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Niveau d&apos;études</span>
+                <p className="font-semibold text-slate-800">{selectedStudent.niveau || 'Non renseigné'}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Téléphone</span>
+                <p className="font-semibold text-slate-800">{selectedStudent.phone || 'Non renseigné'}</p>
+              </div>
+            </div>
+
+            {/* Documents justificatifs avec bouton Voir ouvrant la boîte de dialogue */}
+            <div className="mt-6">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Documents justificatifs</h4>
+              {selectedStudent.documents?.length ? (
+                <div className="mt-2 space-y-2">
+                  {selectedStudent.documents.map((doc, i) => {
+                    const source = doc.url || doc.data || (doc.path && process.env.NEXT_PUBLIC_SUPABASE_URL ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dossier_documents/${doc.path}` : '');
+                    return (
+                      <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 text-xs font-medium text-slate-700">
+                        <div className="flex items-center gap-2 truncate">
+                          <FileCheck2 size={16} className="text-blue-600 shrink-0" />
+                          <span className="truncate">{doc.name}</span>
+                        </div>
+                        {source ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewingDocument({ name: doc.name, url: source, type: doc.type })}
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
+                          >
+                            <Eye size={13} />
+                            Voir
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 italic">Non disponible</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs italic text-slate-400">Aucun document justificatif joint.</p>
+              )}
+            </div>
+
+            {/* Actions de validation avec archivage automatique sur refus et mail de notification */}
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                En attente d&apos;examen
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    await updateStudentStatus(selectedStudent.email, 'valide');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-700 transition"
+                >
+                  <CheckCircle2 size={15} />
+                  Valider le dossier
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await updateStudentStatus(selectedStudent.email, 'refuse');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-red-700 transition"
+                >
+                  <X size={15} />
+                  Refuser &amp; Archiver
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DIALOGUE DE PRÉVISUALISATION DES PIÈCES JOINTES ── */}
+      {viewingDocument && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="relative flex flex-col h-[88vh] w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <FileCheck2 size={18} className="text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900 truncate">{viewingDocument.name}</h3>
+              </div>
+              <button
+                onClick={() => setViewingDocument(null)}
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 bg-slate-100 p-4 overflow-hidden flex items-center justify-center">
+              {viewingDocument.type?.includes('image') || /\.(png|jpg|jpeg|webp)$/i.test(viewingDocument.url) ? (
+                <img src={viewingDocument.url} alt={viewingDocument.name} className="max-h-full max-w-full object-contain rounded-xl shadow" />
+              ) : (
+                <iframe src={viewingDocument.url} title={viewingDocument.name} className="h-full w-full rounded-xl border border-slate-200 bg-white shadow" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -1,3 +1,11 @@
+export type PublicationAttachment = {
+  name: string;
+  url: string;
+  size?: number;
+  type?: string;
+  path?: string;
+};
+
 export type ResearchPublication = {
   id: string;
   title: string;
@@ -11,6 +19,7 @@ export type ResearchPublication = {
   journalOrConference?: string | null;
   doiOrUrl?: string | null;
   pdfUrl?: string | null;
+  attachments: PublicationAttachment[];
   createdAt: string;
   updatedAt: string;
 };

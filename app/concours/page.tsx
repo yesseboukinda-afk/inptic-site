@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Award,
@@ -13,24 +13,36 @@ import {
   GraduationCap,
   Layers,
   Lock,
+  Paperclip,
   Plus,
   RefreshCw,
   Search,
   Sparkles,
+  UploadCloud,
   UserCheck,
   Users,
   X,
+  Loader2,
   AlertCircle,
   Clock,
   CheckCircle2,
   Archive,
   Edit,
   Trash2,
+  Bell,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { isStaffOrAdminUser } from '@/lib/roles';
-import { ConcoursItem, ConcoursStatus } from '@/types/concours';
+import { ConcoursAttachment, ConcoursItem, ConcoursStatus } from '@/types/concours';
+import DeleteButton from '@/components/DeleteButton';
+
+function formatFileSize(bytes?: number) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
 
 export default function ConcoursPage() {
   const { t } = useTranslation();
@@ -40,7 +52,6 @@ export default function ConcoursPage() {
   const [activeTab, setActiveTab] = useState<'concours' | 'resultats' | 'historique'>('concours');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
 
   // Modal détails / résultat sélectionné
   const [selectedConcours, setSelectedConcours] = useState<ConcoursItem | null>(null);
@@ -71,6 +82,13 @@ export default function ConcoursPage() {
   const [formAdmittedText, setFormAdmittedText] = useState('');
   const [formWaitingText, setFormWaitingText] = useState('');
   const [formResultsNotes, setFormResultsNotes] = useState('');
+  const [formResultsDate, setFormResultsDate] = useState('');
+  const [formAttachments, setFormAttachments] = useState<ConcoursAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingPv, setIsUploadingPv] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pvInputRef = useRef<HTMLInputElement>(null);
 
   // Vérification de session
   useEffect(() => {
@@ -122,6 +140,27 @@ export default function ConcoursPage() {
 
   useEffect(() => {
     fetchConcours();
+
+    const sb = supabase;
+    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    if (sb) {
+      channel = sb
+        .channel('concours-page-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'concours' },
+          () => {
+            void fetchConcours();
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel && sb) {
+        void sb.removeChannel(channel);
+      }
+    };
   }, []);
 
   // Années disponibles
@@ -131,30 +170,31 @@ export default function ConcoursPage() {
     return Array.from(set).sort((a, b) => b - a);
   }, [concours]);
 
-  // Filtrage selon l'onglet
+  // Filtrage selon l'onglet (Correction des incohérences)
   const filteredItems = useMemo(() => {
     let list = concours;
 
+    // Trier par sessionYear décroissant, puis createdAt décroissant
+    const sorted = [...list].sort((a, b) => {
+      if (b.sessionYear !== a.sessionYear) return b.sessionYear - a.sessionYear;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
     // Filtre onglet
     if (activeTab === 'concours') {
-      // Concours en cours ou à venir
-      list = list.filter((c) => c.status === 'en_cours' || c.status === 'a_venir');
+      list = sorted.filter((c) => c.status === 'en_cours' || c.status === 'a_venir');
     } else if (activeTab === 'resultats') {
-      // Uniquement ceux ayant des résultats publiés ou prêts
-      list = list.filter((c) => c.results?.published || c.status === 'termine');
+      // Uniquement le concours le plus récent
+      const mostRecent = sorted[0];
+      list = mostRecent ? [mostRecent] : [];
     } else if (activeTab === 'historique') {
-      // Uniquement les concours passés / terminés
-      list = list.filter((c) => c.status === 'termine');
+      // Uniquement les concours passés / terminés ou années antérieures
+      list = sorted.filter((c) => c.status === 'termine' || c.sessionYear < new Date().getFullYear());
     }
 
-    // Filtre année
-    if (selectedYear !== 'all') {
+    // Filtre année (sauf sur l'onglet résultats où l'on affiche le plus récent)
+    if (activeTab !== 'resultats' && selectedYear !== 'all') {
       list = list.filter((c) => c.sessionYear === parseInt(selectedYear, 10));
-    }
-
-    // Filtre statut secondaire (si sur onglet concours)
-    if (activeTab === 'concours' && selectedStatusFilter !== 'all') {
-      list = list.filter((c) => c.status === selectedStatusFilter);
     }
 
     // Recherche plein texte
@@ -170,14 +210,16 @@ export default function ConcoursPage() {
     }
 
     return list;
-  }, [concours, activeTab, selectedYear, selectedStatusFilter, searchQuery]);
+  }, [concours, activeTab, selectedYear, searchQuery]);
 
   // Statistiques
   const stats = useMemo(() => {
     const enCours = concours.filter((c) => c.status === 'en_cours').length;
     const aVenir = concours.filter((c) => c.status === 'a_venir').length;
-    const termines = concours.filter((c) => c.status === 'termine').length;
-    const resultatsPublies = concours.filter((c) => c.results?.published).length;
+    const termines = concours.filter((c) => c.status === 'termine' || c.sessionYear < new Date().getFullYear()).length;
+    const resultatsPublies = concours.filter(
+      (c) => c.results?.published && (Boolean(c.results?.pdfUrl) || (Array.isArray(c.results?.admittedList) && c.results.admittedList.length > 0))
+    ).length;
     return { enCours, aVenir, termines, resultatsPublies, total: concours.length };
   }, [concours]);
 
@@ -200,6 +242,9 @@ export default function ConcoursPage() {
     setFormAdmittedText('');
     setFormWaitingText('');
     setFormResultsNotes('');
+    setFormResultsDate('');
+    setFormAttachments([]);
+    setUploadError('');
     setFormError('');
     setShowAdminModal(true);
   };
@@ -212,24 +257,70 @@ export default function ConcoursPage() {
     setFormYear(item.sessionYear);
     setFormStatus(item.status);
     setFormDescription(item.description);
-    setFormConditions(item.conditions.join('\n'));
+    setFormConditions(Array.isArray(item.conditions) ? item.conditions.join('\n') : '');
     setFormExamDate(item.calendar?.examDate ? item.calendar.examDate.slice(0, 10) : '');
     setFormRegStart(item.calendar?.registrationStart ? item.calendar.registrationStart.slice(0, 10) : '');
     setFormRegEnd(item.calendar?.registrationEnd ? item.calendar.registrationEnd.slice(0, 10) : '');
     setFormResultsPublished(Boolean(item.results?.published));
     setFormResultsPdf(item.results?.pdfUrl || '');
-    setFormAdmittedText(item.results?.admittedList?.join('\n') || '');
-    setFormWaitingText(item.results?.waitingList?.join('\n') || '');
+    setFormAdmittedText(Array.isArray(item.results?.admittedList) ? item.results.admittedList.join('\n') : '');
+    setFormWaitingText(Array.isArray(item.results?.waitingList) ? item.results.waitingList.join('\n') : '');
     setFormResultsNotes(item.results?.notes || '');
+    setFormResultsDate(item.calendar?.resultsDate ? item.calendar.resultsDate.slice(0, 10) : '');
+    setFormAttachments(Array.isArray(item.attachments) ? item.attachments : []);
+    setUploadError('');
     setFormError('');
     setShowAdminModal(true);
   };
 
-  // Gestion Admin : Enregistrer
+  const uploadFiles = async (files: FileList | null, kind: 'docs' | 'pv') => {
+    if (!files || files.length === 0 || !token) return;
+    if (kind === 'pv') setIsUploadingPv(true);
+    else setIsUploading(true);
+    setUploadError('');
+
+    try {
+      const data = new FormData();
+      Array.from(files).forEach((f) => data.append('files', f));
+      const res = await fetch('/api/concours/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: data,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Erreur lors du téléversement.');
+      const uploaded: ConcoursAttachment[] = json.data || [];
+      if (kind === 'pv') {
+        const first = uploaded[0];
+        if (first) setFormResultsPdf(first.url);
+      } else {
+        setFormAttachments((prev) => [...prev, ...uploaded]);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Erreur de téléversement.');
+    } finally {
+      setIsUploading(false);
+      setIsUploadingPv(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (pvInputRef.current) pvInputRef.current.value = '';
+    }
+  };
+
+  // Gestion Admin : Enregistrer (avec validation et dates sans décalage horaire)
   const handleSaveConcours = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
       setFormError('Session expirée, veuillez vous reconnecter.');
+      return;
+    }
+
+    if (!formTitle.trim()) {
+      setFormError('Le titre officiel du concours est obligatoire.');
+      return;
+    }
+
+    if (formRegStart && formRegEnd && new Date(formRegStart) > new Date(formRegEnd)) {
+      setFormError('La date de clôture des inscriptions doit être postérieure à la date d’ouverture.');
       return;
     }
 
@@ -238,24 +329,29 @@ export default function ConcoursPage() {
 
     const payload = {
       id: editingItem?.id,
-      title: formTitle,
-      department: formDepartment,
+      title: formTitle.trim(),
+      department: formDepartment.trim() || 'Général',
       sessionYear: formYear,
       status: formStatus,
-      description: formDescription,
+      description: formDescription.trim(),
       conditions: formConditions
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean),
+      attachments: formAttachments,
       calendar: {
-        registrationStart: formRegStart ? new Date(formRegStart).toISOString() : null,
-        registrationEnd: formRegEnd ? new Date(formRegEnd).toISOString() : null,
-        examDate: formExamDate ? new Date(formExamDate).toISOString() : null,
-        resultsDate: formResultsPublished ? new Date().toISOString() : null,
+        registrationStart: formRegStart ? `${formRegStart}T00:00:00.000Z` : null,
+        registrationEnd: formRegEnd ? `${formRegEnd}T23:59:59.000Z` : null,
+        examDate: formExamDate ? `${formExamDate}T08:00:00.000Z` : null,
+        resultsDate: formResultsDate
+          ? `${formResultsDate}T12:00:00.000Z`
+          : formResultsPublished
+            ? new Date().toISOString()
+            : null,
       },
       results: {
         published: formResultsPublished,
-        publishedAt: formResultsPublished ? new Date().toISOString() : null,
+        publishedAt: formResultsPublished ? (editingItem?.results?.publishedAt || new Date().toISOString()) : null,
         pdfUrl: formResultsPdf || null,
         notes: formResultsNotes || null,
         admittedList: formAdmittedText
@@ -297,19 +393,23 @@ export default function ConcoursPage() {
 
   // Suppression
   const handleDeleteConcours = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce concours ?')) return;
-    if (!token) return;
+    if (!token) {
+      alert('Session requise ou rôle insuffisant. Veuillez vous reconnecter en tant qu’administrateur.');
+      return;
+    }
 
     try {
       const res = await fetch(`/api/concours?id=${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        fetchConcours();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || 'Erreur lors de la suppression du concours.');
       }
-    } catch (err) {
-      console.error('Erreur suppression:', err);
+      await fetchConcours();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la suppression.');
     }
   };
 
@@ -324,10 +424,7 @@ export default function ConcoursPage() {
         <div className="container-x relative z-10 px-4 md:px-0">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                <Award size={14} className="text-[#D4AF37]" />
-                Portail Officiel des Concours d&apos;Entrée
-              </div>
+
 
               <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
                 Concours, Admissions &amp; Résultats
@@ -365,7 +462,7 @@ export default function ConcoursPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
               Admissions &amp; Concours
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {[
                 { label: "Guide d'admission",         href: '/admissions/guide',        icon: '📋' },
                 { label: 'Concours & Résultats',      href: '/concours',                icon: '🏆' },
@@ -376,10 +473,10 @@ export default function ConcoursPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                  className="inline-flex items-center justify-center sm:justify-start gap-2 rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
                 >
                   <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
+                  <span className="truncate">{item.label}</span>
                 </Link>
               ))}
             </div>
@@ -410,20 +507,20 @@ export default function ConcoursPage() {
       <section className="sticky top-16 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
         <div className="container-x px-4 md:px-0">
           <div className="flex flex-col gap-4 py-3 md:flex-row md:items-center md:justify-between">
-            {/* 3 ONGLETS EXPLICITES (Concours, Résultats des concours, Historique des concours) */}
-            <div className="flex overflow-x-auto rounded-xl bg-slate-100 p-1">
+            {/* 3 ONGLETS EXPLICITES (Concours, Résultats, Historique) sur 1 seule ligne non scrollable */}
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 w-full lg:w-auto">
               <button
                 onClick={() => setActiveTab('concours')}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
                   activeTab === 'concours'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <GraduationCap size={16} />
-                <span>Concours</span>
+                <GraduationCap size={15} className="shrink-0" />
+                <span className="truncate">Concours</span>
                 <span
-                  className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
+                  className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs ${
                     activeTab === 'concours' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'
                   }`}
                 >
@@ -433,16 +530,16 @@ export default function ConcoursPage() {
 
               <button
                 onClick={() => setActiveTab('resultats')}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
                   activeTab === 'resultats'
                     ? 'bg-[#D4AF37] text-slate-950 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Award size={16} />
-                <span>Résultats des concours</span>
+                <Award size={15} className="shrink-0" />
+                <span className="truncate">Résultats</span>
                 <span
-                  className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
+                  className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs ${
                     activeTab === 'resultats' ? 'bg-slate-900 text-[#D4AF37]' : 'bg-slate-200 text-slate-700'
                   }`}
                 >
@@ -452,16 +549,16 @@ export default function ConcoursPage() {
 
               <button
                 onClick={() => setActiveTab('historique')}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
                   activeTab === 'historique'
                     ? 'bg-slate-800 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Archive size={16} />
-                <span>Historique des concours</span>
+                <Archive size={15} className="shrink-0" />
+                <span className="truncate">Historique</span>
                 <span
-                  className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
+                  className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs ${
                     activeTab === 'historique' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'
                   }`}
                 >
@@ -471,44 +568,43 @@ export default function ConcoursPage() {
             </div>
 
             {/* Barre de recherche et sélecteur d'année */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[220px] flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative min-w-[200px] flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Rechercher filière, candidat..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 sm:py-2 pl-9 pr-3 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Filtre Année */}
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="all">Toutes les années</option>
-                {availableYears.map((yr) => (
-                  <option key={yr} value={yr}>
-                    Session {yr}
-                  </option>
-                ))}
-              </select>
-
-              {/* Filtre statut (si onglet concours) */}
-              {activeTab === 'concours' && (
+              <div className="flex items-center gap-2">
+                {/* Filtre Année */}
                 <select
-                  value={selectedStatusFilter}
-                  onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="flex-1 sm:flex-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
                 >
-                  <option value="all">Tous les statuts</option>
-                  <option value="en_cours">En cours d&apos;inscription</option>
-                  <option value="a_venir">À venir prochainement</option>
+                  <option value="all">Toutes les années</option>
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr}>
+                      Session {yr}
+                    </option>
+                  ))}
                 </select>
-              )}
+
+                {/* Bouton Actualiser */}
+                <button
+                  onClick={fetchConcours}
+                  title="Actualiser les informations"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 sm:py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <RefreshCw size={14} className={loading ? 'animate-spin text-blue-600' : ''} />
+                  <span>Actualiser</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -534,12 +630,52 @@ export default function ConcoursPage() {
               onClick={() => {
                 setSearchQuery('');
                 setSelectedYear('all');
-                setSelectedStatusFilter('all');
               }}
               className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline"
             >
               Réinitialiser les filtres
             </button>
+          </div>
+        ) : activeTab === 'resultats' && filteredItems.length > 0 && !filteredItems[0].results?.published ? (
+          <div className="mx-auto max-w-3xl rounded-3xl border border-amber-300 bg-gradient-to-br from-amber-50 to-white p-8 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#D4AF37] text-slate-950 shadow-md">
+                <Bell size={32} />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-200/80 px-3 py-1 text-xs font-bold text-amber-900">
+                  <Clock size={14} />
+                  Notification officielle : Résultats à venir
+                </div>
+                <h3 className="mt-3 text-2xl font-black text-slate-900">
+                  Résultats de la session la plus récente en attente
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                  Le concours le plus récent (<span className="font-bold text-slate-900">{filteredItems[0].title}</span>, Session {filteredItems[0].sessionYear}) est actuellement <span className="font-semibold text-blue-600">à venir ou en cours d&apos;évaluation</span>.
+                  Les résultats officiels seront publiés sur cet espace dès leur proclamation par le jury et validation ministérielle.
+                </p>
+                {filteredItems[0].calendar?.resultsDate && (
+                  <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-100/70 p-3 text-xs font-bold text-amber-900">
+                    <Calendar size={15} className="text-[#D4AF37]" />
+                    <span>Publication prévisionnelle des résultats : {new Date(filteredItems[0].calendar.resultsDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                )}
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setSelectedConcours(filteredItems[0])}
+                    className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-600 transition shadow"
+                  >
+                    Voir les détails du concours
+                  </button>
+                  <Link
+                    href="/admissions/suivi"
+                    className="rounded-xl border border-amber-300 bg-white px-5 py-2.5 text-xs font-bold text-slate-800 hover:bg-amber-100 transition shadow-sm"
+                  >
+                    Suivre mon dossier de candidature
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -601,6 +737,14 @@ export default function ConcoursPage() {
 
                     {/* Calendrier succinct */}
                     <div className="mt-4 space-y-1.5 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                      {item.calendar?.registrationStart && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">Ouverture inscriptions :</span>
+                          <span className="font-semibold text-slate-800">
+                            {new Date(item.calendar.registrationStart).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+                      )}
                       {item.calendar?.registrationEnd && (
                         <div className="flex items-center justify-between">
                           <span className="text-slate-400">Date limite dépôt :</span>
@@ -617,6 +761,14 @@ export default function ConcoursPage() {
                           </span>
                         </div>
                       )}
+                      {item.calendar?.resultsDate && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">Publication résultats :</span>
+                          <span className="font-semibold text-slate-800">
+                            {new Date(item.calendar.resultsDate).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+                      )}
                       {hasResults && (
                         <div className="flex items-center justify-between font-bold text-[#D4AF37]">
                           <span>Procès-Verbal :</span>
@@ -624,6 +776,13 @@ export default function ConcoursPage() {
                         </div>
                       )}
                     </div>
+
+                    {item.attachments?.length > 0 && (
+                      <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                        <Paperclip size={13} />
+                        {item.attachments.length} document{item.attachments.length > 1 ? 's' : ''} joint{item.attachments.length > 1 ? 's' : ''}
+                      </div>
+                    )}
 
                     {/* Badge résultats si disponibles */}
                     {hasResults && (
@@ -660,22 +819,15 @@ export default function ConcoursPage() {
 
                     {/* Actions gestionnaire */}
                     {isStaff && (
-                      <div className="flex items-center justify-end gap-2 pt-1 text-xs">
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
                         <button
                           onClick={() => handleOpenEdit(item)}
-                          className="inline-flex items-center gap-1 text-slate-500 hover:text-blue-600"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition"
                         >
-                          <Edit size={13} />
+                          <Edit size={14} />
                           <span>Modifier</span>
                         </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          onClick={() => handleDeleteConcours(item.id)}
-                          className="inline-flex items-center gap-1 text-slate-500 hover:text-red-600"
-                        >
-                          <Trash2 size={13} />
-                          <span>Supprimer</span>
-                        </button>
+                        <DeleteButton onDelete={() => handleDeleteConcours(item.id)} label="Supprimer" />
                       </div>
                     )}
                   </div>
@@ -688,8 +840,8 @@ export default function ConcoursPage() {
 
       {/* ── MODAL DÉTAILS D'UN CONCOURS / RÉSULTATS ── */}
       {selectedConcours && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="relative my-8 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 sm:p-6 backdrop-blur-sm">
+          <div className="relative my-4 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 sm:p-8 shadow-2xl">
             <button
               onClick={() => setSelectedConcours(null)}
               className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
@@ -706,6 +858,41 @@ export default function ConcoursPage() {
             <h3 className="mt-2 text-2xl font-black text-slate-900">{selectedConcours.title}</h3>
 
             <p className="mt-3 text-sm text-slate-600">{selectedConcours.description}</p>
+
+            <div className="mt-5 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-2">
+              {selectedConcours.calendar?.registrationStart && (
+                <div>
+                  <span className="text-slate-400">Ouverture inscriptions</span>
+                  <p className="font-semibold text-slate-800">
+                    {new Date(selectedConcours.calendar.registrationStart).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              )}
+              {selectedConcours.calendar?.registrationEnd && (
+                <div>
+                  <span className="text-slate-400">Clôture inscriptions</span>
+                  <p className="font-semibold text-slate-800">
+                    {new Date(selectedConcours.calendar.registrationEnd).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              )}
+              {selectedConcours.calendar?.examDate && (
+                <div>
+                  <span className="text-slate-400">Date des épreuves</span>
+                  <p className="font-semibold text-blue-700">
+                    {new Date(selectedConcours.calendar.examDate).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              )}
+              {selectedConcours.calendar?.resultsDate && (
+                <div>
+                  <span className="text-slate-400">Publication des résultats</span>
+                  <p className="font-semibold text-slate-800">
+                    {new Date(selectedConcours.calendar.resultsDate).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Conditions d'admission */}
             {selectedConcours.conditions.length > 0 && (
@@ -819,7 +1006,15 @@ export default function ConcoursPage() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              {selectedConcours.status === 'en_cours' && (
+                <Link
+                  href="/admissions/depot"
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Déposer mon dossier
+                </Link>
+              )}
               <button
                 onClick={() => setSelectedConcours(null)}
                 className="rounded-xl bg-slate-100 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
@@ -833,8 +1028,8 @@ export default function ConcoursPage() {
 
       {/* ── MODAL D'ADMINISTRATION POUR CRÉATION / MODIFICATION DE CONCOURS ── */}
       {showAdminModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="relative my-8 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 sm:p-6 backdrop-blur-sm">
+          <div className="relative my-4 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 sm:p-8 shadow-2xl">
             <button
               onClick={() => setShowAdminModal(false)}
               className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
@@ -913,7 +1108,7 @@ export default function ConcoursPage() {
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700">Début inscriptions</label>
                   <input
@@ -941,6 +1136,15 @@ export default function ConcoursPage() {
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700">Date des résultats</label>
+                  <input
+                    type="date"
+                    value={formResultsDate}
+                    onChange={(e) => setFormResultsDate(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                  />
+                </div>
               </div>
 
               <div>
@@ -954,6 +1158,60 @@ export default function ConcoursPage() {
                   placeholder="Être titulaire du Baccalauréat..."
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-blue-500 focus:outline-none"
                 />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <Paperclip size={14} className="text-blue-600" />
+                    Pièces jointes ({formAttachments.length})
+                  </span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.zip"
+                    onChange={(e) => void uploadFiles(e.target.files, 'docs')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || !token}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                  >
+                    {isUploading ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+                    {isUploading ? 'Téléversement…' : 'Ajouter un fichier'}
+                  </button>
+                </div>
+                {uploadError && <p className="mt-2 text-xs text-red-600">{uploadError}</p>}
+                {formAttachments.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {formAttachments.map((file, i) => (
+                      <div
+                        key={`${file.url}-${i}`}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText size={15} className="shrink-0 text-blue-600" />
+                          <span className="truncate font-medium text-slate-800">{file.name}</span>
+                          {file.size ? <span className="text-slate-400">({formatFileSize(file.size)})</span> : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="ml-2 rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs italic text-slate-400">
+                    Arrêté, fiche d&apos;inscription, règlement, etc. PDF, Word, Excel, images (15 Mo max).
+                  </p>
+                )}
               </div>
 
               {/* RÉSULTATS DU CONCOURS */}
@@ -975,14 +1233,44 @@ export default function ConcoursPage() {
                   <div className="mt-4 space-y-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700">
-                        URL du Procès-Verbal officiel (PDF)
+                        Procès-Verbal officiel (PDF)
                       </label>
-                      <input
-                        type="text"
-                        value={formResultsPdf}
-                        onChange={(e) => setFormResultsPdf(e.target.value)}
-                        placeholder="https://.../pv_resultats.pdf"
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs bg-white"
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          type="text"
+                          value={formResultsPdf}
+                          onChange={(e) => setFormResultsPdf(e.target.value)}
+                          placeholder="https://.../pv_resultats.pdf ou téléversez un fichier"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          ref={pvInputRef}
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => void uploadFiles(e.target.files, 'pv')}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => pvInputRef.current?.click()}
+                          disabled={isUploadingPv || !token}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-50"
+                        >
+                          {isUploadingPv ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+                          PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Note officielle / communiqué
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={formResultsNotes}
+                        onChange={(e) => setFormResultsNotes(e.target.value)}
+                        placeholder="Les candidats admis sont priés de se présenter à la scolarité..."
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs"
                       />
                     </div>
                     <div>

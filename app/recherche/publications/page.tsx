@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   BookOpen,
@@ -10,12 +10,15 @@ import {
   ExternalLink,
   FileText,
   Filter,
+  Loader2,
   Lock,
+  Paperclip,
   Plus,
   RefreshCw,
   Search,
   Sparkles,
   Tag,
+  UploadCloud,
   User,
   Users,
   X,
@@ -28,7 +31,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { isStaffOrAdminUser } from '@/lib/roles';
-import { ResearchPublication } from '@/types/publication';
+import { PublicationAttachment, ResearchPublication } from '@/types/publication';
+
+function formatFileSize(bytes?: number) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
 
 const DOMAINS_LIST = [
   'Tous les domaines',
@@ -78,6 +88,10 @@ export default function PublicationsPage() {
   const [formJournal, setFormJournal] = useState('');
   const [formDoi, setFormDoi] = useState('');
   const [formPdfUrl, setFormPdfUrl] = useState('');
+  const [formAttachments, setFormAttachments] = useState<PublicationAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Session
   useEffect(() => {
@@ -182,6 +196,8 @@ export default function PublicationsPage() {
     setFormJournal('');
     setFormDoi('');
     setFormPdfUrl('');
+    setFormAttachments([]);
+    setUploadError('');
     setFormError('');
     setShowAdminModal(true);
   };
@@ -198,8 +214,41 @@ export default function PublicationsPage() {
     setFormJournal(pub.journalOrConference || '');
     setFormDoi(pub.doiOrUrl || '');
     setFormPdfUrl(pub.pdfUrl || '');
+    setFormAttachments(Array.isArray(pub.attachments) ? pub.attachments : []);
+    setUploadError('');
     setFormError('');
     setShowAdminModal(true);
+  };
+
+  const uploadFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !token) return;
+    setIsUploading(true);
+    setUploadError('');
+
+    try {
+      const data = new FormData();
+      Array.from(files).forEach((f) => data.append('files', f));
+      const res = await fetch('/api/publications/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: data,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Erreur lors du téléversement.');
+      const uploaded: PublicationAttachment[] = json.data || [];
+      setFormAttachments((prev) => [...prev, ...uploaded]);
+      const firstPdf = uploaded.find(
+        (f) => (f.type || '').includes('pdf') || f.name.toLowerCase().endsWith('.pdf')
+      );
+      if (firstPdf && !formPdfUrl) {
+        setFormPdfUrl(firstPdf.url);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Erreur de téléversement.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSavePublication = async (e: React.FormEvent) => {
@@ -229,7 +278,8 @@ export default function PublicationsPage() {
         .filter(Boolean),
       journalOrConference: formJournal || null,
       doiOrUrl: formDoi || null,
-      pdfUrl: formPdfUrl || null,
+      pdfUrl: formPdfUrl || formAttachments.find((a) => a.name.toLowerCase().endsWith('.pdf'))?.url || null,
+      attachments: formAttachments,
     };
 
     try {
@@ -473,6 +523,26 @@ export default function PublicationsPage() {
                         ))}
                       </div>
                     )}
+
+                    {pub.attachments?.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {pub.attachments.map((file, i) => (
+                          <a
+                            key={`${file.url}-${i}`}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-blue-400 hover:bg-blue-50"
+                          >
+                            <Paperclip size={12} className="text-blue-600" />
+                            {file.name}
+                            {file.size ? (
+                              <span className="font-normal text-slate-400">({formatFileSize(file.size)})</span>
+                            ) : null}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions à droite */}
@@ -667,14 +737,68 @@ export default function PublicationsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700">URL du document PDF téléchargeable</label>
+                <label className="block text-xs font-bold text-slate-700">URL du document PDF principal</label>
                 <input
                   type="text"
                   value={formPdfUrl}
                   onChange={(e) => setFormPdfUrl(e.target.value)}
-                  placeholder="https://.../article.pdf ou /docs/publications/..."
+                  placeholder="https://.../article.pdf ou téléversez un fichier ci-dessous"
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-blue-500 focus:outline-none"
                 />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <Paperclip size={14} className="text-blue-600" />
+                    Pièces jointes ({formAttachments.length})
+                  </span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.zip"
+                    onChange={(e) => void uploadFiles(e.target.files)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || !token}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                  >
+                    {isUploading ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+                    {isUploading ? 'Téléversement…' : 'Ajouter un fichier'}
+                  </button>
+                </div>
+                {uploadError && <p className="mt-2 text-xs text-red-600">{uploadError}</p>}
+                {formAttachments.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {formAttachments.map((file, i) => (
+                      <div
+                        key={`${file.url}-${i}`}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText size={15} className="shrink-0 text-blue-600" />
+                          <span className="truncate font-medium text-slate-800">{file.name}</span>
+                          {file.size ? <span className="text-slate-400">({formatFileSize(file.size)})</span> : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="ml-2 rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs italic text-slate-400">
+                    Article PDF, annexes, poster, présentation. Formats : PDF, Word, Excel, images, ZIP (15 Mo max).
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-3">

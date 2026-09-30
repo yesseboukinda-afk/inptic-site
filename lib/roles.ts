@@ -82,6 +82,8 @@ export function isAdminAccountEmail(email?: string | null): boolean {
   return (
     normalized === 'admin@inptic.ga' ||
     normalized.startsWith('admin@') ||
+    normalized === 'rh@inptic.ga' ||
+    normalized === 'drh@inptic.ga' ||
     normalized === 'yesseboukinda@gmail.com' ||
     normalized === 'yessemabicka@gmail.com' ||
     configured.includes(normalized)
@@ -92,6 +94,19 @@ export function isDirectorAccountEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase().replace(/,/g, '.');
   return normalized === 'directeur@inptic.ga';
+}
+
+export function isRHAccountEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase().replace(/,/g, '.');
+  return (
+    normalized === 'rh@inptic.ga' ||
+    normalized === 'drh@inptic.ga' ||
+    normalized.startsWith('rh@') ||
+    normalized.startsWith('drh@') ||
+    normalized.includes('ressources-humaines') ||
+    normalized.includes('rh.')
+  );
 }
 
 export function isRHRole(value: unknown): boolean {
@@ -105,23 +120,38 @@ export function isRHRole(value: unknown): boolean {
   );
 }
 
+export function isScolariteAccountEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase().replace(/,/g, '.');
+  return (
+    normalized === 'scolarite@inptic.ga' ||
+    normalized === 'scol@inptic.ga' ||
+    normalized.startsWith('scolarite@') ||
+    normalized.startsWith('scol@') ||
+    normalized.includes('scolarite')
+  );
+}
+
 export function isStaffOrAdminUser(email?: string | null, role?: unknown): boolean {
   return (
     isAdminAccountEmail(email) ||
     isDirectorAccountEmail(email) ||
+    isRHAccountEmail(email) ||
+    isScolariteAccountEmail(email) ||
     isAdminRole(role) ||
     isDirectorRole(role) ||
     isCommunicationRole(role) ||
-    isRHRole(role)
+    isRHRole(role) ||
+    normalizeRole(role) === 'scolarite'
   );
 }
 
-export function getRolePath(role: string): string {
+export function getRolePath(role: string, email?: string): string {
+  if (isRHAccountEmail(email) || isRHRole(role)) return '/admin/rh';
+  if (isScolariteAccountEmail(email) || role === 'scolarite') return '/scolarite';
+  if (isDirectorAccountEmail(email) || isDirectorRole(role)) return '/directeur';
   if (role === 'admin') return '/annonces/gestion';
-  if (role === 'scolarite') return '/scolarite';
   if (role === 'direction_etudes') return '/direction-etudes';
   if (role === 'communication') return '/annonces/gestion';
-  if (role === 'directeur') return '/directeur';
-  if (isRHRole(role)) return '/admin/rh';
   return '/admissions/suivi';
 }

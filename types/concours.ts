@@ -5,6 +5,7 @@ export type ConcoursAttachment = {
   url: string;
   size?: number;
   type?: string;
+  path?: string;
 };
 
 export type ConcoursItem = {

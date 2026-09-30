@@ -243,7 +243,8 @@ export async function GET(request: NextRequest) {
             const alreadyExists = items.some((c) => c.slug === a.slug || c.id === String(a.id));
             if (!alreadyExists) {
               const titleLower = String(a.title || '').toLowerCase();
-              const isResult = titleLower.includes('résultat') || titleLower.includes('resultat') || titleLower.includes('admis');
+              const hasAttachments = Array.isArray(a.attachments) && a.attachments.length > 0;
+              const isResult = (titleLower.includes('résultat') || titleLower.includes('resultat') || titleLower.includes('admis')) && hasAttachments;
               const yearMatch = a.title?.match(/202[0-9]/);
               const sessionYear = yearMatch ? parseInt(yearMatch[0], 10) : new Date(a.created_at || Date.now()).getFullYear();
               const isPastYear = sessionYear < new Date().getFullYear();
@@ -286,15 +287,42 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 3. Si aucun élément trouvé, utiliser les graines réalistes
+  // 3. Si aucun élément trouvé, insérer les graines dans la base de données (si supabaseAdmin dispo) sans id string
   if (items.length === 0) {
-    items = [...SEED_CONCOURS];
-  } else {
-    // S'assurer que les graines ne manquent pas si le catalogue est vide
-    for (const seed of SEED_CONCOURS) {
-      if (!items.some((i) => i.slug === seed.slug)) {
-        items.push(seed);
+    if (supabaseAdmin) {
+      try {
+        const rowsToInsert = SEED_CONCOURS.map(({ id: _id, ...seed }) => ({
+          title: seed.title,
+          slug: seed.slug,
+          department: seed.department,
+          session_year: seed.sessionYear,
+          status: seed.status,
+          description: seed.description,
+          conditions: seed.conditions,
+          calendar: seed.calendar,
+          attachments: seed.attachments,
+          results: seed.results,
+        }));
+        const { error: upsertError } = await supabaseAdmin
+          .from('concours')
+          .upsert(rowsToInsert, { onConflict: 'slug', ignoreDuplicates: true });
+
+        if (!upsertError) {
+          const { data: refetched } = await supabaseAdmin
+            .from('concours')
+            .select('*')
+            .order('session_year', { ascending: false })
+            .order('created_at', { ascending: false });
+          if (refetched && Array.isArray(refetched)) {
+            items = refetched.map((d) => normalizeConcoursRow(d as Record<string, unknown>));
+          }
+        }
+      } catch {
+        items = [...SEED_CONCOURS];
       }
+    }
+    if (items.length === 0) {
+      items = [...SEED_CONCOURS];
     }
   }
 
@@ -378,6 +406,8 @@ export async function POST(request: NextRequest) {
   );
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
@@ -403,18 +433,29 @@ export async function PATCH(request: NextRequest) {
 
   if (supabaseAdmin) {
     try {
-      const { data, error } = await supabaseAdmin
-        .from('concours')
-        .update(updates)
-        .eq('id', body.id)
-        .select()
-        .single();
+      let query = supabaseAdmin.from('concours').update(updates);
+      if (UUID_REGEX.test(body.id)) {
+        query = query.eq('id', body.id);
+      } else if (body.slug) {
+        query = query.eq('slug', body.slug);
+      } else {
+        // Si l'id n'est pas un UUID (ex: ancien ID seed), tenter d'insérer ou de faire un upsert
+        const { data, error } = await supabaseAdmin.from('concours').insert([updates]).select().single();
+        if (!error && data) {
+          return NextResponse.json({ data: normalizeConcoursRow(data as Record<string, unknown>) });
+        }
+        return NextResponse.json({ error: 'Identifiant UUID valide requis pour la mise à jour.' }, { status: 400 });
+      }
 
+      const { data, error } = await query.select().single();
       if (!error && data) {
         return NextResponse.json({ data: normalizeConcoursRow(data as Record<string, unknown>) });
       }
-    } catch {
-      // fallback
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Erreur mise à jour.' }, { status: 500 });
     }
   }
 
@@ -433,10 +474,21 @@ export async function DELETE(request: NextRequest) {
 
   if (supabaseAdmin) {
     try {
-      await supabaseAdmin.from('concours').delete().eq('id', id);
-    } catch {
-      // ignore
+      let query = supabaseAdmin.from('concours').delete();
+      if (UUID_REGEX.test(id)) {
+        query = query.eq('id', id);
+      } else {
+        query = query.eq('slug', id);
+      }
+      const { error } = await query;
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || 'Erreur lors de la suppression.' }, { status: 500 });
     }
+  } else {
+    return NextResponse.json({ error: 'Configuration serveur Supabase manquante.' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, id });

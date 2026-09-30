@@ -970,7 +970,7 @@ export default function Hero() {
           QUICK ACTIONS - MOBILE
           ===================================================== */}
 
-      <div className="relative z-20 mt-6 grid grid-cols-2 gap-2 px-3 sm:gap-3 md:hidden">
+      <div className="relative z-20 mt-6 grid grid-cols-5 gap-1.5 px-3 md:hidden">
 
         {quickActions.map(
           ({
@@ -1001,27 +1001,30 @@ export default function Hero() {
               <div
                 className={`
                   flex
-                  min-h-[64px]
+                  min-h-[68px]
                   w-full
                   flex-col
                   items-center
                   justify-center
-                  gap-1
-                  rounded-lg
+                  gap-1.5
+                  rounded-xl
                   border
-                  border-white/15
-                  bg-slate-900/70
-                  px-2
+                  border-white/20
+                  bg-slate-900/85
+                  px-1
                   py-2
                   text-center
-                  shadow-lg
-                  backdrop-blur-sm
+                  shadow-xl
+                  backdrop-blur-md
                   transition-all
-                  duration-200
+                  duration-300
+                  hover:scale-105
+                  hover:border-[#D4AF37]/80
+                  hover:bg-slate-900
                   ${
                     isSelected
-                      ? 'border-[#D4AF37]/80 bg-[#D4AF37]/15 text-[#F4D06F]'
-                      : 'text-white hover:bg-white/10'
+                      ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#F4D06F] ring-2 ring-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.3)]'
+                      : 'text-white'
                   }
                 `}
               >
@@ -1065,7 +1068,7 @@ export default function Hero() {
                   aria-label={localizedAriaLabel}
                   className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
                 >
-                  <div className="flex min-h-[64px] w-full flex-col items-center justify-center gap-1 rounded-lg border border-white/15 bg-slate-900/70 px-2 py-2 text-center shadow-lg backdrop-blur-sm">
+                  <div className="flex min-h-[68px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-slate-950/90 px-1 py-2 text-center shadow-xl">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white p-1">
                       <img
                         src="/backlinks/ANDCG.svg"
@@ -1138,7 +1141,7 @@ export default function Hero() {
           QUICK ACTIONS - DESKTOP
           ===================================================== */}
 
-      <div className="absolute bottom-20 right-5 z-30 hidden w-[92px] flex-col gap-2 rounded-xl border border-white/10 bg-slate-900/55 p-2 text-center text-xs backdrop-blur-sm animate-in fade-in slide-in-from-right-8 duration-1000 xl:flex">
+      <div className="absolute bottom-20 right-5 z-30 hidden w-[96px] flex-col gap-2 rounded-2xl border border-white/25 bg-slate-950/95 p-2 text-center text-xs shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-right-8 duration-1000 xl:flex">
 
         {quickActions.map(
           ({
@@ -1207,7 +1210,7 @@ export default function Hero() {
 
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white p-1">
                     <img
-                      src="/backlinks/ANDCG_logo.svg"
+                      src="/backlinks/ANDCG.svg"
                       alt=""
                       aria-hidden="true"
                       className="h-full w-full object-contain"

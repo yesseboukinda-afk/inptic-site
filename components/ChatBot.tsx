@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import inpticLogo from '@/logoinptic.png';
-import { Bot, History, Loader, Menu, Plus, Send, X } from 'lucide-react';
+import { Bot, History, Loader, Menu, Plus, Send, X, Mic, MicOff, Volume2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 type ChatMessage = {
@@ -49,6 +49,9 @@ export default function ChatBot() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -87,7 +90,6 @@ export default function ChatBot() {
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => setConversations(Array.isArray(data) ? data : []))
       .catch(() => undefined);
-
   }, []);
 
   useEffect(() => {
@@ -115,6 +117,77 @@ export default function ChatBot() {
       })
       .catch(() => undefined);
   }, []);
+
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('La reconnaissance vocale n’est pas prise en charge par votre navigateur.');
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const speechText = event.results[0][0].transcript;
+      setInputValue((prev) => (prev ? `${prev} ${speechText}` : speechText));
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
+
+  const speakText = (text: string, messageId: string) => {
+    if (!('speechSynthesis' in window)) {
+      alert('La synthèse vocale n’est pas prise en charge par votre navigateur.');
+      return;
+    }
+
+    if (speakingMessageId === messageId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 1.0;
+
+    utterance.onend = () => {
+      setSpeakingMessageId(null);
+    };
+
+    utterance.onerror = () => {
+      setSpeakingMessageId(null);
+    };
+
+    setSpeakingMessageId(messageId);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const sendMessage = async (messageText = inputValue) => {
     const content = messageText.trim();
@@ -147,16 +220,20 @@ export default function ChatBot() {
       setChatId(data.chatId);
       window.localStorage.setItem('inptic-chat-id', data.chatId);
 
+      const assistantReply = data.reply;
       setMessages((current) => [...current, {
         id: `${Date.now()}-assistant`,
         role: 'assistant',
-        content: data.reply,
+        content: assistantReply,
       }]);
-    } catch {
+
+      // Synthèse vocale automatique de la réponse de l'assistant
+      speakText(assistantReply, `${Date.now()}-assistant`);
+    } catch (err: any) {
       setMessages((current) => [...current, {
         id: `${Date.now()}-error`,
         role: 'assistant',
-        content: 'Je rencontre un problème momentanément. Consultez [Contact](/contact) ou réessayez dans quelques instants.',
+        content: err?.message || 'Clé API OpenAI (OPENAI_API_KEY) non configurée. Veuillez l’ajouter dans vos variables d’environnement.',
       }]);
     } finally {
       setIsLoading(false);
@@ -280,10 +357,21 @@ export default function ChatBot() {
                   </div>
                 )}
                 {messages.map((message) => (
-                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
                     <div className={`max-w-[88%] px-4 py-3 text-[15px] leading-7 ${message.role === 'user' ? 'rounded-2xl rounded-br-sm bg-slate-800 text-white shadow-sm' : 'text-slate-800'}`}>
                       <p className="whitespace-pre-line">{renderMessage(message.content)}</p>
                     </div>
+                    {message.role === 'assistant' && (
+                      <button
+                        type="button"
+                        onClick={() => speakText(message.content, message.id)}
+                        className="mt-1 ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
+                        title="Écouter la réponse"
+                      >
+                        <Volume2 size={13} />
+                        <span>{speakingMessageId === message.id ? 'Arrêter la lecture' : 'Écouter'}</span>
+                      </button>
+                    )}
                   </div>
                 ))}
 
@@ -310,6 +398,17 @@ export default function ChatBot() {
             <form className="border-t border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
               <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-100">
                 <textarea ref={inputRef} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={handleKeyDown} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} rows={1} disabled={isLoading} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed" />
+
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className={`rounded-lg p-2.5 transition-colors ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  aria-label="Parler au micro"
+                  title={isListening ? 'Écoute en cours...' : 'Dicter votre question'}
+                >
+                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                </button>
+
                 <button type="submit" disabled={isLoading || !inputValue.trim()} className="rounded-lg bg-blue-600 p-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label={t('chat.send')} title={t('chat.send')}>
                   <Send size={18} aria-hidden="true" />
                 </button>

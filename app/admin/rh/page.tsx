@@ -47,6 +47,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import DeleteButton from '@/components/DeleteButton';
 import {
   isAdminAccountEmail,
   isAdminRole,
@@ -214,6 +215,30 @@ export default function AdminRHPage() {
       loadProfiles();
       loadAuditLogs();
     }
+
+    const sb = supabase;
+    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    if (sb) {
+      channel = sb
+        .channel('rh-admin-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rh_profiles' },
+          () => {
+            if (token) {
+              void loadProfiles();
+              void loadAuditLogs();
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel && sb) {
+        void sb.removeChannel(channel);
+      }
+    };
   }, [token, showArchived]);
 
   // Profils filtrés
@@ -1751,22 +1776,20 @@ export default function AdminRHPage() {
               </select>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-3 items-center">
               <button
                 onClick={() => setArchivingProfile(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
               >
                 Annuler
               </button>
-              <button
-                onClick={async () => {
+              <DeleteButton
+                onDelete={async () => {
                   await handleSpecialAction(archivingProfile.id, 'archive', { archiveReason });
                   setArchivingProfile(null);
                 }}
-                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700"
-              >
-                Confirmer l&apos;archivage
-              </button>
+                label="Archiver"
+              />
             </div>
           </div>
         </div>

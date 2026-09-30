@@ -25,6 +25,13 @@ const SEED_PUBLICATIONS: ResearchPublication[] = [
     journalOrConference: 'Revue Africaine des Technologies de l’Information et Télécoms (RATIT 2026)',
     doiOrUrl: 'https://doi.org/10.1016/j.inptic.iot.2026.012',
     pdfUrl: '/docs/publications/inptic_iot_foret_2026.pdf',
+    attachments: [
+      {
+        name: 'Article IoT forêt équatoriale 2026.pdf',
+        url: '/docs/publications/inptic_iot_foret_2026.pdf',
+        type: 'application/pdf',
+      },
+    ],
     createdAt: '2026-02-14T09:00:00Z',
     updatedAt: '2026-02-14T09:00:00Z',
   },
@@ -41,6 +48,13 @@ const SEED_PUBLICATIONS: ResearchPublication[] = [
     journalOrConference: 'Actes du Forum International de Cybersécurité d’Afrique Centrale (FICAS 2025)',
     doiOrUrl: 'https://ficas-conf.org/proceedings/2025/inptic-cybersec',
     pdfUrl: '/docs/publications/inptic_cybersec_2025.pdf',
+    attachments: [
+      {
+        name: 'Article cybersécurité souveraine 2025.pdf',
+        url: '/docs/publications/inptic_cybersec_2025.pdf',
+        type: 'application/pdf',
+      },
+    ],
     createdAt: '2025-11-20T11:30:00Z',
     updatedAt: '2025-11-20T11:30:00Z',
   },
@@ -57,6 +71,13 @@ const SEED_PUBLICATIONS: ResearchPublication[] = [
     journalOrConference: 'IEEE Africa Communications Symposium (AfriComm 2025)',
     doiOrUrl: 'https://doi.org/10.1109/AFRICOMM.2025.88210',
     pdfUrl: '/docs/publications/inptic_ftth_libreville_2025.pdf',
+    attachments: [
+      {
+        name: 'Article routage FTTH Libreville 2025.pdf',
+        url: '/docs/publications/inptic_ftth_libreville_2025.pdf',
+        type: 'application/pdf',
+      },
+    ],
     createdAt: '2025-06-10T14:00:00Z',
     updatedAt: '2025-06-10T14:00:00Z',
   },
@@ -73,6 +94,13 @@ const SEED_PUBLICATIONS: ResearchPublication[] = [
     journalOrConference: 'Revue Internationale d’Ingénierie Linguistique et Informatique Appliquée',
     doiOrUrl: 'https://doi.org/10.5281/zenodo.inptic.nlp.2024',
     pdfUrl: '/docs/publications/inptic_ia_nlp_2024.pdf',
+    attachments: [
+      {
+        name: 'Article TAL langues nationales 2024.pdf',
+        url: '/docs/publications/inptic_ia_nlp_2024.pdf',
+        type: 'application/pdf',
+      },
+    ],
     createdAt: '2024-09-05T08:00:00Z',
     updatedAt: '2024-09-05T08:00:00Z',
   },
@@ -140,6 +168,11 @@ function normalizeRow(row: Record<string, unknown>): ResearchPublication {
     journalOrConference: row.journal_or_conference ? String(row.journal_or_conference) : null,
     doiOrUrl: row.doi_or_url ? String(row.doi_or_url) : null,
     pdfUrl: row.pdf_url ? String(row.pdf_url) : null,
+    attachments: Array.isArray(row.attachments) && (row.attachments as unknown[]).length > 0
+      ? (row.attachments as ResearchPublication['attachments'])
+      : row.pdf_url
+        ? [{ name: 'Article PDF', url: String(row.pdf_url), type: 'application/pdf' }]
+        : [],
     createdAt: String(row.created_at || row.createdAt || new Date().toISOString()),
     updatedAt: String(row.updated_at || row.updatedAt || new Date().toISOString()),
   };
@@ -238,6 +271,7 @@ export async function POST(request: NextRequest) {
     journal_or_conference: body.journalOrConference || null,
     doi_or_url: body.doiOrUrl || null,
     pdf_url: body.pdfUrl || null,
+    attachments: Array.isArray(body.attachments) ? body.attachments : [],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -247,6 +281,13 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabaseAdmin.from('publications').insert([row]).select().single();
       if (!error && data) {
         return NextResponse.json({ data: normalizeRow(data as Record<string, unknown>) }, { status: 201 });
+      }
+      if (error && /attachments/i.test(error.message || '')) {
+        const { attachments: _attachments, ...rowWithoutAttachments } = row;
+        const retry = await supabaseAdmin.from('publications').insert([rowWithoutAttachments]).select().single();
+        if (!retry.error && retry.data) {
+          return NextResponse.json({ data: normalizeRow(retry.data as Record<string, unknown>) }, { status: 201 });
+        }
       }
       if (error && !error.message.includes('relation "publications" does not exist')) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -265,6 +306,7 @@ export async function POST(request: NextRequest) {
         journalOrConference: row.journal_or_conference,
         doiOrUrl: row.doi_or_url,
         pdfUrl: row.pdf_url,
+        attachments: row.attachments,
       },
     },
     { status: 201 }
@@ -294,6 +336,7 @@ export async function PATCH(request: NextRequest) {
   if (body.journalOrConference !== undefined) updates.journal_or_conference = body.journalOrConference;
   if (body.doiOrUrl !== undefined) updates.doi_or_url = body.doiOrUrl;
   if (body.pdfUrl !== undefined) updates.pdf_url = body.pdfUrl;
+  if (body.attachments !== undefined) updates.attachments = body.attachments;
 
   if (supabaseAdmin) {
     try {
@@ -306,6 +349,18 @@ export async function PATCH(request: NextRequest) {
 
       if (!error && data) {
         return NextResponse.json({ data: normalizeRow(data as Record<string, unknown>) });
+      }
+      if (error && /attachments/i.test(error.message || '')) {
+        const { attachments: _attachments, ...updatesWithoutAttachments } = updates;
+        const retry = await supabaseAdmin
+          .from('publications')
+          .update(updatesWithoutAttachments)
+          .eq('id', body.id)
+          .select()
+          .single();
+        if (!retry.error && retry.data) {
+          return NextResponse.json({ data: normalizeRow(retry.data as Record<string, unknown>) });
+        }
       }
     } catch {
       // fallback

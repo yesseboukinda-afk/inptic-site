@@ -7,6 +7,8 @@ import { usePathname } from 'next/navigation';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
+import { isRHAccountEmail, isDirectorAccountEmail, isAdminAccountEmail, isScolariteAccountEmail } from '@/lib/roles';
+import { supabase } from '@/lib/supabase';
 
 interface MenuItem {
   id: string;
@@ -64,6 +66,8 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
+  const [isRH, setIsRH] = useState(false);
+  const [isScolarite, setIsScolarite] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
   const [staffRole, setStaffRole] = useState<'scolarite' | 'direction_etudes' | 'communication' | 'admin' | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -89,14 +93,45 @@ export default function Header() {
     currentLanguage === 'zh' ? '🇨🇳' :
     currentLanguage === 'ar' ? '🇸🇦' : '🇫🇷';
 
-  const syncAuthState = () => {
+  const syncAuthState = async () => {
     const director = localStorage.getItem('inptic_directeur');
     const student = localStorage.getItem('inptic_user');
     const staffRaw = localStorage.getItem('inptic_staff');
     const staff = staffRaw ? JSON.parse(staffRaw) : null;
-    setIsDirector(Boolean(director));
+    const dirObj = director ? JSON.parse(director) : null;
+
+    let isDir = Boolean(director) || isDirectorAccountEmail(staff?.email) || isDirectorAccountEmail(dirObj?.email);
+    let rhUser = Boolean(
+      (staff && (staff.role === 'admin' || isRHAccountEmail(staff?.email) || isAdminAccountEmail(staff?.email))) ||
+      (dirObj && (isRHAccountEmail(dirObj?.email) || isAdminAccountEmail(dirObj?.email))) ||
+      isRHAccountEmail(staff?.email) ||
+      isAdminAccountEmail(staff?.email)
+    );
+    let scolUser = Boolean(
+      (staff && (staff.role === 'scolarite' || isScolariteAccountEmail(staff?.email))) ||
+      (dirObj && isScolariteAccountEmail(dirObj?.email)) ||
+      isScolariteAccountEmail(staff?.email)
+    );
+
+    if (supabase) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+        if (user?.email) {
+          if (isDirectorAccountEmail(user.email)) isDir = true;
+          if (isRHAccountEmail(user.email) || isAdminAccountEmail(user.email)) rhUser = true;
+          if (isScolariteAccountEmail(user.email)) scolUser = true;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    setIsDirector(isDir);
+    setIsRH(rhUser);
+    setIsScolarite(scolUser);
     setIsStudent(Boolean(student));
-    setStaffRole(['scolarite', 'direction_etudes', 'communication', 'admin'].includes(staff?.role) ? staff.role : null);
+    setStaffRole(['scolarite', 'direction_etudes', 'communication', 'admin'].includes(staff?.role) ? staff.role : (rhUser ? 'admin' : (scolUser ? 'scolarite' : null)));
   };
 
   const changeLanguage = (lang: 'fr' | 'en' | 'zh' | 'ar') => {
@@ -307,10 +342,6 @@ export default function Header() {
                   <span className="btn-label">{t('common.dashboard')}</span>
                   <span className="icon-slot" aria-hidden="true">▣</span>
                 </Link>
-                <Link href="/directeur/compte" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.profile')}>
-                  <UserRound size={16} aria-hidden="true" />
-                  <span className="btn-label">{t('common.profile')}</span>
-                </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
                   <span className="icon-slot" aria-hidden="true">↗</span>
@@ -441,6 +472,10 @@ export default function Header() {
             Concours
           </Link>
 
+          <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+            Publications
+          </Link>
+
           {menuItems.map((item) => (
             <div key={item.id} className="relative group" role="none" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
               <Link href={item.href} className="nav-link flex items-center gap-1 transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] group-hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem" aria-haspopup={item.submenu ? 'menu' : undefined} aria-expanded={openMenuId === item.id}>
@@ -489,6 +524,52 @@ export default function Header() {
           >
             {t('common.annonces')}
           </Link>
+
+          {isDirector && (
+            <>
+              <Link
+                href="/directeur"
+                className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+                role="menuitem"
+              >
+                Espace DG
+              </Link>
+              <Link
+                href="/direction-etudes"
+                className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-purple-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+                role="menuitem"
+              >
+                Direction Études
+              </Link>
+              <Link
+                href="/annonces/gestion"
+                className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+                role="menuitem"
+              >
+                Gestion Annonces
+              </Link>
+            </>
+          )}
+
+          {(isDirector || isRH || isScolarite) && (
+            <Link
+              href="/scolarite"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              Scolarité
+            </Link>
+          )}
+
+          {(isDirector || isRH) && (
+            <Link
+              href="/admin/rh"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              Gestion RH
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -510,6 +591,10 @@ export default function Header() {
 
             <Link href="/concours" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               Concours
+            </Link>
+
+            <Link href="/recherche/publications" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+              Publications
             </Link>
 
             {menuItems.map((item) => (
@@ -541,6 +626,32 @@ export default function Header() {
             <Link href="/annonces" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.annonces')}
             </Link>
+
+            {isDirector && (
+              <>
+                <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                  Espace DG
+                </Link>
+                <Link href="/direction-etudes" className="block px-4 py-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                  Direction des Études
+                </Link>
+                <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                  Gestion Annonces
+                </Link>
+              </>
+            )}
+
+            {(isDirector || isRH || isScolarite) && (
+              <Link href="/scolarite" className="block px-4 py-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-cyan-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                Scolarité
+              </Link>
+            )}
+
+            {(isDirector || isRH) && (
+              <Link href="/admin/rh" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[var(--gold)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                Gestion RH
+              </Link>
+            )}
 
           </div>
         </nav>

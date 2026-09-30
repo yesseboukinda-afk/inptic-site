@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { translateAuthError } from '@/lib/authMessages';
-import { getRolePath, getStaffRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import { getRolePath, getStaffRole, isDirectorRole, isRHAccountEmail, isRHRole, isScolariteAccountEmail, normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -80,9 +80,13 @@ const persistLocalProfile = (profile: Record<string, any>) => {
 const buildSupabaseProfile = (user: any, fallbackName = 'Étudiant') => {
   const rawRole = user?.user_metadata?.role ?? user?.user_metadata?.roles ?? user?.app_metadata?.role ?? user?.app_metadata?.roles ?? '';
   const normalizedRole = normalizeRole(rawRole);
+  const isRH = isRHAccountEmail(user?.email) || isRHRole(normalizedRole);
+  const isScolarite = isScolariteAccountEmail(user?.email) || normalizedRole === 'scolarite';
   const staffRole = isSpecialStaffEmail(user?.email)
     ? 'direction_etudes'
-    : isAdminAccountEmail(user?.email)
+    : isScolarite
+    ? 'scolarite'
+    : isAdminAccountEmail(user?.email) || isRH
     ? 'admin'
     : getStaffRole(normalizedRole);
   const isDirector = isDirectorRole(normalizedRole) || isDirectorAccountEmail(user?.email);
@@ -194,6 +198,24 @@ export default function Candidat() {
       const localRole = normalizeRole(profile.role);
       const staffRole = getStaffRole(localRole);
 
+      const isRH = isRHAccountEmail(profile.email) || isRHRole(localRole);
+      if (isRH) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin' }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace('/admin/rh');
+        return;
+      }
+
+      const isScolarite = isScolariteAccountEmail(profile.email) || localRole === 'scolarite';
+      if (isScolarite) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite' }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace('/scolarite');
+        return;
+      }
+
       if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
         localStorage.removeItem('inptic_user');
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
@@ -211,7 +233,7 @@ export default function Candidat() {
       }
 
       persistLocalProfile(profile);
-      router.replace(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+      router.replace('/admissions/suivi');
     });
 
     const syncUserFromSupabaseSession = async () => {
@@ -225,11 +247,21 @@ export default function Candidat() {
       const localRole = normalizeRole(profile.role);
       const staffRole = getStaffRole(localRole);
 
-      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
+      const isRH = isRHAccountEmail(profile.email) || isRHRole(localRole);
+      if (isRH) {
         localStorage.removeItem('inptic_user');
-        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin' }));
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.replace('/directeur');
+        router.replace('/admin/rh');
+        return;
+      }
+
+      const isScolarite = isScolariteAccountEmail(profile.email) || localRole === 'scolarite';
+      if (isScolarite) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite' }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.replace('/scolarite');
         return;
       }
 
@@ -242,7 +274,7 @@ export default function Candidat() {
       }
 
       persistLocalProfile(profile);
-      router.replace(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+      router.replace('/admissions/suivi');
     };
 
     const storedRaw = localStorage.getItem('inptic_user');
@@ -259,10 +291,12 @@ export default function Candidat() {
         const storedRole = normalizeRole(stored?.role);
         if (isDirectorRole(storedRole) || isDirectorAccountEmail(stored?.email)) {
           router.replace('/directeur');
+        } else if (isRHAccountEmail(stored?.email) || isRHRole(storedRole)) {
+          router.replace('/admin/rh');
+        } else if (isScolariteAccountEmail(stored?.email) || storedRole === 'scolarite') {
+          router.replace('/scolarite');
         } else if (getStaffRole(storedRole)) {
           router.replace(getRolePath(getStaffRole(storedRole)));
-        } else if (stored?.dossierValide === true || stored?.status === 'valide') {
-          router.replace('/vie-etudiante');
         } else {
           router.replace('/admissions/suivi');
         }
@@ -375,6 +409,30 @@ export default function Candidat() {
         role: staffRole || (isDirector ? 'directeur' : 'etudiant'),
       };
 
+      const isRH = isRHAccountEmail(user?.email) || isRHRole(normalizedRole);
+      if (isRH) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem(
+          'inptic_staff',
+          JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin' })
+        );
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push('/admin/rh');
+        return;
+      }
+
+      const isScolarite = isScolariteAccountEmail(user?.email) || normalizedRole === 'scolarite';
+      if (isScolarite) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem(
+          'inptic_staff',
+          JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite' })
+        );
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push('/scolarite');
+        return;
+      }
+
       if (isDirector) {
         localStorage.removeItem('inptic_user');
         localStorage.setItem(
@@ -414,7 +472,7 @@ export default function Candidat() {
       }
 
       setMsg('Connexion réussie.');
-      router.push(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+      router.push('/admissions/suivi');
     } catch (error) {
       const localProfiles = readLocalProfiles();
       const normalizedEmail = form.email.trim().toLowerCase();
@@ -444,7 +502,7 @@ export default function Candidat() {
         localStorage.setItem('inptic_user', JSON.stringify(profile));
         window.dispatchEvent(new Event('auth-state-changed'));
         setMsg('Connexion réussie.');
-        router.push(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+        router.push('/admissions/suivi');
         return;
       }
 
