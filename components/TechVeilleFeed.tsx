@@ -66,7 +66,7 @@ export default function TechVeilleFeed() {
     if (news.length === 0) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % news.length);
-    }, 7000);
+    }, 6000);
     return () => clearInterval(timer);
   }, [news.length]);
 
@@ -137,7 +137,7 @@ export default function TechVeilleFeed() {
   const current = news[currentIndex] || INITIAL_TECH_NEWS[0];
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-[#14306b] p-6 text-white shadow-xl">
+    <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-[#14306b] p-6 text-white shadow-xl overflow-hidden">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D4AF37] text-slate-950 font-black shadow">
@@ -173,25 +173,43 @@ export default function TechVeilleFeed() {
         </div>
       )}
 
-      {/* Carrousel Slide */}
-      <div className="mt-6 space-y-4">
-        {current.coverImage && (
-          <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-md">
-            <img src={current.coverImage} alt={current.title} className="h-full w-full object-cover" />
+      {/* Carrousel Slide avec Animation Slide-In Droite vers Gauche (1.5s) */}
+      <div key={currentIndex} className="mt-6 space-y-4">
+        <style jsx>{`
+          @keyframes techSlideInRight {
+            0% {
+              opacity: 0;
+              transform: translateX(90px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .tech-slide-1-5s {
+            animation: techSlideInRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        `}</style>
+
+        <div className="tech-slide-1-5s space-y-4">
+          {current.coverImage && (
+            <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-md">
+              <img src={current.coverImage} alt={current.title} className="h-full w-full object-cover" />
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-amber-300">
+              {getDomainIcon(current.domain)}
+              {current.domain}
+            </span>
+            <span className="text-xs text-slate-400">• {current.source}</span>
+            <span className="text-xs text-slate-500">• {current.date}</span>
           </div>
-        )}
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-amber-300">
-            {getDomainIcon(current.domain)}
-            {current.domain}
-          </span>
-          <span className="text-xs text-slate-400">• {current.source}</span>
-          <span className="text-xs text-slate-500">• {current.date}</span>
+          <h4 className="text-lg sm:text-xl font-black text-white leading-snug">{current.title}</h4>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{current.summary}</p>
         </div>
-
-        <h4 className="text-lg sm:text-xl font-black text-white leading-snug">{current.title}</h4>
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{current.summary}</p>
 
         {/* Sélection de la page de publication */}
         <div className="space-y-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10">
