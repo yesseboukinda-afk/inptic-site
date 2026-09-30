@@ -1485,14 +1485,37 @@ export default function AdminRHPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700">Photo URL</label>
-                  <input
-                    type="text"
-                    value={formPhotoUrl}
-                    onChange={(e) => setFormPhotoUrl(e.target.value)}
-                    placeholder="/photos/agent.jpg"
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
-                  />
+                  <label className="block text-xs font-bold text-slate-700">Photo de l&apos;employé</label>
+                  <div className="mt-1 flex items-center gap-3">
+                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center">
+                      {formPhotoUrl ? (
+                        <img src={formPhotoUrl} alt="Aperçu" className="h-full w-full object-cover" />
+                      ) : (
+                        <User size={18} className="text-slate-400" />
+                      )}
+                    </div>
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs">
+                      <Upload size={13} />
+                      <span>Parcourir...</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              if (typeof uploadEvent.target?.result === 'string') {
+                                setFormPhotoUrl(uploadEvent.target.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 
