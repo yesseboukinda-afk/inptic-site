@@ -1,482 +1,231 @@
-"use client";
+'use client';
 
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-
-type CardVariant = 'root' | 'manager' | 'teal' | 'light' | 'mini';
-
-/**
- * ============================================================
- *  PHOTOS — modifie uniquement ce bloc plus tard pour ajouter
- *  les vraies photos, sans toucher au reste du composant.
- *  Laisse '' si tu n'as pas encore la photo : une silhouette
- *  de remplacement s'affiche automatiquement.
- *  Exemple : board: '/photos/board.jpg',
- * ============================================================
- */
-const photos: Record<string, string> = {
-  board: '/connexion/github.png',
-  director: '/banniere/DG.webp',
-  deputyDirector: '/banniere/DGA.webp',
-  studiesOfficer: '',
-  controller: '',
-  serviceHead: '',
-  advisors: '',
-  assistant: '',
-  studiesDirector: '',
-  continuingDirector: '',
-  technicalDirector: '',
-  unescoDirector: '',
-  secretary: '',
-  deptReseaux: '',
-  deptManagementCommerce: '',
-  deptManagementTIC: '',
-  deptAudiovisuel: '',
-  serviceStageEmploi: '',
-  servicePlanification: '',
-  serviceVeilleTech: '',
-  centreMaintenance: '',
-  serviceRessourcesDoc: '',
-  serviceInformatique: '',
-  expertPedagogique: '',
-  expertTechnique: '',
-  serviceScolarite: '',
-  serviceLogistique: '',
-  serviceSocial: '',
-  serviceCommunication: '',
-};
-
-// Dégradés (couleur de départ / couleur d'arrivée) par palier hiérarchique,
-// du plus chaud (sommet) au plus froid (base), comme sur le modèle.
-const GRADIENTS: Record<CardVariant, [string, string]> = {
-  root: ['#ff8a3d', '#e63963'],
-  manager: ['#b155f0', '#7c3aed'],
-  teal: ['#7c5ce8', '#c14fd6'],
-  light: ['#3b82f6', '#22c1dc'],
-  mini: ['#14b8a6', '#0e9bb5'],
-};
-
-// Hexagone à coins arrondis, dessiné une fois dans un viewBox 100x100.
-// Comme c'est du SVG, la même géométrie s'adapte à n'importe quelle
-// taille de carte simplement via width/height du <svg>.
-const HEX_OUTER =
-  'M33 4 L67 4 Q75 4 78.82 11.03 L96.18 42.97 Q100 50 96.18 57.03 ' +
-  'L78.82 88.97 Q75 96 67 96 L33 96 Q25 96 21.18 88.97 L3.82 57.03 ' +
-  'Q0 50 3.82 42.97 L21.18 11.03 Q25 4 33 4 Z';
-
-const HEX_INNER =
-  'M35 9.52 L65 9.52 Q72 9.52 75.34 15.67 L90.66 43.85 Q94 50 90.66 56.15 ' +
-  'L75.34 84.33 Q72 90.48 65 90.48 L35 90.48 Q28 90.48 24.66 84.33 ' +
-  'L9.34 56.15 Q6 50 9.34 43.85 L24.66 15.67 Q28 9.52 35 9.52 Z';
-
-function HexPhoto({ id, photoSrc, size }: { id: string; photoSrc: string; size: number }) {
-  const gradId = `grad-${id}`;
-  const clipId = `clip-${id}`;
-
-  return (
-    <svg
-      viewBox="0 0 100 100"
-      width={size}
-      height={size}
-      className="org-hex-svg"
-    >
-      <defs>
-        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="var(--gradFrom)" />
-          <stop offset="100%" stopColor="var(--gradTo)" />
-        </linearGradient>
-        <clipPath id={clipId}>
-          <path d={HEX_INNER} />
-        </clipPath>
-      </defs>
-      <path d={HEX_OUTER} fill={`url(#${gradId})`} />
-      <path d={HEX_INNER} fill="#ffffff81" />
-      {photoSrc ? (
-        <image
-          href={photoSrc}
-          x="0"
-          y="0"
-          width="100"
-          height="100"
-          preserveAspectRatio="xMidYMid slice"
-          clipPath={`url(#${clipId})`}
-        />
-      ) : (
-        <g clipPath={`url(#${clipId})`}>
-          <circle cx="50" cy="37" r="14" fill="#dde1e863" />
-          <path d="M20 92 Q50 58 80 92 Z" fill="#dde1e823" />
-        </g>
-      )}
-    </svg>
-  );
-}
-
-/**
- * Connecteur en équerre (bracket) dessiné en SVG plutôt qu'avec des
- * bordures CSS : un seul tronc central qui se ramifie vers chaque
- * carte de la rangée du dessous, avec un coin arrondi à chaque coude.
- * Les positions sont calculées en pourcentage de la largeur du
- * connecteur, donc indépendantes du CSS (gap, reset Tailwind, etc.)
- * de la page qui l'utilise.
- */
-function Bracket({ count = 5, height = 34 }: { count?: number; height?: number }) {
-  const centerX = 50;
-  const dropY = 9; // hauteur du tronc avant le coude
-  const bottomY = height - 2; // arrivée juste au-dessus des cartes
-  const spacing = 100 / count;
-  const positions = Array.from({ length: count }, (_, i) => (i + 0.5) * spacing);
-  const r = Math.min(6, spacing / 2 - 1.5);
-
-  return (
-    <svg
-      className="org-bracket"
-      viewBox={`0 0 100 ${height}`}
-      preserveAspectRatio="none"
-      style={{ height }}
-    >
-      <line
-        x1={centerX} y1={0} x2={centerX} y2={dropY}
-        stroke="#000000" strokeWidth={2} vectorEffect="non-scaling-stroke"
-      />
-      {positions.map((x, i) => {
-        if (Math.abs(x - centerX) < 0.01) {
-          return (
-            <line
-              key={i}
-              x1={x} y1={dropY} x2={x} y2={bottomY}
-              stroke="#000000" strokeWidth={2} vectorEffect="non-scaling-stroke"
-            />
-          );
-        }
-        const towardCenter = x < centerX ? 1 : -1;
-        const bendX = x + towardCenter * r;
-        const d = `M ${centerX} ${dropY} H ${bendX} Q ${x} ${dropY} ${x} ${dropY + r} V ${bottomY}`;
-        return (
-          <path
-            key={i}
-            d={d}
-            fill="none"
-            stroke="#000000"
-            strokeWidth={2}
-            vectorEffect="non-scaling-stroke"
-          />
-        );
-      })}
-    </svg>
-  );
-}
+import Image from 'next/image';
+import inpticLogo from '@/logoinptic.png';
+import { ShieldCheck, Users, ChevronDown } from 'lucide-react';
 
 export default function OrganigrammePage() {
   const { t } = useTranslation();
 
-  const topRow = [
-    { key: 'studiesOfficer', label: t('organization.studiesOfficer').replace(' ', '\n') },
-    { key: 'controller', label: t('organization.controller').replace(' ', '\n') },
-    { key: 'serviceHead', label: t('organization.serviceHead').replace(' ', '\n') },
-    { key: 'advisors', label: t('organization.advisors') },
-    { key: 'assistant', label: t('organization.assistant').replace(' ', '\n') },
-  ];
-
-  const middleRow = [
-    { key: 'studiesDirector', label: t('organization.studiesDirector') },
-    { key: 'continuingDirector', label: t('organization.continuingDirector') },
-    { key: 'technicalDirector', label: t('organization.technicalDirector') },
-    { key: 'unescoDirector', label: t('organization.unescoDirector') },
-    { key: 'secretary', label: t('organization.secretary') },
-  ];
-
-  const lowerCols = [
-    [
-      { key: 'deptReseaux' },
-      { key: 'deptManagementCommerce' },
-      { key: 'deptManagementTIC' },
-      { key: 'deptAudiovisuel' },
-    ],
-    [
-      { key: 'serviceStageEmploi' },
-      { key: 'servicePlanification' },
-      { key: 'serviceVeilleTech' },
-    ],
-    [
-      { key: 'centreMaintenance' },
-      { key: 'serviceRessourcesDoc' },
-      { key: 'serviceInformatique' },
-    ],
-    [
-      { key: 'expertPedagogique' },
-      { key: 'expertTechnique' },
-    ],
-    [
-      { key: 'serviceScolarite' },
-      { key: 'serviceLogistique' },
-      { key: 'serviceSocial' },
-      { key: 'serviceCommunication' },
-    ],
-  ];
-
-  const renderCard = (key: string, label: string, variant: CardVariant) => {
-    const photoSrc = photos[key] ?? '';
-    const isBig = variant === 'root' || variant === 'manager';
-    const size = isBig ? 104 : 90;
-    const [gradFrom, gradTo] = GRADIENTS[variant];
-
-    return (
-      <div
-        className={`org-card org-card-${variant}`}
-        style={{ '--gradFrom': gradFrom, '--gradTo': gradTo } as React.CSSProperties}
-      >
-        <HexPhoto id={key} photoSrc={photoSrc} size={size} />
-        <div className="org-pill">
-          <div className="org-card-label">
-            {label.split('\n').map((part, index, arr) => (
-              <span
-                key={`${key}-${index}`}
-                className={index === 0 ? 'org-label-primary' : 'org-label-secondary'}
-              >
-                {part}
-                {index < arr.length - 1 ? <br /> : null}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <main className="org-page">
-      <div className="org-container">
-        <div className="mb-10 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">{t('organization.label')}</p>
-          <h1 className="mt-4 text-3xl font-black md:text-5xl">{t('organization.title')}</h1>
-          <p className="mx-auto mt-4 max-w-3xl text-base text-slate-600 md:text-lg">{t('organization.intro')}</p>
+    <main className="min-h-screen bg-slate-100 pb-24 text-slate-900">
+      {/* Banner */}
+      <section className="relative isolate overflow-hidden text-white bg-slate-950">
+        <img
+          src="/banniere/1.webp"
+          alt=""
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
+          className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105"
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-0 z-[1]"
+          style={{
+            backgroundImage:
+              'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)',
+          }}
+          aria-hidden="true"
+        />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+          <h1 className="text-4xl font-black md:text-6xl">Organigramme Institutionnel</h1>
+          <p className="mt-5 max-w-3xl text-lg text-slate-200">
+            Structure hiérarchique officielle de l&apos;Institut National de la Poste, des Technologies de l&apos;Information et de la Communication du Gabon.
+          </p>
         </div>
+      </section>
 
-        <div className="org-chart-shell">
-          <div className="org-chart-stage">
-            <div className="org-root org-node">
-              {renderCard('board', t('organization.board'), 'root')}
+      {/* Main Hierarchy Shell */}
+      <section className="mx-auto max-w-[1550px] px-4 py-12">
+        <div className="overflow-x-auto pb-8">
+          <div className="min-w-[1280px] flex flex-col items-center text-center space-y-6">
+
+            {/* 1. Président du Conseil d'Administration */}
+            <div className="w-96 rounded-2xl border-2 border-[#D4AF37] bg-gradient-to-r from-slate-900 via-[#14306b] to-slate-900 p-4 text-white shadow-xl">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#D4AF37]">
+                Gouvernance Haute
+              </span>
+              <h2 className="text-xl font-black text-white mt-1">
+                Président du Conseil d&apos;Administration
+              </h2>
             </div>
-            <div className="org-line org-line-vertical root-line" />
 
-            <div className="org-manager org-node">
-              {renderCard('director', t('organization.director'), 'manager')}
+            {/* Vertical Line */}
+            <div className="h-8 w-1 bg-slate-400" />
+
+            {/* 2. Directeur Général */}
+            <div className="w-96 rounded-2xl border-2 border-blue-600 bg-slate-900 p-4 text-white shadow-xl">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-400">
+                Direction Exécutive
+              </span>
+              <h2 className="text-2xl font-black text-white mt-1">
+                Directeur Général
+              </h2>
             </div>
-            <div className="org-line org-line-vertical deputy-line" />
-            <div className="org-manager org-node">
-              {renderCard('deputyDirector', t('organization.deputyDirector'), 'manager')}
+
+            {/* Vertical Line */}
+            <div className="h-6 w-1 bg-slate-400" />
+
+            {/* 3. Services rattachés & Conseillers du DG */}
+            <div className="grid grid-cols-2 gap-3 w-[520px] rounded-2xl border border-slate-300 bg-white p-4 shadow-sm text-xs font-bold text-slate-800">
+              <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+                Chef de Service Administratif et Financier
+              </div>
+              <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+                Conseillers
+              </div>
+              <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+                Contrôleur de Gestion
+              </div>
+              <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+                Assistante du DG
+              </div>
+              <div className="col-span-2 rounded-xl bg-slate-50 p-2.5 border border-slate-200">
+                Chargés d&apos;études
+              </div>
             </div>
 
-            <Bracket count={5} />
+            {/* Vertical Line Branching to 5 Main Directions */}
+            <div className="relative w-full py-4">
+              <div className="mx-auto h-8 w-1 bg-slate-400" />
+              <div className="h-1 bg-slate-400 w-[84%] mx-auto" />
+            </div>
 
-            <div className="org-row row-top">
-              {topRow.map((item) => (
-                <div key={item.key} className="org-col-item org-node">
-                  {renderCard(item.key, item.label, 'teal')}
+            {/* 4. Les 5 Grandes Directions Opérationnelles */}
+            <div className="grid grid-cols-5 gap-4 w-full items-start text-xs font-semibold">
+
+              {/* Direction 1: DEP */}
+              <div className="space-y-4">
+                <div className="rounded-2xl border-2 border-blue-600 bg-slate-900 p-3.5 text-white shadow-md min-h-[90px] flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-cyan-300 uppercase tracking-wider">Direction 1</span>
+                  <h3 className="font-black text-sm text-white mt-1 leading-snug">
+                    Directeur des Études et de la Pédagogie
+                  </h3>
                 </div>
-              ))}
-            </div>
 
-            <Bracket count={5} />
+                <div className="h-4 w-0.5 bg-slate-300 mx-auto" />
 
-            <div className="org-row row-middle">
-              {middleRow.map((item) => (
-                <div key={item.key} className="org-col-item org-node">
-                  {renderCard(item.key, item.label, 'light')}
+                <div className="space-y-2 text-slate-800">
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Département Réseaux et Systèmes Numériques
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Département Management et Commerce
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Département Management des TIC
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Département Audiovisuel
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <Bracket count={5} />
-
-            <div className="org-lower-grid">
-              {lowerCols.map((col, colIndex) => (
-                <div key={`col-${colIndex}`} className="org-lower-col">
-                  {col.map((item) => (
-                    <div key={item.key} className="org-lower-item org-node">
-                      {renderCard(item.key, t(`organization.${item.key}`), 'mini')}
-                    </div>
-                  ))}
+              {/* Direction 2: Formation Continue */}
+              <div className="space-y-4">
+                <div className="rounded-2xl border-2 border-purple-600 bg-slate-900 p-3.5 text-white shadow-md min-h-[90px] flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-purple-300 uppercase tracking-wider">Direction 2</span>
+                  <h3 className="font-black text-sm text-white mt-1 leading-snug">
+                    Directeur de la Formation Continue
+                  </h3>
                 </div>
-              ))}
+
+                <div className="h-4 w-0.5 bg-slate-300 mx-auto" />
+
+                <div className="space-y-2 text-slate-800">
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Services Stage et Emploi
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Service Planification et Évaluation
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Service Veille Technologique et Accompagnement VAE
+                  </div>
+                </div>
+              </div>
+
+              {/* Direction 3: Ressources Techniques & Innovation */}
+              <div className="space-y-4">
+                <div className="rounded-2xl border-2 border-emerald-600 bg-slate-900 p-3.5 text-white shadow-md min-h-[90px] flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Direction 3</span>
+                  <h3 className="font-black text-sm text-white mt-1 leading-snug">
+                    Directeur des Ressources Techniques et de l&apos;Innovation
+                  </h3>
+                </div>
+
+                <div className="h-4 w-0.5 bg-slate-300 mx-auto" />
+
+                <div className="space-y-2 text-slate-800">
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef du Centre de Maintenance et Assistance Technique
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Centre de Ressources Documentaires
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Service Informatique et Gestion du Système d&apos;Information
+                  </div>
+                </div>
+              </div>
+
+              {/* Direction 4: Centre Avicenne UNESCO */}
+              <div className="space-y-4">
+                <div className="rounded-2xl border-2 border-amber-500 bg-slate-900 p-3.5 text-white shadow-md min-h-[90px] flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-amber-300 uppercase tracking-wider">Direction 4</span>
+                  <h3 className="font-black text-sm text-white mt-1 leading-snug">
+                    Directeur du Centre Avicenne-UNESCO-INPTIC
+                  </h3>
+                </div>
+
+                <div className="h-4 w-0.5 bg-slate-300 mx-auto" />
+
+                <div className="space-y-2 text-slate-800">
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Expert Pédagogique
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Expert Technique
+                  </div>
+                </div>
+              </div>
+
+              {/* Direction 5: Secrétariat Général */}
+              <div className="space-y-4">
+                <div className="rounded-2xl border-2 border-[#D4AF37] bg-slate-900 p-3.5 text-white shadow-md min-h-[90px] flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-amber-200 uppercase tracking-wider">Direction 5</span>
+                  <h3 className="font-black text-sm text-white mt-1 leading-snug">
+                    Secrétaire Général
+                  </h3>
+                </div>
+
+                <div className="h-4 w-0.5 bg-slate-300 mx-auto" />
+
+                <div className="space-y-2 text-slate-800">
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Service Scolarité
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Service Communication et Relations Extérieures
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Service Logistique et Achats
+                  </div>
+                  <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-xs font-bold">
+                    Chef de Service Social
+                  </div>
+                </div>
+              </div>
+
             </div>
+
           </div>
         </div>
-      </div>
-
-      <style>{`
-        .org-page {
-          position: relative;
-          min-height: 100vh;
-          background: #f8f5ec;
-          color: #172033;
-          padding: 4rem 1rem;
-        }
-
-        .org-container {
-          position: relative;
-          z-index: 2;
-          max-width: 1500px;
-          margin: 0 auto;
-        }
-
-        .org-chart-shell {
-          position: relative;
-          overflow-x: auto;
-          padding: 2.5rem 1.5rem 3rem;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .org-chart-stage {
-          position: relative;
-          min-width: 1180px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 1rem 0 0.75rem;
-        }
-
-        .org-node { position: relative; z-index: 5; }
-
-        .root-line,
-        .deputy-line {
-          width: 2px;
-          height: 34px;
-          background: #000000;
-        }
-
-        /* ---------- Card ---------- */
-
-        .org-card {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          width: 176px;
-          text-align: center;
-        }
-
-        .org-hex-svg {
-          position: relative;
-          z-index: 2;
-          filter: drop-shadow(0 8px 10px rgba(45, 51, 70, 0.25));
-        }
-
-        /* ---------- Gradient pill / badge ---------- */
-
-       .org-pill {
-  width: 100%;
-  margin-top: -10px;
-  padding: 20px 0.75rem 0.9rem;
-    border-radius: 60px !important;
-  background: linear-gradient(160deg, var(--gradFrom), var(--gradTo));
-  box-shadow: 0 12px 20px rgba(1, 1, 3, 0.18);
-}
-
-.org-card-root .org-pill,
-.org-card-manager .org-pill {
-  margin-top: -12px;
-  padding-top: 24px;
-    border-radius: 60px !important;
-}
-
-        .org-card-label {
-          width: 100%;
-          color: #ffffff;
-          font-size: 0.78rem;
-          font-weight: 700;
-          line-height: 1.3;
-        }
-
-        .org-card-root .org-card-label,
-        .org-card-manager .org-card-label {
-          font-size: 0.9rem;
-          font-weight: 800;
-        }
-
-        .org-label-primary {
-          font-weight: 800;
-        }
-
-        .org-label-secondary {
-          display: inline;
-          font-weight: 500;
-          opacity: 0.88;
-          font-size: 0.94em;
-        }
-
-        /* ---------- Connectors ---------- */
-
-        /* Connecteur SVG : même padding horizontal que les rangées
-           qu'il précède, pour que ses coordonnées en % tombent
-           exactement sur le centre de chaque carte en dessous. */
-
-        .org-bracket {
-          display: block;
-          width: 100%;
-          box-sizing: border-box;
-          padding: 0 1rem;
-
-        }
-
-        .org-row {
-          position: relative;
-          display: grid;
-          width: 100%;
-          gap: 1.35rem;
-          justify-items: center;
-          padding: 0 1rem;
-        }
-
-        .row-top,
-        .row-middle {
-          grid-template-columns: repeat(5, minmax(170px, 1fr));
-        }
-
-        .org-lower-grid {
-          position: relative;
-          display: grid;
-          grid-template-columns: repeat(5, minmax(170px, 1fr));
-          width: 100%;
-          margin-top: 0;
-          padding: 0 1rem;
-        }
-
-        .org-lower-col {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          align-items: stretch;
-        }
-
-        .org-lower-item {
-          display: flex;
-          justify-content: center;
-        }
-
-        .org-lower-item:not(:last-child)::after {
-          position: absolute;
-          top: 100%;
-          left: 50%;
-          width: 2px;
-          height: 1rem;
-          background: #000000;
-          content: '';
-          transform: translateX(-50%);
-        }
-
-
-        @media (max-width: 900px) {
-          .org-page { padding: 2.5rem 0.5rem; }
-          .org-chart-shell { padding: 2rem 0.5rem 2.5rem; }
-          .org-chart-stage { min-width: 1050px; }
-        }
-
-        @media (max-width: 540px) {
-          .org-chart-stage { min-width: 980px; }
-          .org-card { width: 158px; }
-        }
-      `}</style>
+      </section>
     </main>
   );
 }
