@@ -1902,6 +1902,40 @@ export default function AdminRHPage() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        @media print {
+          body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-card,
+          #printable-card * {
+            visibility: visible !important;
+          }
+          #printable-card {
+            position: fixed !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) scale(1.5) !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border-color: #0f172a !important;
+            background-color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-inside: avoid !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+        }
+      `}</style>
     </main>
   );
 }
