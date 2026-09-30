@@ -100,6 +100,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const [quotaAlert, setQuotaAlert] = useState<string | null>(null);
 
   useEffect(() => {
+    const director = localStorage.getItem('inptic_directeur');
     const session = localStorage.getItem('inptic_staff');
 
     let sessionData: { role?: unknown };
@@ -109,7 +110,10 @@ export default function StaffDashboard({ role }: { role: Role }) {
       sessionData = {};
     }
 
-    if (!session || normalizeRole(sessionData.role) !== role) {
+    const isDirector = Boolean(director);
+    const hasStaffAccess = isDirector || (session && (normalizeRole(sessionData.role) === role || sessionData.role === 'admin' || sessionData.role === 'scolarite'));
+
+    if (!hasStaffAccess) {
       router.replace('/candidat');
       return;
     }
