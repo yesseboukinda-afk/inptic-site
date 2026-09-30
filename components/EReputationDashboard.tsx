@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink } from 'lucide-react';
+import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Plus, X } from 'lucide-react';
 
 type MentionItem = {
   id: string;
@@ -21,6 +21,13 @@ export default function EReputationDashboard() {
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(true);
 
+  // Modal de capture manuelle / test de commentaire Facebook
+  const [showIngestModal, setShowIngestModal] = useState(false);
+  const [ingestAuthor, setIngestAuthor] = useState('');
+  const [ingestContent, setIngestContent] = useState('');
+  const [ingestPlatform, setIngestPlatform] = useState<'Facebook' | 'Twitter/X' | 'Google Avis' | 'LinkedIn'>('Facebook');
+  const [ingestUrl, setIngestUrl] = useState('https://www.facebook.com/people/Inptic-Gabon/61557159190234/');
+
   const loadLiveMentions = () => {
     setIsScanning(true);
     fetch('/api/ereputation')
@@ -38,9 +45,36 @@ export default function EReputationDashboard() {
     loadLiveMentions();
     const interval = setInterval(() => {
       loadLiveMentions();
-    }, 5 * 60 * 1000); // Fréquence de scan automatique de 5 minutes
+    }, 5 * 60 * 1000); // 5 minutes
     return () => clearInterval(interval);
   }, []);
+
+  const handleIngestComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ingestContent.trim()) return;
+
+    try {
+      const res = await fetch('/api/ereputation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          author: ingestAuthor.trim() || 'Auteur Facebook',
+          content: ingestContent.trim(),
+          platform: ingestPlatform,
+          url: ingestUrl.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setShowIngestModal(false);
+        setIngestAuthor('');
+        setIngestContent('');
+        loadLiveMentions();
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const positiveCount = mentions.filter((m) => m.sentiment === 'positif').length;
   const neutralCount = mentions.filter((m) => m.sentiment === 'neutre').length;
@@ -85,12 +119,12 @@ export default function EReputationDashboard() {
         </div>
       </div>
 
-      {/* Raccourcis Plateformes Officielles du Footer */}
+      {/* Raccourcis Plateformes Officielles & Bouton d'Ingestion Manuel */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
-        <span className="font-bold text-slate-700">Canaux officiels INPTIC surveillés :</span>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-bold text-slate-700">Canaux officiels INPTIC surveillés :</span>
           <a
-            href="https://www.facebook.com/share/1JiVyPnGRj/?mibextid=wwXIfr"
+            href="https://www.facebook.com/people/Inptic-Gabon/61557159190234/?mibextid=wwXIfr"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-blue-400 transition"
@@ -107,16 +141,15 @@ export default function EReputationDashboard() {
             <Globe size={13} className="text-green-600" />
             <span>WhatsApp Channel</span>
           </a>
-          <a
-            href="https://www.youtube.com/@INPTICGabonOfficiel"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-red-400 transition"
-          >
-            <Globe size={13} className="text-red-600" />
-            <span>YouTube Officiel</span>
-          </a>
         </div>
+
+        <button
+          onClick={() => setShowIngestModal(true)}
+          className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 font-bold text-white hover:bg-blue-600 transition"
+        >
+          <Plus size={14} />
+          <span>Saisir un commentaire capté</span>
+        </button>
       </div>
 
       {/* ── CENTRE DE NOTIFICATION TEMPS RÉEL (COMMENTAIRES PÉJORATIFS & DÉGRADANTS) ── */}
@@ -144,7 +177,7 @@ export default function EReputationDashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-red-100 px-2 py-0.5 font-bold text-red-800">{alertItem.platform}</span>
-                    <strong className="text-slate-900">Source : {alertItem.author}</strong>
+                    <strong className="text-slate-900">Auteur : {alertItem.author}</strong>
                   </div>
                   <span className="text-slate-500 font-medium">🕒 {alertItem.date}</span>
                 </div>
@@ -161,7 +194,7 @@ export default function EReputationDashboard() {
                     className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                   >
                     <ExternalLink size={13} />
-                    <span>Lien direct vers la source d&apos;origine</span>
+                    <span>Lien direct vers le commentaire d&apos;origine</span>
                   </a>
 
                   <button
@@ -331,6 +364,86 @@ export default function EReputationDashboard() {
           ))
         )}
       </div>
+
+      {/* ── MODAL SAISIE D'UN COMMENTAIRE CAPTÉ ── */}
+      {showIngestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-900">Saisir un commentaire capté sur les réseaux</h3>
+              <button onClick={() => setShowIngestModal(false)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleIngestComment} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Auteur du commentaire / Nom de l'utilisateur *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: Jean M. / @TrollGabon241"
+                  value={ingestAuthor}
+                  onChange={(e) => setIngestAuthor(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Plateforme d'origine</label>
+                <select
+                  value={ingestPlatform}
+                  onChange={(e) => setIngestPlatform(e.target.value as any)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
+                >
+                  <option value="Facebook">Facebook</option>
+                  <option value="Twitter/X">Twitter/X</option>
+                  <option value="Google Avis">Google Avis</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Lien direct vers la publication / commentaire</label>
+                <input
+                  type="url"
+                  value={ingestUrl}
+                  onChange={(e) => setIngestUrl(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500 font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Texte exact du commentaire *</label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Tapez ou collez le commentaire exact déposé sur la page..."
+                  value={ingestContent}
+                  onChange={(e) => setIngestContent(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowIngestModal(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 px-5 py-2 font-bold text-white hover:bg-blue-700"
+                >
+                  Enregistrer &amp; Analyser
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
