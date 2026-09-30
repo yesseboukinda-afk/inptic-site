@@ -130,7 +130,9 @@ export default function AdminRHPage() {
 
     if (director || staff) {
       setToken('local-admin-token');
-      setUserEmail(director ? JSON.parse(director).email : JSON.parse(staff).email);
+      const dirObj = director ? JSON.parse(director) : null;
+      const staffObj = staff ? JSON.parse(staff) : null;
+      setUserEmail(dirObj?.email || staffObj?.email || 'rh-admin@inptic.ga');
       setUserRole('rh_admin');
       setAuthLoading(false);
       return;
