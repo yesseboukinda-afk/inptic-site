@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import TranslatedText from '@/components/TranslatedText';
 
 type Attachment = {
   name: string;
@@ -267,9 +268,9 @@ export default function AnnoncesPubliques() {
             </div>
 
             {/* Title & Body */}
-            <h3 className="mt-4 text-xl font-bold text-slate-900">{annonce.title}</h3>
+            <h3 className="mt-4 text-xl font-bold text-slate-900"><TranslatedText text={annonce.title} /></h3>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-              {annonce.excerpt}
+              <TranslatedText text={annonce.excerpt} />
             </p>
 
             {/* Attachments */}

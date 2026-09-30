@@ -32,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { isStaffOrAdminUser } from '@/lib/roles';
 import { PublicationAttachment, ResearchPublication } from '@/types/publication';
+import TranslatedText from '@/components/TranslatedText';
 
 function formatFileSize(bytes?: number) {
   if (!bytes) return '';
@@ -342,16 +343,16 @@ export default function PublicationsPage() {
           <div className="flex items-center justify-between gap-6">
             <div className="max-w-3xl">
               <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
-              <h1 className="text-4xl font-black md:text-6xl">Publications des Chercheurs de l&apos;INPTIC</h1>
+              <h1 className="text-4xl font-black md:text-6xl">{t('publicationsPage.title', 'Publications des Chercheurs de l’INPTIC')}</h1>
               <p className="mt-5 max-w-3xl text-lg text-slate-200">
-                Explorez les travaux de recherche, articles de revues et actes de conférences publiés par le corps professoral et les laboratoires de l&apos;Institut.
+                {t('publicationsPage.intro', 'Explorez les travaux de recherche, articles de revues et actes de conférences publiés par le corps professoral et les laboratoires de l’Institut.')}
               </p>
             </div>
 
             <div className="hidden md:block rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md text-center min-w-[200px]">
               <span className="text-4xl font-black text-white">{publications.length}</span>
               <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">
-                Travaux Référencés
+                {t('publicationsPage.referencedWorks', 'Travaux Référencés')}
               </p>
             </div>
           </div>
@@ -487,7 +488,7 @@ export default function PublicationsPage() {
 
                     {/* Titre */}
                     <h2 className="mt-3 text-lg font-black text-slate-900 group-hover:text-blue-600 transition">
-                      {pub.title}
+                      <TranslatedText text={pub.title} />
                     </h2>
 
                     {/* Auteurs */}
@@ -498,7 +499,7 @@ export default function PublicationsPage() {
 
                     {/* Résumé */}
                     <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                      {pub.abstract}
+                      <TranslatedText text={pub.abstract} />
                     </p>
 
                     {/* Mots-clés */}

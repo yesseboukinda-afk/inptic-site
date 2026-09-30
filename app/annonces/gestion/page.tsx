@@ -10,6 +10,8 @@ import {
   RefreshCw, Tag, Trash2, UploadCloud, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import TechVeilleFeed from '@/components/TechVeilleFeed';
+import EReputationDashboard from '@/components/EReputationDashboard';
 
 /* ─────────────────────────── types ── */
 export type Attachment = {
@@ -906,9 +908,15 @@ export default function GestionAnnoncesPage() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 space-y-8">
+          {/* ── Veille Technologique Internationale Carrousel ── */}
+          <TechVeilleFeed />
+
+          {/* ── Veille & E-réputation Dashboard ── */}
+          <EReputationDashboard />
+
           {/* ── Stats bar ── */}
-          <div className="mb-6 grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {[
               { label: 'Total', value: publications.length, color: 'text-slate-700', bg: 'bg-white' },
               { label: 'Publiées', value: published, color: 'text-emerald-700', bg: 'bg-emerald-50' },

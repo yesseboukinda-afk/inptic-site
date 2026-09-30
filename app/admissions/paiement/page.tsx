@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { generateQRCodeSVG } from '@/lib/qrcode';
+import { useTranslation } from 'react-i18next';
 
 type CandidateProfile = {
   name: string;
@@ -35,6 +36,7 @@ type CandidateProfile = {
 
 export default function PaiementPage() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,30 +206,14 @@ export default function PaiementPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* En-tête Héro */}
-      <section className="relative overflow-hidden bg-slate-950 py-16 text-white md:py-20">
-        <img
-          src="/banniere/2.webp"
-          alt=""
-          fetchPriority="high"
-          loading="eager"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover object-center"
-        />
-        <div
-          className="absolute inset-0 z-[1]"
-          style={{
-            backgroundImage:
-              'linear-gradient(90deg, rgba(7, 25, 60, 0.94) 0%, rgba(14, 43, 102, 0.88) 55%, rgba(20, 48, 107, 0.75) 100%)',
-          }}
-        />
-        <div className="container-x relative z-10 px-4 md:px-0 text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-300">
-            <ShieldCheck size={14} className="text-[#D4AF37]" />
-            Règlement Officiel d&apos;Admission INPTIC
-          </div>
-          <h1 className="mt-3 text-3xl font-black sm:text-4xl">Paiement des Frais de Dossier</h1>
-          <p className="mt-2 text-sm text-slate-300">
-            Accusé de réception émis. Validez le paiement réel sur votre téléphone pour débloquer votre quittance officielle.
+      <section className="relative isolate overflow-hidden text-white bg-slate-950">
+        <img src="/banniere/2.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+          <h1 className="text-4xl font-black md:text-6xl">{t('payment.title', 'Paiement des Frais de Dossier')}</h1>
+          <p className="mt-5 max-w-3xl text-lg text-slate-200">
+            {t('payment.subtitle', 'Accusé de réception émis. Validez le paiement réel sur votre téléphone pour débloquer votre quittance officielle.')}
           </p>
         </div>
       </section>

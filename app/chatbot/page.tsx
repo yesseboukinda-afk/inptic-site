@@ -18,6 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import inpticLogo from '@/logoinptic.png';
+import { useTranslation } from 'react-i18next';
 
 type Message = {
   id: string;
@@ -27,6 +28,7 @@ type Message = {
 };
 
 export default function FullChatbotPage() {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',

@@ -36,6 +36,7 @@ import { supabase } from '@/lib/supabase';
 import { isStaffOrAdminUser } from '@/lib/roles';
 import { ConcoursAttachment, ConcoursItem, ConcoursStatus } from '@/types/concours';
 import DeleteButton from '@/components/DeleteButton';
+import TranslatedText from '@/components/TranslatedText';
 
 function formatFileSize(bytes?: number) {
   if (!bytes) return '';
@@ -184,12 +185,10 @@ export default function ConcoursPage() {
     if (activeTab === 'concours') {
       list = sorted.filter((c) => c.status === 'en_cours' || c.status === 'a_venir');
     } else if (activeTab === 'resultats') {
-      // Uniquement le concours le plus récent
-      const mostRecent = sorted[0];
-      list = mostRecent ? [mostRecent] : [];
+      const publishedResults = sorted.filter((c) => c.results?.published);
+      list = publishedResults.length > 0 ? publishedResults : (sorted[0] ? [sorted[0]] : []);
     } else if (activeTab === 'historique') {
-      // Uniquement les concours passés / terminés ou années antérieures
-      list = sorted.filter((c) => c.status === 'termine' || c.sessionYear < new Date().getFullYear());
+      list = sorted.filter((c) => c.status === 'termine' || c.status === 'archive' || c.sessionYear < new Date().getFullYear());
     }
 
     // Filtre année (sauf sur l'onglet résultats où l'on affiche le plus récent)
@@ -421,28 +420,28 @@ export default function ConcoursPage() {
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
           <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
-          <h1 className="text-4xl font-black md:text-6xl">Concours, Admissions &amp; Résultats</h1>
+          <h1 className="text-4xl font-black md:text-6xl">{t('concoursPage.title', 'Concours, Admissions & Résultats')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            Consultez les concours ouverts et à venir pour intégrer l&apos;INPTIC Gabon, téléchargez les règlements officiels et accédez aux procès-verbaux des résultats.
+            {t('concoursPage.intro', 'Consultez les concours ouverts et à venir pour intégrer l’INPTIC Gabon, téléchargez les règlements officiels et accédez aux procès-verbaux des résultats.')}
           </p>
 
           {/* Statistiques rapides */}
           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
               <span className="text-2xl font-black text-white">{stats.enCours}</span>
-              <p className="mt-1 text-xs font-medium text-emerald-400">En cours</p>
+              <p className="mt-1 text-xs font-medium text-emerald-400">{t('concoursPage.inProgress', 'En cours')}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
               <span className="text-2xl font-black text-white">{stats.aVenir}</span>
-              <p className="mt-1 text-xs font-medium text-amber-400">À venir</p>
+              <p className="mt-1 text-xs font-medium text-amber-400">{t('concoursPage.upcoming', 'À venir')}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
               <span className="text-2xl font-black text-white">{stats.termines}</span>
-              <p className="mt-1 text-xs font-medium text-slate-400">Archives</p>
+              <p className="mt-1 text-xs font-medium text-slate-400">{t('concoursPage.archives', 'Archives')}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-md">
               <span className="text-2xl font-black text-[#D4AF37]">{stats.resultatsPublies}</span>
-              <p className="mt-1 text-xs font-medium text-[#D4AF37]">Résultats dispo</p>
+              <p className="mt-1 text-xs font-medium text-[#D4AF37]">{t('concoursPage.resultsAvailable', 'Résultats dispo')}</p>
             </div>
           </div>
 
@@ -453,11 +452,11 @@ export default function ConcoursPage() {
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {[
-                { label: "Guide d'admission",         href: '/admissions/guide',        icon: FileText },
-                { label: 'Concours & Résultats',      href: '/concours',                icon: Award },
-                { label: "Calculateur d'éligibilité", href: '/admissions/calculateur',  icon: Sparkles },
-                { label: 'Dépôt de dossier',          href: '/admissions/depot',        icon: UploadCloud },
-                { label: 'Suivi en temps réel',       href: '/admissions/suivi',        icon: FileCheck },
+                { label: t('concoursPage.guide', "Guide d'admission"),         href: '/admissions/guide',        icon: FileText },
+                { label: t('concoursPage.concoursAndResults', 'Concours & Résultats'), href: '/concours',                icon: Award },
+                { label: t('concoursPage.calculator', "Calculateur d'éligibilité"), href: '/admissions/calculateur',  icon: Sparkles },
+                { label: t('concoursPage.fileDeposit', 'Dépôt de dossier'),          href: '/admissions/depot',        icon: UploadCloud },
+                { label: t('concoursPage.tracking', 'Suivi en temps réel'),       href: '/admissions/suivi',        icon: FileCheck },
               ].map((item) => {
                 const IconComp = item.icon;
                 return (
@@ -718,13 +717,13 @@ export default function ConcoursPage() {
 
                     {/* Titre */}
                     <h2 className="mt-4 text-lg font-black leading-snug text-slate-900 group-hover:text-blue-600">
-                      {item.title}
+                      <TranslatedText text={item.title} />
                     </h2>
 
-                    <p className="mt-1 text-xs font-semibold text-blue-600">{item.department}</p>
+                    <p className="mt-1 text-xs font-semibold text-blue-600"><TranslatedText text={item.department} /></p>
 
                     <p className="mt-3 text-sm leading-relaxed text-slate-600 line-clamp-3">
-                      {item.description}
+                      <TranslatedText text={item.description} />
                     </p>
 
                     {/* Calendrier succinct */}

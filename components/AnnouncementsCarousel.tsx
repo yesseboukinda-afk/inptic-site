@@ -3,37 +3,39 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Megaphone, ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
-
-const announcements = [
-  {
-    id: 1,
-    tag: 'Concours 2026',
-    title: 'Dépôt des dossiers et paiement des frais de dossier en ligne ouverts',
-    description: 'Déposez vos pièces justificatives, obtenez votre accusé de réception et réglez via Airtel/Moov Money.',
-    link: '/admissions/depot',
-    cta: 'Déposer mon dossier',
-  },
-  {
-    id: 2,
-    tag: 'Événement',
-    title: 'Semaine de l’Innovation Numérique & Hackathon INPTIC',
-    description: 'Rejoignez les ateliers et conférences sur l’Intelligence Artificielle et la Cybersécurité.',
-    link: '/actualites',
-    cta: 'En savoir plus',
-  },
-  {
-    id: 3,
-    tag: 'Espace Alumni & ANDG',
-    title: 'Lancement de l’Annuaire National des Diplômés (ANDG)',
-    description: 'Diplômés de l’INPTIC, rejoignez le réseau professionnel officiel du Gabon.',
-    link: '/alumni',
-    cta: 'Rejoindre le réseau',
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function AnnouncementsCarousel() {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+
+  const announcements = [
+    {
+      id: 1,
+      tag: t('announcements.tagConcours', 'Concours 2026'),
+      title: t('announcements.titleConcours', 'Dépôt des dossiers et paiement des frais de dossier en ligne ouverts'),
+      description: t('announcements.descConcours', 'Déposez vos pièces justificatives, obtenez votre accusé de réception et réglez via Airtel/Moov Money.'),
+      link: '/admissions/depot',
+      cta: t('announcements.ctaConcours', 'Déposer mon dossier'),
+    },
+    {
+      id: 2,
+      tag: t('announcements.tagEvent', 'Événement'),
+      title: t('announcements.titleEvent', 'Semaine de l’Innovation Numérique & Hackathon INPTIC'),
+      description: t('announcements.descEvent', 'Rejoignez les ateliers et conférences sur l’Intelligence Artificielle et la Cybersécurité.'),
+      link: '/actualites',
+      cta: t('announcements.ctaEvent', 'En savoir plus'),
+    },
+    {
+      id: 3,
+      tag: t('announcements.tagAlumni', 'Espace Alumni & ANDG'),
+      title: t('announcements.titleAlumni', 'Lancement de l’Annuaire National des Diplômés (ANDG)'),
+      description: t('announcements.descAlumni', 'Diplômés de l’INPTIC, rejoignez le réseau professionnel officiel du Gabon.'),
+      link: '/alumni',
+      cta: t('announcements.ctaAlumni', 'Rejoindre le réseau'),
+    },
+  ];
 
   useEffect(() => {
     // Vérifier si l'annonce a été fermée il y a moins de 3 minutes
@@ -56,7 +58,7 @@ export default function AnnouncementsCarousel() {
       setCurrentIndex((prev) => (prev + 1) % announcements.length);
     }, 7000);
     return () => clearInterval(timer);
-  }, [isVisible]);
+  }, [isVisible, announcements.length]);
 
   const handleClose = () => {
     setIsVisible(false);

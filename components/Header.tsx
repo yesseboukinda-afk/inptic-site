@@ -55,7 +55,7 @@ export default function Header() {
       href: '/recherche',
       description: t('header.researchDescription'),
       submenu: [
-        { id: 'publications', label: 'Publications scientifiques', href: '/recherche/publications', description: 'Travaux et articles de nos chercheurs' },
+        { id: 'publications', label: t('header.scientificPublications', 'Publications scientifiques'), href: '/recherche/publications', description: t('header.publicationsDesc', 'Travaux et articles de nos chercheurs') },
         { id: 'laboratoires', label: t('header.labs'), href: '/recherche/laboratoires', description: '' },
         { id: 'projets', label: t('header.studentProjects'), href: '/recherche/projets', description: '' },
         { id: 'incubateur', label: t('header.incubator'), href: '/recherche/incubateur', description: '' },
@@ -469,11 +469,11 @@ export default function Header() {
           </Link>
 
           <Link href="/concours" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
-            Concours
+            {t('common.concours', 'Concours')}
           </Link>
 
           <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
-            Publications
+            {t('common.publications', 'Publications')}
           </Link>
 
           {menuItems.map((item) => (
@@ -532,21 +532,21 @@ export default function Header() {
                 className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
                 role="menuitem"
               >
-                Espace DG
+                {t('common.espaceDg', 'Espace DG')}
               </Link>
               <Link
                 href="/direction-etudes"
                 className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-purple-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
                 role="menuitem"
               >
-                Direction Études
+                {t('common.directionEtudes', 'Direction Études')}
               </Link>
               <Link
                 href="/annonces/gestion"
                 className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
                 role="menuitem"
               >
-                Gestion Annonces
+                {t('common.gestionAnnonces', 'Gestion Annonces')}
               </Link>
             </>
           )}
@@ -557,7 +557,7 @@ export default function Header() {
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
               role="menuitem"
             >
-              Scolarité
+              {t('common.scolarite', 'Scolarité')}
             </Link>
           )}
 
@@ -567,7 +567,7 @@ export default function Header() {
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
               role="menuitem"
             >
-              Gestion RH
+              {t('common.gestionRh', 'Gestion RH')}
             </Link>
           )}
         </div>
@@ -590,11 +590,11 @@ export default function Header() {
             </Link>
 
             <Link href="/concours" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
-              Concours
+              {t('common.concours', 'Concours')}
             </Link>
 
             <Link href="/recherche/publications" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
-              Publications
+              {t('common.publications', 'Publications')}
             </Link>
 
             {menuItems.map((item) => (
@@ -630,26 +630,26 @@ export default function Header() {
             {isDirector && (
               <>
                 <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                  Espace DG
+                  {t('common.espaceDg', 'Espace DG')}
                 </Link>
                 <Link href="/direction-etudes" className="block px-4 py-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                  Direction des Études
+                  {t('common.directionEtudes', 'Direction des Études')}
                 </Link>
                 <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                  Gestion Annonces
+                  {t('common.gestionAnnonces', 'Gestion Annonces')}
                 </Link>
               </>
             )}
 
             {(isDirector || isRH || isScolarite) && (
               <Link href="/scolarite" className="block px-4 py-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-cyan-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                Scolarité
+                {t('common.scolarite', 'Scolarité')}
               </Link>
             )}
 
             {(isDirector || isRH) && (
               <Link href="/admin/rh" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[var(--gold)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                Gestion RH
+                {t('common.gestionRh', 'Gestion RH')}
               </Link>
             )}
 

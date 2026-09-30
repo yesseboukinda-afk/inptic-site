@@ -23,6 +23,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { generateQRCodeSVG } from '@/lib/qrcode';
+import { useTranslation } from 'react-i18next';
 
 type Notification = {
   id: string;
@@ -71,6 +72,7 @@ type CandidateProfile = {
 
 export default function Suivi() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,30 +187,14 @@ export default function Suivi() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* ── BANNIÈRE HÉRO SUIVI ── */}
-      <section className="relative overflow-hidden bg-slate-950 py-16 text-white md:py-20">
-        <img
-          src="/banniere/3.webp"
-          alt=""
-          fetchPriority="high"
-          loading="eager"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover object-center"
-        />
-        <div
-          className="absolute inset-0 z-[1]"
-          style={{
-            backgroundImage:
-              'linear-gradient(90deg, rgba(7, 25, 60, 0.94) 0%, rgba(14, 43, 102, 0.88) 55%, rgba(20, 48, 107, 0.75) 100%)',
-          }}
-        />
-        <div className="container-x relative z-10 px-4 md:px-0 text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-300">
-            <ShieldCheck size={14} className="text-[#D4AF37]" />
-            Espace Candidat Officiel INPTIC
-          </div>
-          <h1 className="mt-3 text-3xl font-black sm:text-4xl">Suivi de Candidature &amp; Quittance</h1>
-          <p className="mt-2 text-sm text-slate-300">
-            Consultez votre accusé de réception, procédez au règlement des frais de dossier et téléchargez votre quittance officielle d&apos;authenticité.
+      <section className="relative isolate overflow-hidden text-white bg-slate-950">
+        <img src="/banniere/3.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
+          <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+          <h1 className="text-4xl font-black md:text-6xl">{t('suiviPage.title', 'Suivi de Candidature & Quittance')}</h1>
+          <p className="mt-5 max-w-3xl text-lg text-slate-200">
+            {t('suiviPage.intro', "Consultez votre accusé de réception, procédez au règlement des frais de dossier et téléchargez votre quittance officielle d'authenticité.")}
           </p>
         </div>
       </section>
@@ -222,32 +208,32 @@ export default function Suivi() {
                 <FileCheck2 size={24} />
               </div>
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Accusé de Réception Officiel</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">{t('suiviPage.officialReceipt', 'Accusé de Réception Officiel')}</span>
                 <h2 className="text-xl font-black text-slate-900">{profile.name || 'Candidat'}</h2>
-                <p className="text-xs text-slate-500">Dossier N° : <strong className="font-mono text-blue-700">{profile.dossierNumero || 'INPTIC-2026-000000'}</strong></p>
+                <p className="text-xs text-slate-500">{t('suiviPage.dossierNumber', 'Dossier N° :')} <strong className="font-mono text-blue-700">{profile.dossierNumero || 'INPTIC-2026-000000'}</strong></p>
               </div>
             </div>
 
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${isValide ? 'bg-emerald-100 text-emerald-800' : isRefuse ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-              {isValide ? 'Dossier Validé' : isRefuse ? 'Dossier Refusé' : 'En cours d\'examen par la Scolarité'}
+              {isValide ? t('suiviPage.validated', 'Dossier Validé') : isRefuse ? t('suiviPage.refused', 'Dossier Refusé') : t('suiviPage.underReview', "En cours d'examen par la Scolarité")}
             </span>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3 text-xs">
             <div className="rounded-xl bg-slate-50 p-3">
-              <span className="text-slate-400">Filière sollicitée</span>
+              <span className="text-slate-400">{t('suiviPage.requestedProgram', 'Filière sollicitée')}</span>
               <p className="font-bold text-slate-800 mt-0.5">{profile.filiere || 'Licence Professionnelle'}</p>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
-              <span className="text-slate-400">Réception du dossier</span>
+              <span className="text-slate-400">{t('suiviPage.receptionDate', 'Réception du dossier')}</span>
               <p className="font-bold text-slate-800 mt-0.5">
                 {profile.accuseReceptionDate ? new Date(profile.accuseReceptionDate).toLocaleDateString('fr-FR') : 'Aujourd\'hui'}
               </p>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
-              <span className="text-slate-400">Statut de paiement</span>
+              <span className="text-slate-400">{t('suiviPage.paymentStatus', 'Statut de paiement')}</span>
               <p className={`font-bold mt-0.5 ${isPaid ? 'text-emerald-700' : 'text-amber-600'}`}>
-                {isPaid ? 'Payé (20 000 FCFA)' : 'Autorisé - En attente de règlement'}
+                {isPaid ? t('suiviPage.paidStatus', 'Payé (20 000 FCFA)') : t('suiviPage.pendingPaymentStatus', 'Autorisé - En attente de règlement')}
               </p>
             </div>
           </div>

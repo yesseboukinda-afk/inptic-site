@@ -577,24 +577,23 @@ export default function AnnoncesPublicPage() {
       </div>
 
       {/* ── Hero Banner ── */}
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-12 md:px-8 md:py-16">
+      <section className="relative isolate overflow-hidden text-white bg-slate-950">
+        <img src="/banniere/1.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
+        <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-16 md:px-8">
+          <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-xs font-bold text-blue-700">
-                <Megaphone size={13} />
-                {t('annonces.officialBadge')}
-              </div>
-              <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900 md:text-5xl">
+              <h1 className="text-4xl font-black md:text-6xl">
                 {t('annonces.pageTitle')}
               </h1>
-              <p className="mt-3 max-w-xl text-base leading-relaxed text-slate-600">
+              <p className="mt-3 max-w-xl text-lg text-slate-200">
                 {t('annonces.pageSubtitle')}
               </p>
             </div>
 
             {/* Live badge */}
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs text-slate-600 shadow-xs">
+            <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs text-cyan-300 backdrop-blur-md">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />

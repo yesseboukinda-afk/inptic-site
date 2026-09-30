@@ -54,7 +54,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">Formations</h3>
+            <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">{t('footer.formationsTitle', 'Formations')}</h3>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
               <li><a href="/formations" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.catalog')}</a></li>
               <li><a href="/formations/telecoms" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.telecoms')}</a></li>
@@ -64,11 +64,11 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">Contact</h3>
+            <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">{t('footer.contactTitle', 'Contact')}</h3>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
               <li><a href="/contact" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.writeUs')}</a></li>
               <li><a href="/admissions" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.admissions')}</a></li>
-              <li><a href="/concours" className="transition-colors duration-200 hover:text-[#D4AF37]">Concours &amp; Résultats</a></li>
+              <li><a href="/concours" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.concoursAndResults', 'Concours & Résultats')}</a></li>
               <li><a href="/vie-etudiante" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.studentLife')}</a></li>
               <li><a href="/entreprises" className="transition-colors duration-200 hover:text-[#D4AF37]">{t('footer.companies')}</a></li>
             </ul>
@@ -125,7 +125,7 @@ export default function Footer() {
                 {t('footer.terms')}
               </a>
               <a href="/textes-et-lois" className="transition-colors duration-200 hover:text-[#D4AF37]">
-                Textes et lois
+                {t('footer.textsAndLaws', 'Textes et lois')}
               </a>
               <span className="hidden md:inline-block text-slate-600">|</span>
               <div className="flex items-center gap-2">
