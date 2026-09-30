@@ -961,7 +961,18 @@ export default function GestionAnnoncesPage() {
                     <PublicationCard
                       key={pub.id}
                       pub={pub}
-                      onEdit={() => handleOpenEdit(pub)}
+                      token={accessToken}
+                      onEdit={() => {
+                        setEditingId(pub.id);
+                        setEditingForm({
+                          title: pub.title,
+                          excerpt: pub.excerpt,
+                          category: pub.category,
+                          attachments: Array.isArray(pub.attachments) ? pub.attachments : [],
+                          socialLinks: Array.isArray(pub.socialLinks) ? pub.socialLinks : [],
+                        });
+                        setComposerOpen(true);
+                      }}
                       onDelete={() => setDeletingPub(pub)}
                     />
                   ))}
