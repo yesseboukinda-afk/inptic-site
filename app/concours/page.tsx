@@ -188,7 +188,7 @@ export default function ConcoursPage() {
       const publishedResults = sorted.filter((c) => c.results?.published);
       list = publishedResults.length > 0 ? publishedResults : (sorted[0] ? [sorted[0]] : []);
     } else if (activeTab === 'historique') {
-      list = sorted.filter((c) => c.status === 'termine' || c.status === 'archive' || c.sessionYear < new Date().getFullYear());
+      list = sorted.filter((c) => c.status === 'termine' || (c.status as string) === 'archive' || c.sessionYear < new Date().getFullYear());
     }
 
     // Filtre année (sauf sur l'onglet résultats où l'on affiche le plus récent)

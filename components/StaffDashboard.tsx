@@ -134,15 +134,15 @@ export default function StaffDashboard({ role }: { role: Role }) {
       setDepartment(normalizedDepartments[0].name);
     }
 
-    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]');
+    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]') as Student[];
     fetch('/api/candidat/profile')
       .then((response) => (response.ok ? response.json() : { profiles: [] }))
       .then((data) => {
-        const remoteProfiles = Array.isArray(data.profiles) ? data.profiles : [];
-        const profilesByEmail = new Map(storedUsers.map((p: Student) => [p.email.toLowerCase(), p]));
-        remoteProfiles.forEach((p: Student) => {
+        const remoteProfiles = Array.isArray(data.profiles) ? (data.profiles as Student[]) : [];
+        const profilesByEmail = new Map<string, Student>(storedUsers.map((p) => [p.email.toLowerCase(), p]));
+        remoteProfiles.forEach((p) => {
           const local = profilesByEmail.get(p.email.toLowerCase());
-          profilesByEmail.set(p.email.toLowerCase(), { ...local, ...p, role: 'etudiant' });
+          profilesByEmail.set(p.email.toLowerCase(), { ...(local || {}), ...p, role: 'etudiant' } as Student);
         });
         setStudents(Array.from(profilesByEmail.values()));
       })
