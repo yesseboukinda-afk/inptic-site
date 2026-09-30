@@ -264,27 +264,27 @@ export default function Suivi() {
                       <button
                         type="button"
                         onClick={() => setOperator('airtel')}
-                        className={`flex items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ${
+                        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ${
                           operator === 'airtel'
-                            ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-500/30'
+                            ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-500/30 shadow-sm'
                             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                         }`}
                       >
-                        <span className="h-3 w-3 rounded-full bg-red-600" />
-                        Airtel Money
+                        <img src="/payment/airtel.png" alt="Airtel Money" className="h-7 w-auto object-contain" />
+                        <span>Airtel Money</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setOperator('moov')}
-                        className={`flex items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ${
+                        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ${
                           operator === 'moov'
-                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/30'
+                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/30 shadow-sm'
                             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                         }`}
                       >
-                        <span className="h-3 w-3 rounded-full bg-blue-600" />
-                        Moov Money
+                        <img src="/payment/moovmoney.webp" alt="Moov Money" className="h-7 w-auto object-contain" />
+                        <span>Moov Money</span>
                       </button>
                     </div>
                   </div>
