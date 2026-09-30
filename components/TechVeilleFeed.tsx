@@ -78,7 +78,7 @@ export default function TechVeilleFeed() {
     setPublishingId(item.id);
     setSuccessMsg('');
 
-    const formattedPost = `🚀 [VEILLE IT & IA - INPTIC GABON]\n\n${item.title}\n\n📌 Résumé : ${item.summary}\n\n🔗 Source officielle : ${item.url}\n\n#INPTIC #Gabon #Tech #IA #Innovation #Digital`;
+    const formattedPost = ` [VEILLE IT & IA - INPTIC GABON]\n\n${item.title}\n\n Résumé : ${item.summary}\n\n Source officielle : ${item.url}\n\n#INPTIC #Gabon #Tech #IA #Innovation #Digital`;
 
     if (targetPage === 'actualites' || targetPage === 'both') {
       try {

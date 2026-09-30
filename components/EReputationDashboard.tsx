@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Plus, X } from 'lucide-react';
+import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Plus, X, Clock, ThumbsUp, AlertTriangle } from 'lucide-react';
 
 type MentionItem = {
   id: string;
@@ -179,7 +179,10 @@ export default function EReputationDashboard() {
                     <span className="rounded bg-red-100 px-2 py-0.5 font-bold text-red-800">{alertItem.platform}</span>
                     <strong className="text-slate-900">Auteur : {alertItem.author}</strong>
                   </div>
-                  <span className="text-slate-500 font-medium">🕒 {alertItem.date}</span>
+                  <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
+                    <Clock size={12} />
+                    <span>{alertItem.date}</span>
+                  </span>
                 </div>
 
                 <p className="text-xs sm:text-sm font-semibold text-red-950 bg-red-50/80 p-3 rounded-lg border border-red-100">
@@ -237,15 +240,21 @@ export default function EReputationDashboard() {
           <p className="mt-1 text-2xl font-black text-slate-900">{mentions.length}</p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <span className="text-xs text-emerald-700 font-semibold">Positives (😊)</span>
+          <span className="text-xs text-emerald-700 font-semibold inline-flex items-center gap-1">
+            <ThumbsUp size={13} /> Positives
+          </span>
           <p className="mt-1 text-2xl font-black text-emerald-800">{positiveCount}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-blue-50 p-4">
-          <span className="text-xs text-blue-700 font-semibold">Neutres (😐)</span>
+          <span className="text-xs text-blue-700 font-semibold inline-flex items-center gap-1">
+            <Globe size={13} /> Neutres
+          </span>
           <p className="mt-1 text-2xl font-black text-blue-800">{neutralCount}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-          <span className="text-xs text-red-700 font-semibold">Alertes / Négatives (⚠️)</span>
+          <span className="text-xs text-red-700 font-semibold inline-flex items-center gap-1">
+            <AlertTriangle size={13} /> Alertes / Négatives
+          </span>
           <p className="mt-1 text-2xl font-black text-red-800">{negativeCount}</p>
         </div>
       </div>
