@@ -14,71 +14,31 @@ type MentionItem = {
   platform: 'Facebook' | 'Twitter/X' | 'LinkedIn' | 'Google Avis' | 'Presse en ligne' | 'WhatsApp / Groupes';
 };
 
-const INITIAL_MENTIONS: MentionItem[] = [
-  {
-    id: '1',
-    source: 'GabonMediaTime (Presse en ligne)',
-    author: 'Rédaction GMT',
-    content: 'L’INPTIC lance ses nouvelles formations en cybersécurité et intelligence artificielle pour l’année académique 2026.',
-    sentiment: 'positif',
-    date: 'Il y a 2 heures',
-    url: 'https://gabonmediatime.com',
-    platform: 'Presse en ligne',
-  },
-  {
-    id: '2',
-    author: 'Marc N.',
-    source: 'Avis Google Maps',
-    content: 'Excellent campus et infrastructures au top pour les étudiants en réseaux et télécoms à Libreville.',
-    sentiment: 'positif',
-    date: 'Il y a 5 heures',
-    url: 'https://maps.google.com',
-    platform: 'Google Avis',
-  },
-  {
-    id: '3',
-    author: '@GabonTechActu',
-    source: 'X (Twitter)',
-    content: 'Les concours d’entrée à l’INPTIC se digitalisent avec un système de paiement Mobile Money et de quittance QR code. Très belle avancée !',
-    sentiment: 'positif',
-    date: 'Il y a 1 jour',
-    url: 'https://twitter.com',
-    platform: 'Twitter/X',
-  },
-  {
-    id: '4',
-    author: 'Stéphane O.',
-    source: 'Groupe Facebook Étudiants Gabon',
-    content: 'Attention aux faux communiqués qui circulent sur les dates de concours. Référez-vous uniquement au site officiel inptic.ga.',
-    sentiment: 'neutre',
-    date: 'Il y a 2 jours',
-    url: 'https://facebook.com',
-    platform: 'Facebook',
-  },
-  {
-    id: 'alert-1',
-    source: 'Fil public X (Twitter)',
-    author: '@TrollCritique241',
-    content: 'L’INPTIC c’est nul, leurs plateformes d’inscription en ligne ne marchent jamais et le personnel est incompétent !',
-    sentiment: 'negatif',
-    date: 'Il y a 12 minutes (En direct)',
-    url: 'https://twitter.com/status/simulation-inptic-alert',
-    platform: 'Twitter/X',
-  },
-];
-
 export default function EReputationDashboard() {
-  const [mentions, setMentions] = useState<MentionItem[]>(INITIAL_MENTIONS);
+  const [mentions, setMentions] = useState<MentionItem[]>([]);
   const [filter, setFilter] = useState<'all' | 'positif' | 'neutre' | 'negatif'>('all');
   const [replyText, setReplyText] = useState('');
   const [replyingId, setReplyingId] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [isScanning, setIsScanning] = useState(true);
+
+  const loadLiveMentions = () => {
+    setIsScanning(true);
+    fetch('/api/ereputation')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.mentions) && data.mentions.length > 0) {
+          setMentions(data.mentions);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsScanning(false));
+  };
 
   useEffect(() => {
+    loadLiveMentions();
     const interval = setInterval(() => {
-      setIsScanning(true);
-      setTimeout(() => setIsScanning(false), 2500);
-    }, 20000);
+      loadLiveMentions();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -115,7 +75,7 @@ export default function EReputationDashboard() {
           <div className="text-right">
             <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
               <span className={`h-2 w-2 rounded-full ${isScanning ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
-              Éكoute en direct
+              Écoute en direct
             </span>
             <span className="text-lg font-black text-emerald-600">{score}% Positif</span>
           </div>
@@ -170,7 +130,7 @@ export default function EReputationDashboard() {
               </span>
               <Bell size={18} className="animate-bounce" />
               <h4 className="font-black text-sm uppercase tracking-wide">
-                Alerte E-réputation : {negativeAlerts.length} commentaire(s) péjoratif(s) ou dégradant(s) détecté(s) en temps réel
+                Alerte E-réputation : {negativeAlerts.length} alerte(s) critique(s) détectée(s) en temps réel
               </h4>
             </div>
             <span className="rounded-full bg-red-600 px-3 py-0.5 text-xs font-bold text-white">
@@ -184,7 +144,7 @@ export default function EReputationDashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-red-100 px-2 py-0.5 font-bold text-red-800">{alertItem.platform}</span>
-                    <strong className="text-slate-900">Auteur : {alertItem.author}</strong>
+                    <strong className="text-slate-900">Source : {alertItem.author}</strong>
                   </div>
                   <span className="text-slate-500 font-medium">🕒 {alertItem.date}</span>
                 </div>
@@ -201,7 +161,7 @@ export default function EReputationDashboard() {
                     className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                   >
                     <ExternalLink size={13} />
-                    <span>Lien direct vers le commentaire d&apos;origine</span>
+                    <span>Lien direct vers la source d&apos;origine</span>
                   </a>
 
                   <button
@@ -240,7 +200,7 @@ export default function EReputationDashboard() {
       {/* Statistiques de mentions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <span className="text-xs text-slate-500">Total Mentions (30j)</span>
+          <span className="text-xs text-slate-500">Total Mentions (Live)</span>
           <p className="mt-1 text-2xl font-black text-slate-900">{mentions.length}</p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
@@ -281,17 +241,22 @@ export default function EReputationDashboard() {
         </div>
 
         <button
-          onClick={() => alert('Vérification des nouveaux flux sociaux et moteurs de recherche en cours... Aucun nouveau signal critique détecté.')}
+          onClick={loadLiveMentions}
           className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
         >
-          <RefreshCw size={14} />
-          <span>Lancer un scan web</span>
+          <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
+          <span>Actualiser le scan web</span>
         </button>
       </div>
 
       {/* Liste des mentions */}
       <div className="space-y-3.5">
-        {filtered.length === 0 ? (
+        {isScanning && mentions.length === 0 ? (
+          <div className="flex min-h-[160px] flex-col items-center justify-center gap-3">
+            <RefreshCw size={24} className="animate-spin text-blue-600" />
+            <p className="text-xs font-medium text-slate-500">Scan des actualités et réseaux en temps réel...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-slate-500 text-xs">
             Aucune mention trouvée pour ce filtre.
           </div>
