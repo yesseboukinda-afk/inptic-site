@@ -628,6 +628,14 @@ export default function AdminRHPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={handleOpenCreate}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-[#e6c141] transition"
+              >
+                <Plus size={16} />
+                <span>Nouvel Employé</span>
+              </button>
+
               <div className="rounded-xl bg-slate-900 border border-white/10 px-3.5 py-1.5 text-xs text-slate-300">
                 <span className="text-slate-500">Connecté en : </span>
                 <span className="font-bold text-[#D4AF37] capitalize">{userRole.replace('_', ' ')}</span>
