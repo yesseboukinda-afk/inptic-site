@@ -213,8 +213,8 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!supabaseAdmin) {
-    // Mode local dev si Supabase absent
+  if (!supabaseAdmin || accessToken === 'local-admin-token') {
+    // Mode local dev ou fallback staff storage si Supabase absent / token local
     return {
       user: {
         id: 'dev-rh-user',

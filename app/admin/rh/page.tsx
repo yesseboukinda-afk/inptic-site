@@ -125,8 +125,19 @@ export default function AdminRHPage() {
 
   // Vérification de la session
   useEffect(() => {
+    const director = localStorage.getItem('inptic_directeur');
+    const staff = localStorage.getItem('inptic_staff');
+
+    if (director || staff) {
+      setToken('local-admin-token');
+      setUserEmail(director ? JSON.parse(director).email : JSON.parse(staff).email);
+      setUserRole('rh_admin');
+      setAuthLoading(false);
+      return;
+    }
+
     if (!supabase) {
-      setToken('dev-token');
+      setToken('local-admin-token');
       setUserEmail('rh-admin@inptic.ga');
       setUserRole('rh_admin');
       setAuthLoading(false);
