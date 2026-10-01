@@ -15,7 +15,7 @@ export default function Footer() {
     setIsSubscribed(Boolean(localStorage.getItem('inptic-newsletter-email')));
   }, []);
 
-  const handleNewsletterSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleNewsletterSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -24,10 +24,25 @@ export default function Footer() {
       return;
     }
 
-    localStorage.setItem('inptic-newsletter-email', normalizedEmail);
-    setEmail('');
-    setIsSubscribed(true);
-    setNewsletterMessage('Inscription confirmée. Merci !');
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur');
+
+      localStorage.setItem('inptic-newsletter-email', normalizedEmail);
+      setEmail('');
+      setIsSubscribed(true);
+      setNewsletterMessage(data.message || 'Inscription confirmée. E-mail de confirmation envoyé !');
+    } catch {
+      localStorage.setItem('inptic-newsletter-email', normalizedEmail);
+      setEmail('');
+      setIsSubscribed(true);
+      setNewsletterMessage('Inscription confirmée. Merci !');
+    }
   };
 
   return (
