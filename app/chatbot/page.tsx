@@ -78,6 +78,15 @@ export default function FullChatbotPage() {
     }
   };
 
+  const cleanTextForSpeech = (text: string): string => {
+    return text
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+      .replace(/#{1,6}\s+/g, '')
+      .replace(/[*_`~>-]/g, '')
+      .replace(/\n+/g, '. ')
+      .trim();
+  };
+
   const speakText = (text: string, id: string) => {
     if (!('speechSynthesis' in window)) return;
     if (speakingId === id) {
@@ -86,8 +95,18 @@ export default function FullChatbotPage() {
       return;
     }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const cleanText = cleanTextForSpeech(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'fr-FR';
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const frVoice = voices.find((v) => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frVoice) {
+      utterance.voice = frVoice;
+    }
+
     utterance.onend = () => setSpeakingId(null);
     utterance.onerror = () => setSpeakingId(null);
     setSpeakingId(id);

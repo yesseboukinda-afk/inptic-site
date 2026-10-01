@@ -160,6 +160,15 @@ export default function ChatBot() {
     }
   };
 
+  const cleanTextForSpeech = (text: string): string => {
+    return text
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Supprime les URLs Markdown et garde le texte du lien
+      .replace(/#{1,6}\s+/g, '') // Supprime les titres Markdown (#)
+      .replace(/[*_`~>-]/g, '') // Supprime les symboles de mise en forme
+      .replace(/\n+/g, '. ') // Remplace les retours à la ligne par des pauses
+      .trim();
+  };
+
   const speakText = (text: string, messageId: string) => {
     if (!('speechSynthesis' in window)) {
       alert('La synthèse vocale n’est pas prise en charge par votre navigateur.');
@@ -173,9 +182,17 @@ export default function ChatBot() {
     }
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const cleanText = cleanTextForSpeech(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'fr-FR';
-    utterance.rate = 1.0;
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const frVoice = voices.find((v) => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frVoice) {
+      utterance.voice = frVoice;
+    }
 
     utterance.onend = () => {
       setSpeakingMessageId(null);
