@@ -445,7 +445,7 @@ export default function AdminRHPage() {
 
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
-      window.print();
+      window.alert('Autorisez les fenêtres contextuelles pour imprimer la carte professionnelle.');
       return;
     }
 
@@ -459,13 +459,17 @@ export default function AdminRHPage() {
               size: 53.98mm 85.6mm;
               margin: 0;
             }
-            body {
+            html, body {
+              width: 53.98mm;
+              height: 85.6mm;
               margin: 0;
               padding: 0;
+              overflow: hidden;
+            }
+            body {
               display: flex;
               align-items: center;
               justify-content: center;
-              min-height: 100vh;
               background: #0f172a;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               -webkit-print-color-adjust: exact !important;
@@ -484,6 +488,8 @@ export default function AdminRHPage() {
               text-align: center;
               position: relative;
               border: 1px solid #cbd5e1;
+              break-inside: avoid-page;
+              page-break-inside: avoid;
             }
             .top-header {
               width: 100%;
@@ -583,6 +589,18 @@ export default function AdminRHPage() {
               font-size: 4.5pt;
               color: #64748b;
               font-weight: 600;
+            }
+            @media print {
+              html, body {
+                width: 53.98mm !important;
+                height: 85.6mm !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+              }
+              .card {
+                break-after: avoid-page;
+                page-break-after: avoid;
+              }
             }
           </style>
         </head>

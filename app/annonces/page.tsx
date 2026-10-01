@@ -427,7 +427,7 @@ export default function AnnoncesPublicPage() {
   const fetchAnnonces = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const res = await fetch('/api/news', { cache: 'no-store' });
+      const res = await fetch('/api/news?target=annonces', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       const list = parsePayload(data);

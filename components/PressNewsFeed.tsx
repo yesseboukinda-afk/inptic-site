@@ -69,7 +69,7 @@ export default function PressNewsFeed() {
   useEffect(() => {
     let active = true;
 
-    fetch('/api/news')
+    fetch('/api/news?target=actualites')
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error('News unavailable'))))
       .then((payload) => {
         const remoteNews = getNewsItems(payload);

@@ -906,7 +906,7 @@ export default function GestionAnnoncesPage() {
             {/* Colonne Principale (Gauche) */}
             <div className="space-y-8">
               {/* ── Veille Technologique Internationale Carrousel ── */}
-              <TechVeilleFeed />
+              <TechVeilleFeed accessToken={accessToken} />
 
               {/* ── Stats bar ── */}
               <div className="grid grid-cols-3 gap-4">

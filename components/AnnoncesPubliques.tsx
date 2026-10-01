@@ -149,7 +149,7 @@ export default function AnnoncesPubliques() {
     if (!silent) setLoadStatus('loading');
     else setRefreshing(true);
     try {
-      const res = await fetch('/api/news', { cache: 'no-store' });
+      const res = await fetch('/api/news?target=actualites', { cache: 'no-store' });
       if (!res.ok) throw new Error('unavailable');
       const parsed = parsePayload(await res.json());
       setAnnonces(parsed);

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const DEFAULT_TECH_ITEMS = [
   {
@@ -43,21 +43,24 @@ const DEFAULT_TECH_ITEMS = [
   },
 ];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const forceRefresh = request.nextUrl.searchParams.get('refresh') === '1';
+
   try {
     const res = await fetch('https://dev.to/api/articles?per_page=12&tag=ai,python,database,devops,javascript,security', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
-      next: { revalidate: 1800 },
+      ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
     });
 
     if (!res.ok) {
-      return NextResponse.json({ success: true, items: DEFAULT_TECH_ITEMS });
+      return NextResponse.json({ success: true, items: DEFAULT_TECH_ITEMS, source: 'fallback' });
     }
 
     const articles = await res.json();
-    const formatted = Array.isArray(articles) && articles.length > 0
+    const hasLiveArticles = Array.isArray(articles) && articles.length > 0;
+    const formatted = hasLiveArticles
       ? articles.map((art: any, index: number) => {
           const tags = Array.isArray(art.tag_list) ? art.tag_list : [];
           let domain: 'IA' | 'Base de données' | 'Développement' | 'Réseaux' = 'Développement';
@@ -78,9 +81,13 @@ export async function GET() {
         })
       : DEFAULT_TECH_ITEMS;
 
-    return NextResponse.json({ success: true, items: formatted });
+    return NextResponse.json({
+      success: true,
+      items: formatted,
+      source: hasLiveArticles ? 'live' : 'fallback',
+    });
   } catch (error) {
     console.error('Tech veille fetch error:', error);
-    return NextResponse.json({ success: true, items: DEFAULT_TECH_ITEMS });
+    return NextResponse.json({ success: true, items: DEFAULT_TECH_ITEMS, source: 'fallback' });
   }
 }

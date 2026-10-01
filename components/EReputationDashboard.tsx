@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Plus, X, Clock, ThumbsUp, AlertTriangle } from 'lucide-react';
 
 type MentionItem = {
@@ -10,42 +10,71 @@ type MentionItem = {
   content: string;
   sentiment: 'positif' | 'neutre' | 'negatif';
   date: string;
+  createdAt?: string;
   url: string;
-  platform: 'Facebook' | 'Twitter/X' | 'LinkedIn' | 'Google Avis' | 'Presse en ligne' | 'WhatsApp / Groupes';
+  platform: 'Facebook' | 'YouTube' | 'Twitter/X' | 'LinkedIn' | 'Google Avis' | 'Presse en ligne' | 'WhatsApp / Groupes';
 };
 
 export default function EReputationDashboard() {
   const [mentions, setMentions] = useState<MentionItem[]>([]);
+    const [comments, setComments] = useState<MentionItem[]>([]);
   const [filter, setFilter] = useState<'all' | 'positif' | 'neutre' | 'negatif'>('all');
   const [replyText, setReplyText] = useState('');
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(true);
+  const [scanError, setScanError] = useState('');
+  const [scanWarning, setScanWarning] = useState('');
+  const [lastScannedAt, setLastScannedAt] = useState<Date | null>(null);
+  const scanInProgress = useRef(false);
 
   // Modal de capture manuelle / test de commentaire Facebook
   const [showIngestModal, setShowIngestModal] = useState(false);
   const [ingestAuthor, setIngestAuthor] = useState('');
   const [ingestContent, setIngestContent] = useState('');
-  const [ingestPlatform, setIngestPlatform] = useState<'Facebook' | 'Twitter/X' | 'Google Avis' | 'LinkedIn'>('Facebook');
+  const [ingestPlatform, setIngestPlatform] = useState<'Facebook' | 'YouTube' | 'Twitter/X' | 'Google Avis' | 'LinkedIn'>('Facebook');
   const [ingestUrl, setIngestUrl] = useState('https://www.facebook.com/people/Inptic-Gabon/61557159190234/');
 
-  const loadLiveMentions = () => {
+  const loadLiveMentions = async (forceRefresh = false) => {
+    if (scanInProgress.current) return;
+    scanInProgress.current = true;
     setIsScanning(true);
-    fetch('/api/ereputation')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.success && Array.isArray(data.mentions) && data.mentions.length > 0) {
-          setMentions(data.mentions);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setIsScanning(false));
+    setScanError('');
+    setScanWarning('');
+
+    try {
+      const res = await fetch(`/api/ereputation${forceRefresh ? '?refresh=1' : ''}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Le scan e-réputation est momentanément indisponible.');
+
+      const data = await res.json();
+      if (!data?.success || !Array.isArray(data.mentions)) {
+        throw new Error('La réponse du scan e-réputation est invalide.');
+      }
+
+      setMentions(data.mentions);
+      setComments(Array.isArray(data.comments) ? data.comments.slice(0, 10) : []);
+      setLastScannedAt(new Date());
+      const unavailableSources: string[] = [];
+      if (data.sources?.facebook === 'unavailable') unavailableSources.push('Facebook indisponible');
+      if (data.sources?.facebook === 'not_configured') unavailableSources.push('Facebook non configuré');
+      if (data.sources?.youtube === 'unavailable') unavailableSources.push('YouTube indisponible');
+      if (data.sources?.youtube === 'not_configured') unavailableSources.push('YouTube non configuré');
+      if (data.sources?.press !== 'available') unavailableSources.push('presse en ligne indisponible');
+      if (unavailableSources.length > 0) {
+        setScanWarning(`Sources non actualisées : ${unavailableSources.join(', ')}.`);
+      }
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : 'Impossible d’actualiser la veille e-réputation.');
+    } finally {
+      scanInProgress.current = false;
+      setIsScanning(false);
+    }
   };
 
   useEffect(() => {
     loadLiveMentions();
     const interval = setInterval(() => {
       loadLiveMentions();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -101,7 +130,7 @@ export default function EReputationDashboard() {
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Veille &amp; E-réputation</span>
             <h3 className="text-xl font-black text-slate-900">Surveillance des Médias &amp; Réseaux Sociaux</h3>
-            <p className="text-xs text-slate-500">Analyse de sentiment en temps réel et alertes de réputation institutionnelle</p>
+            <p className="text-xs text-slate-500">Derniers commentaires actualisés chaque minute et alertes de réputation institutionnelle</p>
           </div>
         </div>
 
@@ -109,7 +138,7 @@ export default function EReputationDashboard() {
           <div className="text-right">
             <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
               <span className={`h-2 w-2 rounded-full ${isScanning ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
-              Écoute en direct
+              {isScanning ? 'Scan en cours' : lastScannedAt ? `Actualisé à ${lastScannedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En attente'}
             </span>
             <span className="text-lg font-black text-emerald-600">{score}% Positif</span>
           </div>
@@ -283,20 +312,31 @@ export default function EReputationDashboard() {
         </div>
 
         <button
-          onClick={loadLiveMentions}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+          type="button"
+          onClick={() => loadLiveMentions(true)}
+          disabled={isScanning}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
-          <span>Actualiser le scan web</span>
+          <span>{isScanning ? 'Scan en cours…' : 'Actualiser le scan web'}</span>
         </button>
       </div>
+
+      {(scanError || scanWarning) && (
+        <div
+          role="status"
+          className={`rounded-xl border p-3 text-xs ${scanError ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}
+        >
+          {scanError || scanWarning}
+        </div>
+      )}
 
       {/* Liste des mentions */}
       <div className="space-y-3.5">
         {isScanning && mentions.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-3">
             <RefreshCw size={24} className="animate-spin text-blue-600" />
-            <p className="text-xs font-medium text-slate-500">Scan des actualités et réseaux en temps réel...</p>
+            <p className="text-xs font-medium text-slate-500">Chargement des derniers commentaires disponibles...</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-slate-500 text-xs">
@@ -406,6 +446,51 @@ export default function EReputationDashboard() {
                   className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
                 >
                   <option value="Facebook">Facebook</option>
+                                    <option value="YouTube">YouTube</option>
+                        <section aria-labelledby="recent-comments-heading" className="space-y-3.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 id="recent-comments-heading" className="text-sm font-black text-slate-900">
+                              10 derniers commentaires Facebook et YouTube
+                            </h4>
+                            <span className="text-xs text-slate-500">{comments.length} commentaire{comments.length > 1 ? 's' : ''}</span>
+                          </div>
+                          {comments.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+                              Aucun commentaire récent accessible. Vérifiez les accès Facebook et la configuration YouTube.
+                            </div>
+                          ) : (
+                            comments.map((comment) => (
+                              <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-800">{comment.platform}</span>
+                                    <strong className="text-xs text-slate-900">{comment.author}</strong>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                                      <Clock size={12} />{comment.date}
+                                    </span>
+                                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                                      comment.sentiment === 'positif'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : comment.sentiment === 'negatif'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-blue-100 text-blue-800'
+                                    }`}>
+                                      {comment.sentiment}
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{comment.content}</p>
+                                <a href={comment.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
+                                  <ExternalLink size={12} />Voir le commentaire
+                                </a>
+                              </article>
+                            ))
+                          )}
+                        </section>
+
+                        {/* Liste des mentions presse */}
                   <option value="Twitter/X">Twitter/X</option>
                   <option value="Google Avis">Google Avis</option>
                   <option value="LinkedIn">LinkedIn</option>

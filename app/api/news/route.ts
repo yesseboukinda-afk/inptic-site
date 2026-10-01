@@ -11,6 +11,13 @@ import { strapi } from '@/lib/strapi';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 const STRAPI_BASE = (process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api').replace(/\/$/, '');
+type PublicationTarget = 'actualites' | 'annonces';
+const DEFAULT_PUBLICATION_TARGETS: PublicationTarget[] = ['actualites', 'annonces'];
+
+function normalizePublicationTargets(value: unknown): PublicationTarget[] {
+  if (!Array.isArray(value)) return [...DEFAULT_PUBLICATION_TARGETS];
+  return [...new Set(value.filter((target): target is PublicationTarget => target === 'actualites' || target === 'annonces'))];
+}
 
 async function authorizeCommunication(request: NextRequest) {
   const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -110,6 +117,7 @@ function parsePublication(value: unknown) {
       : Array.isArray(attributes.socialLinks)
         ? attributes.socialLinks
         : [],
+    targetPages: normalizePublicationTargets(attributes.target_pages ?? attributes.targetPages),
     publishedAt: typeof attributes.published_at === 'string'
       ? attributes.published_at
       : typeof attributes.publishedAt === 'string'
@@ -146,8 +154,12 @@ function validatePublication(body: unknown) {
     : Array.isArray(value.socialLinks)
       ? value.socialLinks
       : [];
+  const rawTargets = value.targetPages ?? value.target_pages;
+  const hasTargets = rawTargets !== undefined;
+  const targetPages = hasTargets ? normalizePublicationTargets(rawTargets) : undefined;
+  if (hasTargets && (!Array.isArray(rawTargets) || !targetPages?.length)) return null;
   if (!title || !excerpt || !category) return null;
-  return { title, excerpt, category, attachments, socialLinks, slug: createSlug(title), status };
+  return { title, excerpt, category, attachments, socialLinks, targetPages, slug: createSlug(title), status };
 }
 
 export async function GET(request: NextRequest) {
@@ -188,6 +200,7 @@ export async function GET(request: NextRequest) {
           : Array.isArray(item.socialLinks)
             ? item.socialLinks
             : [],
+          targetPages: normalizePublicationTargets(item.target_pages ?? item.targetPages),
         publishedAt: item.published_at || null,
         createdAt: item.created_at || null,
       }));
@@ -199,6 +212,12 @@ export async function GET(request: NextRequest) {
       );
     }
   }
+    const requestedTarget = request.nextUrl.searchParams.get('target');
+    if (requestedTarget && requestedTarget !== 'actualites' && requestedTarget !== 'annonces') {
+      return NextResponse.json({ error: 'Page cible invalide.' }, { status: 400 });
+    }
+    const targetPage = requestedTarget as PublicationTarget | null;
+
 
 
   // Requête publique (pour PressNewsFeed, /actualites, accueil)
@@ -212,25 +231,33 @@ export async function GET(request: NextRequest) {
           .eq('status', 'published')
           .order('published_at', { ascending: false });
 
-        if (!error && Array.isArray(data) && data.length > 0) {
+        if (!error && Array.isArray(data)) {
+          const entries = data.map((item) => ({
+            id: String(item.id),
+            title: item.title,
+            slug: item.slug,
+            excerpt: item.excerpt,
+            category: item.category || 'Annonce',
+            attachments: Array.isArray(item.attachments) ? item.attachments : [],
+            socialLinks: Array.isArray(item.social_links)
+              ? item.social_links
+              : Array.isArray(item.socialLinks)
+                ? item.socialLinks
+                : [],
+            targetPages: normalizePublicationTargets(item.target_pages ?? item.targetPages),
+            publishedAt: item.published_at,
+            createdAt: item.created_at,
+          }));
           return NextResponse.json({
-            data: data.map((item) => ({
-              id: String(item.id),
-              title: item.title,
-              slug: item.slug,
-              excerpt: item.excerpt,
-              category: item.category || 'Annonce',
-              attachments: Array.isArray(item.attachments) ? item.attachments : [],
-              socialLinks: Array.isArray(item.social_links)
-                ? item.social_links
-                : Array.isArray(item.socialLinks)
-                  ? item.socialLinks
-                  : [],
-              publishedAt: item.published_at,
-              createdAt: item.created_at,
-            })),
+            data: targetPage ? entries.filter((item) => item.targetPages.includes(targetPage)) : entries,
             source: 'supabase',
           });
+        }
+        if (error?.message.includes('target_pages')) {
+          return NextResponse.json(
+            { error: 'La migration scripts/04_add_actualites_target_pages.sql doit être appliquée avant les publications ciblées.' },
+            { status: 503 }
+          );
         }
       }
     } catch {
@@ -239,7 +266,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await strapi('/actualites?populate=*&sort=publishedAt:desc'));
+    const payload = await strapi('/actualites?populate=*&sort=publishedAt:desc');
+    if (!targetPage) return NextResponse.json(payload);
+    const strapiPayload = payload as { data?: unknown } | null;
+    const rawEntries = Array.isArray(strapiPayload?.data) ? strapiPayload.data : [];
+    const entries = rawEntries
+      .map(parsePublication)
+      .filter((item): item is NonNullable<ReturnType<typeof parsePublication>> => item !== null && item.targetPages.includes(targetPage));
+    return NextResponse.json({ data: entries });
   } catch {
     return NextResponse.json({ error: 'API actualités indisponible.' }, { status: 502 });
   }
@@ -265,6 +299,7 @@ export async function POST(request: NextRequest) {
       category: publicationData.category,
       attachments: publicationData.attachments,
       social_links: publicationData.socialLinks,
+      target_pages: publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS,
       status,
       published_at: status === 'published' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
@@ -275,6 +310,13 @@ export async function POST(request: NextRequest) {
       .insert([row])
       .select()
       .single();
+
+    if (error?.message.includes('target_pages')) {
+      return NextResponse.json(
+        { error: 'La migration scripts/04_add_actualites_target_pages.sql doit être appliquée avant les publications ciblées.' },
+        { status: 503 }
+      );
+    }
 
     // Fallback si la migration des colonnes attachments/social_links n'a pas encore été jouée
     if (error && (error.message.includes('column "attachments"') || error.message.includes('column "social_links"'))) {
@@ -303,6 +345,7 @@ export async function POST(request: NextRequest) {
               : Array.isArray(data.socialLinks)
                 ? data.socialLinks
                 : publicationData.socialLinks,
+              targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages),
             publishedAt: data.published_at,
             createdAt: data.created_at,
           },
@@ -321,10 +364,10 @@ export async function POST(request: NextRequest) {
 
   // 2. Fallback Strapi
   if (process.env.STRAPI_API_TOKEN) {
-    const statusQuery = status === 'draft' ? '?status=draft' : '';
+    const statusQuery = `?status=${status}`;
     const { ok, status: strapiStatus, payload, error } = await strapiManagementRequest(`/actualites${statusQuery}`, {
       method: 'POST',
-      body: JSON.stringify({ data: publicationData }),
+      body: JSON.stringify({ data: { ...publicationData, targetPages: publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS } }),
     });
     if (!ok) {
       const detail = error || `Création Strapi refusée (HTTP ${strapiStatus}).`;
@@ -371,6 +414,7 @@ export async function PATCH(request: NextRequest) {
       category: publicationData.category,
       attachments: publicationData.attachments,
       social_links: publicationData.socialLinks,
+      ...(publicationData.targetPages ? { target_pages: publicationData.targetPages } : {}),
       status,
       published_at: publishedAt,
       updated_at: new Date().toISOString(),
@@ -410,6 +454,7 @@ export async function PATCH(request: NextRequest) {
             : Array.isArray(data.socialLinks)
               ? data.socialLinks
               : publicationData.socialLinks,
+              targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages),
           publishedAt: data.published_at,
           createdAt: data.created_at,
         },
@@ -426,7 +471,7 @@ export async function PATCH(request: NextRequest) {
 
   // 2. Fallback Strapi
   if (process.env.STRAPI_API_TOKEN) {
-    const statusQuery = status === 'draft' ? '?status=draft' : '';
+    const statusQuery = `?status=${status}`;
     const { ok, status: strapiStatus, payload, error } = await strapiManagementRequest(
       `/actualites/${encodeURIComponent(String(body.id))}${statusQuery}`,
       {

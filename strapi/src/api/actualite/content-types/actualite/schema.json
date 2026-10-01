@@ -28,6 +28,10 @@
     "category": {
       "type": "string",
       "required": true
+    },
+    "targetPages": {
+      "type": "json",
+      "default": ["actualites", "annonces"]
     }
   }
 }
