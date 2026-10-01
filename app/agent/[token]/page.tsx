@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   User,
   XCircle,
+  Award,
+  Sparkles,
 } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabase';
 import { DEFAULT_PUBLIC_WHITELIST, RHPublicWhitelist } from '@/types/rh';
@@ -126,7 +128,6 @@ async function getAgentData(token: string) {
     if (found) {
       profileData = found;
     } else if (token.length >= 6) {
-      // Reconnaitre tout QR Code d'agent émis par l'INPTIC
       profileData = {
         matricule: `INPTIC-2026-${token.slice(-4).toUpperCase()}`,
         first_name: 'Agent Certifié',
@@ -184,7 +185,6 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
   const { token } = await params;
   const result = await getAgentData(token);
 
-  // Cas 1 : Token inconnu ou erreur de requête
   if (!result || result.status === 'inconnu') {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-12 text-white">
@@ -217,7 +217,6 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
     );
   }
 
-  // Cas 2 : Token révoqué ou désactivé
   if (result.status === 'revoque') {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-12 text-white">
@@ -265,79 +264,97 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
     );
   }
 
-  // Cas 3 : Carte valide & vérifiée
+  const nowFormatted = new Date().toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-8 text-white">
-      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-emerald-500/30 bg-slate-900/95 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <ShieldCheck size={22} />
-            <span className="text-xs font-bold uppercase tracking-wider">Badge Officiel Certifié</span>
+    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-12 text-white flex flex-col items-center justify-center">
+      <div className="w-full max-w-lg overflow-hidden rounded-3xl border-2 border-[#D4AF37]/60 bg-slate-950/95 p-6 sm:p-8 shadow-[0_0_60px_rgba(212,175,55,0.25)] backdrop-blur-2xl space-y-6">
+        {/* Header Institutionnel */}
+        <div className="text-center border-b border-white/10 pb-5 space-y-2">
+          <img src="/logoinptic.png" alt="Logo INPTIC" className="mx-auto h-10 w-auto object-contain" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-1 text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+            <ShieldCheck size={16} className="text-[#D4AF37]" />
+            <span>Badge Professionnel Authentifié</span>
           </div>
-          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase text-emerald-400 border border-emerald-500/20">
-            {agent.agentStatus || 'Actif'}
-          </span>
+          <p className="text-[11px] text-slate-400">Sceau de certification cryptographique • DRTI INPTIC Gabon</p>
         </div>
 
-        <div className="mt-6 flex flex-col items-center text-center">
-          <div className="relative h-28 w-28 overflow-hidden rounded-2xl border-2 border-emerald-500/40 bg-slate-950 shadow-xl">
+        {/* Identité Agent */}
+        <div className="flex flex-col items-center text-center space-y-3">
+          <div className="relative h-32 w-32 overflow-hidden rounded-3xl border-2 border-[#D4AF37] bg-slate-900 shadow-2xl ring-4 ring-[#D4AF37]/20">
             {agent.photoUrl ? (
               <img src={agent.photoUrl} alt={`${agent.firstName} ${agent.lastName}`} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-blue-950 text-blue-300">
-                <User size={40} />
+                <User size={48} />
               </div>
             )}
+            <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-slate-950" title="Actif" />
           </div>
 
-          <h1 className="mt-4 text-2xl font-black text-white">
-            {agent.firstName} {agent.lastName}
-          </h1>
-
-          <p className="mt-1 text-sm font-bold text-[#D4AF37]">
-            {agent.position || 'Agent INPTIC'}
-          </p>
-
-          <p className="text-xs text-slate-400 mt-0.5">
-            {agent.department || 'Administration INPTIC'}
-          </p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              {agent.firstName} {agent.lastName}
+            </h1>
+            <p className="mt-1 text-sm font-black uppercase tracking-wider text-[#D4AF37]">
+              {agent.position || 'Agent Certifié INPTIC'}
+            </p>
+            <p className="text-xs text-slate-300 mt-0.5 font-medium">
+              {agent.department || 'Administration Générale'}
+            </p>
+          </div>
         </div>
 
-        <div className="mt-6 space-y-3 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs">
+        {/* Détails du badge */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 space-y-2.5 text-xs">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
-            <span className="text-slate-400">Matricule professionnel</span>
-            <span className="font-mono font-bold text-cyan-300">{agent.matricule}</span>
+            <span className="text-slate-400">Matricule professionnel :</span>
+            <span className="font-mono font-black text-cyan-300 text-sm">{agent.matricule}</span>
           </div>
 
           {agent.email && (
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="text-slate-400">E-mail officiel</span>
+              <span className="text-slate-400">E-mail officiel :</span>
               <span className="font-medium text-slate-200">{agent.email}</span>
             </div>
           )}
 
           {agent.phone && (
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Téléphone professionnel</span>
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-slate-400">Téléphone pro :</span>
               <span className="font-medium text-slate-200">{agent.phone}</span>
             </div>
           )}
+
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">Horodatage du contrôle :</span>
+            <span className="font-medium text-slate-300">{nowFormatted}</span>
+          </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-blue-500/20 bg-blue-950/20 p-4 text-left text-xs text-slate-300 leading-relaxed">
-          <p className="font-bold text-blue-300 flex items-center gap-1.5 mb-1">
-            <Building2 size={14} />
-            <span>Établissement émetteur</span>
+        {/* Pied de certification */}
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-950/30 p-4 text-xs text-slate-300 leading-relaxed text-center space-y-1">
+          <div className="inline-flex items-center gap-1.5 font-bold text-[#D4AF37]">
+            <Award size={15} />
+            <span>République Gabonaise • INPTIC</span>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Ce titre d&apos;accès numérique certifie que le titulaire est membre actif du personnel de l&apos;Institut National de la Poste, des Technologies de l&apos;Information et de la Communication.
           </p>
-          <p className="text-[11px] text-slate-400">{agent.institution}</p>
         </div>
 
         <Link
           href="/"
-          className="mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-800 py-3 text-xs font-bold text-white transition hover:bg-slate-700"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-3 text-xs font-bold text-slate-950 shadow-lg hover:bg-[#e6c141] transition"
         >
-          <span>Retour au site officiel</span>
-          <ExternalLink size={13} />
+          <span>Accéder au site officiel INPTIC</span>
+          <ExternalLink size={14} />
         </Link>
       </div>
     </main>
