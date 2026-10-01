@@ -438,6 +438,178 @@ export default function AdminRHPage() {
     }
   };
 
+  // Impression dédiée d'une Carte Professionnelle au format badge CR80 (1 seule page)
+  const handlePrintCard = (p: RHProfile) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga';
+    const qrSvg = generateQRCodeSVG(`${origin}/agent/${p.qrToken || p.id}`, { size: 120, margin: 1 });
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Carte Professionnelle - ${p.firstName} ${p.lastName}</title>
+          <style>
+            @page {
+              size: 85.6mm 53.98mm;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: #0f172a;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .card {
+              width: 85.6mm;
+              height: 53.98mm;
+              background: linear-gradient(135deg, #020617 0%, #0f172a 60%, #172554 100%);
+              color: white;
+              border-radius: 3mm;
+              padding: 3.5mm;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              border: 1.5px solid #d4af37;
+              position: relative;
+            }
+            .header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-bottom: 1px solid rgba(255,255,255,0.2);
+              padding-bottom: 1.5mm;
+            }
+            .header img {
+              height: 5mm;
+              width: auto;
+            }
+            .badge-title {
+              font-size: 6pt;
+              font-weight: 900;
+              color: #d4af37;
+              letter-spacing: 0.8px;
+              text-transform: uppercase;
+            }
+            .body {
+              display: flex;
+              align-items: center;
+              gap: 2.5mm;
+              margin-top: 1.5mm;
+            }
+            .photo-box {
+              width: 17mm;
+              height: 17mm;
+              border-radius: 2mm;
+              border: 1px solid rgba(255,255,255,0.3);
+              object-fit: cover;
+              background: #1e293b;
+              flex-shrink: 0;
+            }
+            .info-box {
+              flex: 1;
+              min-width: 0;
+            }
+            .name {
+              font-size: 7.5pt;
+              font-weight: 900;
+              color: #ffffff;
+              line-height: 1.1;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .position {
+              font-size: 6pt;
+              font-weight: 700;
+              color: #38bdf8;
+              margin-top: 0.5mm;
+            }
+            .dept {
+              font-size: 5pt;
+              color: #cbd5e1;
+              margin-top: 0.5mm;
+            }
+            .matr {
+              font-size: 5.5pt;
+              font-family: monospace;
+              color: #d4af37;
+              font-weight: 700;
+              margin-top: 1mm;
+            }
+            .qr-box {
+              width: 15mm;
+              height: 15mm;
+              background: #ffffff;
+              border-radius: 1.5mm;
+              padding: 0.5mm;
+              flex-shrink: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-box svg {
+              width: 100%;
+              height: 100%;
+            }
+            .footer {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              font-size: 4.5pt;
+              color: #94a3b8;
+              border-top: 1px solid rgba(255,255,255,0.15);
+              padding-pt: 1mm;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div className="header">
+              <img src="${origin}/logoinptic.png" alt="INPTIC" />
+              <span className="badge-title">CARTE PROFESSIONNELLE</span>
+            </div>
+            <div className="body">
+              ${p.photoUrl ? `<img src="${p.photoUrl}" className="photo-box" />` : '<div className="photo-box" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:6pt;font-weight:bold;">PHOTO</div>'}
+              <div className="info-box">
+                <div className="name">${p.firstName} ${p.lastName}</div>
+                <div className="position">${p.position}</div>
+                <div className="dept">${p.department}</div>
+                <div className="matr">MATR: ${p.matricule}</div>
+              </div>
+              <div className="qr-box">${qrSvg}</div>
+            </div>
+            <div className="footer">
+              <span>République Gabonaise</span>
+              <span>INPTIC Gabon • Validation DRTI</span>
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 250);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Actions spéciales QR & Archivage
   const handleSpecialAction = async (
     profileId: string,
@@ -1080,7 +1252,7 @@ export default function AdminRHPage() {
                   <h3 className="text-sm font-black text-slate-900">Carte Professionnelle Imprimable</h3>
                   {selectedForCard && (
                     <button
-                      onClick={() => window.print()}
+                      onClick={() => handlePrintCard(selectedForCard)}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-3.5 py-1.5 text-xs font-bold text-slate-950 shadow hover:brightness-110"
                     >
                       <Printer size={14} />
