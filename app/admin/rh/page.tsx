@@ -438,12 +438,12 @@ export default function AdminRHPage() {
     }
   };
 
-  // Impression dédiée d'une Carte Professionnelle au format badge CR80 (1 seule page)
+  // Impression dédiée d'une Carte Professionnelle au format badge portrait vertical
   const handlePrintCard = (p: RHProfile) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga';
-    const qrSvg = generateQRCodeSVG(`${origin}/agent/${p.qrToken || p.id}`, { size: 120, margin: 1 });
+    const qrSvg = generateQRCodeSVG(`${origin}/agent/${p.qrToken || p.id}`, { size: 140, margin: 1 });
 
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
       window.print();
       return;
@@ -453,6 +453,174 @@ export default function AdminRHPage() {
       <!DOCTYPE html>
       <html>
         <head>
+          <title>Carte Professionnelle - ${p.firstName} ${p.lastName}</title>
+          <style>
+            @page {
+              size: 53.98mm 85.6mm;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: #0f172a;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .card {
+              width: 53.98mm;
+              height: 85.6mm;
+              background: #ffffff;
+              border-radius: 4mm;
+              overflow: hidden;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              text-align: center;
+              position: relative;
+              border: 1px solid #cbd5e1;
+            }
+            .top-header {
+              width: 100%;
+              background: #090d16;
+              color: white;
+              padding: 5mm 2mm 10mm;
+              position: relative;
+              box-sizing: border-box;
+            }
+            .top-header::after {
+              content: "";
+              position: absolute;
+              bottom: -6mm;
+              right: 0;
+              width: 0;
+              height: 0;
+              border-style: solid;
+              border-width: 0 0 6mm 53.98mm;
+              border-color: transparent transparent #ffffff transparent;
+            }
+            .slot {
+              width: 8mm;
+              height: 2mm;
+              background: #1e293b;
+              border-radius: 1mm;
+              margin: 0 auto 2mm;
+            }
+            .company-name {
+              font-size: 8pt;
+              font-weight: 900;
+              color: #38bdf8;
+              letter-spacing: 0.8px;
+            }
+            .company-tagline {
+              font-size: 5pt;
+              font-weight: 600;
+              color: #94a3b8;
+              margin-top: 0.5mm;
+            }
+            .photo-wrapper {
+              margin-top: -10mm;
+              position: relative;
+              z-index: 10;
+            }
+            .photo {
+              width: 24mm;
+              height: 24mm;
+              border-radius: 50%;
+              border: 2mm solid #0ea5e9;
+              object-fit: cover;
+              background: #0f172a;
+            }
+            .body {
+              padding: 2mm 4mm 4mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              flex: 1;
+              justify-content: space-between;
+              width: 100%;
+              box-sizing: border-box;
+            }
+            .name {
+              font-size: 9pt;
+              font-weight: 900;
+              color: #0f172a;
+              line-height: 1.1;
+              text-transform: uppercase;
+            }
+            .position {
+              font-size: 6.5pt;
+              font-weight: 700;
+              color: #0284c7;
+              margin-top: 0.5mm;
+            }
+            .matr {
+              font-size: 5.5pt;
+              font-family: monospace;
+              color: #d4af37;
+              font-weight: 800;
+              margin-top: 0.5mm;
+            }
+            .qr-box {
+              width: 22mm;
+              height: 22mm;
+              background: #ffffff;
+              padding: 0.5mm;
+              border: 1px solid #e2e8f0;
+              border-radius: 1.5mm;
+              margin-top: 1mm;
+            }
+            .qr-box svg {
+              width: 100%;
+              height: 100%;
+            }
+            .footer {
+              font-size: 4.5pt;
+              color: #64748b;
+              font-weight: 600;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="top-header">
+              <div class="slot"></div>
+              <div class="company-name">INPTIC GABON</div>
+              <div class="company-tagline">INSTITUT NATIONAL DU NUMÉRIQUE</div>
+            </div>
+            <div class="photo-wrapper">
+              ${p.photoUrl ? `<img src="${p.photoUrl}" class="photo" />` : '<div class="photo" style="display:flex;align-items:center;justify-content:center;color:white;font-size:7pt;font-weight:bold;">PHOTO</div>'}
+            </div>
+            <div class="body">
+              <div>
+                <div class="name">${p.firstName} ${p.lastName}</div>
+                <div class="position">${p.position}</div>
+                <div class="matr">MATR: ${p.matricule}</div>
+              </div>
+              <div class="qr-box">${qrSvg}</div>
+              <div class="footer">
+                CARTE PROFESSIONNELLE OFFICIELLE
+              </div>
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 250);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
           <title>Carte Professionnelle - ${p.firstName} ${p.lastName}</title>
           <style>
             @page {
@@ -1263,73 +1431,60 @@ export default function AdminRHPage() {
 
                 {selectedForCard ? (
                   <div className="mt-4">
-                    {/* Carte Recto Professionnelle INPTIC */}
+                    {/* Carte Verticale Style Modèle Référence */}
                     <div
                       id="printable-card"
-                      className="relative mx-auto w-full max-w-[340px] overflow-hidden rounded-2xl border-2 border-[#D4AF37]/50 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white shadow-xl"
-                      style={{ aspectRatio: '85.6/53.98' }}
+                      className="relative mx-auto w-full max-w-[270px] overflow-hidden rounded-3xl border border-slate-300 bg-white text-slate-900 shadow-2xl flex flex-col items-center text-center"
+                      style={{ aspectRatio: '53.98/85.6' }}
                     >
-                      {/* En-tête officiel */}
-                      <div className="flex items-center justify-between border-b border-white/15 pb-2">
-                        <Image
-                          src="/logoinptic.png"
-                          alt="Logo INPTIC"
-                          width={85}
-                          height={28}
-                          className="h-6 w-auto object-contain brightness-125"
-                        />
-                        <span className="text-[8px] font-black uppercase tracking-widest text-[#D4AF37]">
-                          CARTE PROFESSIONNELLE
-                        </span>
+                      {/* Top Header Sombre */}
+                      <div className="w-full bg-[#090d16] text-white p-4 pb-12 relative">
+                        <div className="mx-auto h-1.5 w-10 rounded-full bg-slate-800 mb-3" />
+                        <h4 className="text-xs font-black tracking-wider text-cyan-400">INPTIC GABON</h4>
+                        <p className="text-[7px] text-slate-400 uppercase tracking-widest mt-0.5">Institut National du Numérique</p>
                       </div>
 
-                      {/* Corps de la carte */}
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/30 bg-slate-800">
+                      {/* Photo circulaire avec anneau cyan */}
+                      <div className="-mt-10 relative z-10">
+                        <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-cyan-500 bg-slate-900 shadow-lg">
                           {selectedForCard.photoUrl ? (
-                            <img
-                              src={selectedForCard.photoUrl}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
+                            <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-blue-900 text-blue-200 text-xs font-bold">
+                            <div className="flex h-full w-full items-center justify-center bg-blue-950 text-blue-200 text-xs font-bold">
                               PHOTO
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate text-xs font-black text-white">
+                      {/* Corps de la carte : Nom, Poste, Matricule & QR Code centré en bas */}
+                      <div className="p-4 pt-2 flex flex-col items-center justify-between flex-1 w-full">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 uppercase leading-snug">
                             {selectedForCard.firstName} {selectedForCard.lastName}
-                          </p>
-                          <p className="truncate text-[10px] font-bold text-cyan-300">
+                          </h4>
+                          <p className="text-xs font-bold text-sky-600 mt-0.5">
                             {selectedForCard.position}
                           </p>
-                          <p className="truncate text-[9px] text-slate-300">
-                            {selectedForCard.department}
-                          </p>
-                          <p className="mt-1 font-mono text-[8px] text-[#D4AF37]">
+                          <p className="text-[10px] font-mono font-bold text-[#D4AF37] mt-1">
                             MATR: {selectedForCard.matricule}
                           </p>
                         </div>
 
-                        {/* QR Code dynamique généré en SVG */}
+                        {/* QR Code centré */}
                         <div
-                          className="h-16 w-16 shrink-0 rounded-lg bg-white p-1 shadow"
+                          className="my-2 h-20 w-20 rounded-xl bg-white p-1 border border-slate-200 shadow-sm flex items-center justify-center"
                           dangerouslySetInnerHTML={{
                             __html: generateQRCodeSVG(
                               `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga'}/agent/${selectedForCard.qrToken}`,
-                              { size: 64, margin: 1 }
+                              { size: 72, margin: 1 }
                             ),
                           }}
                         />
-                      </div>
 
-                      {/* Bas de carte */}
-                      <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-1 text-[7px] text-slate-400">
-                        <span>République Gabonaise</span>
-                        <span>Validation cryptographique DRTI</span>
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100 pt-1.5 w-full">
+                          Carte Professionnelle Officielle
+                        </p>
                       </div>
                     </div>
 
