@@ -66,7 +66,7 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
       setFeedSource(data.source === 'live' ? 'live' : 'fallback');
       setLastUpdated(new Date());
       if (data.source !== 'live') {
-        setRefreshError('Source IT indisponible; les dernières données de secours sont affichées.');
+        setRefreshError(data.fallbackReason || 'Source IT indisponible; les dernières données de secours sont affichées.');
       }
     } catch (error) {
       setRefreshError(error instanceof Error ? error.message : 'Impossible d’actualiser la veille IT.');

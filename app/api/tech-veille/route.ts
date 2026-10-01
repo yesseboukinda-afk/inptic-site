@@ -43,23 +43,42 @@ const DEFAULT_TECH_ITEMS = [
   },
 ];
 
+const TECH_TAGS = ['ai', 'database', 'javascript', 'security', 'devops'] as const;
+
 export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get('refresh') === '1';
 
   try {
-    const res = await fetch('https://dev.to/api/articles?per_page=12&tag=ai,python,database,devops,javascript,security', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-      ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
-    });
+    const feedResults = await Promise.all(TECH_TAGS.map(async (tag) => {
+      try {
+        const params = new URLSearchParams({ per_page: '12', tag });
+        const res = await fetch(`https://dev.to/api/articles?${params}`, {
+          headers: {
+            'User-Agent': 'INPTIC-TechWatch/1.0',
+          },
+          ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
+        });
 
-    if (!res.ok) {
-      return NextResponse.json({ success: true, items: DEFAULT_TECH_ITEMS, source: 'fallback' });
+        if (!res.ok) return { ok: false, articles: [] };
+        const articles = await res.json();
+        return { ok: true, articles: Array.isArray(articles) ? articles : [] };
+      } catch {
+        return { ok: false, articles: [] };
+      }
+    }));
+
+    const uniqueArticles = new Map<string, any>();
+    for (const { articles } of feedResults) {
+      for (const article of articles) {
+        const id = String(article.id || article.url || '');
+        if (id && !uniqueArticles.has(id)) uniqueArticles.set(id, article);
+      }
     }
 
-    const articles = await res.json();
-    const hasLiveArticles = Array.isArray(articles) && articles.length > 0;
+    const articles = Array.from(uniqueArticles.values())
+      .sort((first, second) => Date.parse(second.published_at || '') - Date.parse(first.published_at || ''))
+      .slice(0, 12);
+    const hasLiveArticles = articles.length > 0;
     const formatted = hasLiveArticles
       ? articles.map((art: any, index: number) => {
           const tags = Array.isArray(art.tag_list) ? art.tag_list : [];
@@ -85,9 +104,19 @@ export async function GET(request: NextRequest) {
       success: true,
       items: formatted,
       source: hasLiveArticles ? 'live' : 'fallback',
+      ...(hasLiveArticles ? {} : {
+        fallbackReason: feedResults.some((feed) => feed.ok)
+          ? 'Aucune actualité récente trouvée pour les catégories surveillées.'
+          : 'Le service Dev.to est momentanément inaccessible.',
+      }),
     });
   } catch (error) {
     console.error('Tech veille fetch error:', error);
-    return NextResponse.json({ success: true, items: DEFAULT_TECH_ITEMS, source: 'fallback' });
+    return NextResponse.json({
+      success: true,
+      items: DEFAULT_TECH_ITEMS,
+      source: 'fallback',
+      fallbackReason: 'Impossible de joindre les flux de veille IT.',
+    });
   }
 }
