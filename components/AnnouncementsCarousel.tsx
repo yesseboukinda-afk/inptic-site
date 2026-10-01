@@ -1,18 +1,29 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Megaphone, ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+type CarouselAnnouncement = {
+  id: string;
+  tag: string;
+  title: string;
+  description: string;
+  link: string;
+  cta: string;
+};
 
 export default function AnnouncementsCarousel() {
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [publishedAnnouncements, setPublishedAnnouncements] = useState<CarouselAnnouncement[]>([]);
+  const publishedSignature = useRef('');
 
-  const announcements = [
+  const defaultAnnouncements: CarouselAnnouncement[] = [
     {
-      id: 1,
+      id: 'concours',
       tag: t('announcements.tagConcours', 'Concours 2026'),
       title: t('announcements.titleConcours', 'Dépôt des dossiers et paiement des frais de dossier en ligne ouverts'),
       description: t('announcements.descConcours', 'Déposez vos pièces justificatives, obtenez votre accusé de réception et réglez via Airtel/Moov Money.'),
@@ -20,7 +31,7 @@ export default function AnnouncementsCarousel() {
       cta: t('announcements.ctaConcours', 'Déposer mon dossier'),
     },
     {
-      id: 2,
+      id: 'innovation',
       tag: t('announcements.tagEvent', 'Événement'),
       title: t('announcements.titleEvent', 'Semaine de l’Innovation Numérique & Hackathon INPTIC'),
       description: t('announcements.descEvent', 'Rejoignez les ateliers et conférences sur l’Intelligence Artificielle et la Cybersécurité.'),
@@ -28,7 +39,7 @@ export default function AnnouncementsCarousel() {
       cta: t('announcements.ctaEvent', 'En savoir plus'),
     },
     {
-      id: 3,
+      id: 'alumni',
       tag: t('announcements.tagAlumni', 'Espace Alumni & ANDG'),
       title: t('announcements.titleAlumni', 'Lancement de l’Annuaire National des Diplômés (ANDG)'),
       description: t('announcements.descAlumni', 'Diplômés de l’INPTIC, rejoignez le réseau professionnel officiel du Gabon.'),
@@ -36,6 +47,58 @@ export default function AnnouncementsCarousel() {
       cta: t('announcements.ctaAlumni', 'Rejoindre le réseau'),
     },
   ];
+  const announcements = [...publishedAnnouncements, ...defaultAnnouncements];
+
+  useEffect(() => {
+    let active = true;
+
+    const loadPublishedAnnouncements = async () => {
+      try {
+        const response = await fetch('/api/news?target=annonces', { cache: 'no-store' });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const entries: unknown[] = Array.isArray(payload?.data) ? payload.data : [];
+        const mapped = entries.flatMap((entry): CarouselAnnouncement[] => {
+          if (!entry || typeof entry !== 'object') return [];
+          const item = entry as Record<string, unknown>;
+          const attributes = item.attributes && typeof item.attributes === 'object'
+            ? item.attributes as Record<string, unknown>
+            : item;
+          const id = String(item.documentId ?? item.id ?? '');
+          const title = typeof attributes.title === 'string' ? attributes.title.trim() : '';
+          if (!id || !title) return [];
+
+          const slug = typeof attributes.slug === 'string' && attributes.slug ? attributes.slug : id;
+          return [{
+            id: `published-${id}`,
+            tag: typeof attributes.category === 'string' ? attributes.category : t('announcements.tagEvent', 'Annonce'),
+            title,
+            description: typeof attributes.excerpt === 'string' ? attributes.excerpt : '',
+            link: `/annonces#${encodeURIComponent(slug)}`,
+            cta: t('announcements.ctaPublished', 'Lire l’annonce'),
+          }];
+        });
+
+        const signature = JSON.stringify(mapped);
+        if (active && signature !== publishedSignature.current) {
+          publishedSignature.current = signature;
+          setPublishedAnnouncements(mapped);
+          setCurrentIndex(0);
+        }
+      } catch {
+        // Keep the institutional announcements if the public feed is unavailable.
+      }
+    };
+
+    void loadPublishedAnnouncements();
+    const refreshInterval = setInterval(() => void loadPublishedAnnouncements(), 30_000);
+
+    return () => {
+      active = false;
+      clearInterval(refreshInterval);
+    };
+  }, [t]);
 
   useEffect(() => {
     // Vérifier si l'annonce a été fermée il y a moins de 3 minutes

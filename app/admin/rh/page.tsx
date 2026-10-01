@@ -122,6 +122,7 @@ export default function AdminRHPage() {
   const [formWhitelist, setFormWhitelist] = useState<RHPublicWhitelist>(DEFAULT_PUBLIC_WHITELIST);
   const [formError, setFormError] = useState('');
   const [formSaving, setFormSaving] = useState(false);
+  const [formSaveStep, setFormSaveStep] = useState<1 | 2>(1);
 
   // Vérification de la session
   useEffect(() => {
@@ -393,6 +394,7 @@ export default function AdminRHPage() {
       return;
     }
     setFormSaving(true);
+    setFormSaveStep(1);
     setFormError('');
 
     const payload = {
@@ -428,9 +430,9 @@ export default function AdminRHPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde sur la base de données Supabase');
 
+      setFormSaveStep(2);
+      await Promise.all([loadProfiles(), loadAuditLogs()]);
       setShowCreateModal(false);
-      await loadProfiles();
-      await loadAuditLogs();
     } catch (err: any) {
       setFormError(err.message || 'Erreur de communication avec la base de données Supabase.');
     } finally {
@@ -1565,8 +1567,9 @@ export default function AdminRHPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm">
           <div className="relative my-8 w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <button
+              disabled={formSaving}
               onClick={() => setShowCreateModal(false)}
-              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <X size={20} />
             </button>
@@ -1581,6 +1584,38 @@ export default function AdminRHPage() {
             {formError && (
               <div className="mt-4 rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200">
                 {formError}
+              </div>
+            )}
+
+            {formSaving && (
+              <div role="status" aria-live="polite" className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <p className="text-xs font-bold text-blue-900">
+                  {formSaveStep === 1 ? 'Envoi et enregistrement du profil…' : 'Actualisation de l’annuaire et du journal…'}
+                </p>
+                <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {[
+                    'Envoi et enregistrement du profil',
+                    'Actualisation de l’annuaire et du journal',
+                  ].map((step, index) => {
+                    const stepNumber = (index + 1) as 1 | 2;
+                    const isComplete = stepNumber < formSaveStep;
+                    const isCurrent = stepNumber === formSaveStep;
+
+                    return (
+                      <li key={step} className={`flex items-center gap-2 text-xs ${isCurrent ? 'font-bold text-blue-900' : isComplete ? 'text-emerald-700' : 'text-slate-400'}`}>
+                        {isComplete ? (
+                          <CheckCircle2 size={16} className="shrink-0" />
+                        ) : isCurrent ? (
+                          <RefreshCw size={15} className="shrink-0 animate-spin" />
+                        ) : (
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[9px]">{stepNumber}</span>
+                        )}
+                        <span>{step}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+                <p className="mt-3 text-[11px] text-blue-700">Cela peut prendre quelques secondes. Ne fermez pas cette fenêtre.</p>
               </div>
             )}
 
@@ -1890,8 +1925,9 @@ export default function AdminRHPage() {
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
+                  disabled={formSaving}
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -1900,7 +1936,7 @@ export default function AdminRHPage() {
                   disabled={formSaving}
                   className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {formSaving ? 'Enregistrement...' : 'Enregistrer'}
+                  {formSaving ? (formSaveStep === 1 ? 'Enregistrement...' : 'Actualisation...') : 'Enregistrer'}
                 </button>
               </div>
             </form>
