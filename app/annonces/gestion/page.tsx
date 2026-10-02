@@ -122,6 +122,9 @@ function renderSocialIcon(label: string) {
       </svg>
     );
   }
+  if (l.includes('tik')) {
+    return <img src="/partages/tiktok.svg" alt="" className="h-3 w-3 inline-block" />;
+  }
   return <ExternalLink size={12} />;
 }
 

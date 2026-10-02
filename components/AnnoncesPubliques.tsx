@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import { isAdminAccountEmail, isAdminRole } from '@/lib/roles';
 import TranslatedText from '@/components/TranslatedText';
 
 type Attachment = {
@@ -192,18 +193,18 @@ function parsePublicationDetails(excerpt: string, title: string): PublicationDet
   };
 }
 
-function ArticleEngagement({ articleSlug, title }: { articleSlug: string; title: string }) {
+function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: string; title: string; isAdmin: boolean }) {
   const [counts, setCounts] = useState({ likes: 0, shares: 0 });
   const [liked, setLiked] = useState(false);
   const [pending, setPending] = useState(false);
   const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
 
-  async function track(action: 'like' | 'share') {
+  async function track(action: 'like' | 'share', network?: string) {
     const response = await fetch('/api/news/engagement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ articleSlug, action }),
+      body: JSON.stringify({ articleSlug, action, network }),
     });
     if (!response.ok) return;
 
@@ -281,7 +282,7 @@ function ArticleEngagement({ articleSlug, title }: { articleSlug: string; title:
           className="h-4 w-4"
           style={liked ? { filter: 'invert(24%) sepia(90%) saturate(1800%) hue-rotate(315deg)' } : undefined}
         />
-        {counts.likes} likes
+        <span>{counts.likes} likes</span>
       </button>
       <div className="relative ml-auto w-full sm:w-auto">
         <button
@@ -293,7 +294,7 @@ function ArticleEngagement({ articleSlug, title }: { articleSlug: string; title:
         >
           <Share2 size={14} aria-hidden="true" />
           <span className="text-xs font-semibold">Partager</span>
-          <span className="text-[10px] text-slate-400">{counts.shares}</span>
+          {isAdmin && <span className="text-[10px] text-slate-400">{counts.shares}</span>}
         </button>
         {shareOptionsOpen && (
           <div id={`share-options-${articleSlug}`} role="group" aria-label="Choisir une plateforme de partage" className="share-platform-popover absolute bottom-[calc(100%+0.5rem)] right-0 z-50 flex w-max max-w-[calc(100vw-2rem)] items-center gap-1 border border-slate-200 bg-white p-2 shadow-xl">
@@ -312,6 +313,9 @@ function ArticleEngagement({ articleSlug, title }: { articleSlug: string; title:
             <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${shareText}`} onClick={trackPlatformShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950">
               <img src="/partages/mail-send.svg" alt="" className="h-5 w-5" /> E-mail
             </a>
+            <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" onClick={() => { void navigator.clipboard.writeText(shareUrl).catch(() => {}); void track('share', 'tiktok'); setShareOptionsOpen(false); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-900 hover:text-white">
+              <img src="/partages/tiktok.svg" alt="" className="h-5 w-5" /> TikTok
+            </a>
           </div>
         )}
       </div>
@@ -327,6 +331,7 @@ export default function AnnoncesPubliques() {
   const [annonces, setAnnonces] = useState<Annonce[]>([]);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'empty'>('loading');
   const [refreshing, setRefreshing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const coverLookups = useRef(new Set<string>());
 
@@ -381,7 +386,18 @@ export default function AnnoncesPubliques() {
   useEffect(() => {
     void loadAnnonces(false);
 
+    // Check admin status
     const sb = supabase;
+    if (sb) {
+      void sb.auth.getSession().then(({ data }) => {
+        const user = data.session?.user;
+        if (!user) return;
+        const email = user.email;
+        const role = (user.user_metadata?.role ?? user.app_metadata?.role) as unknown;
+        setIsAdmin(isAdminAccountEmail(email) || isAdminRole(role));
+      });
+    }
+
     let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
     if (sb) {
       channel = sb
@@ -528,7 +544,7 @@ export default function AnnoncesPubliques() {
               </div>
             )}
 
-            <ArticleEngagement articleSlug={annonce.slug} title={annonce.title} />
+            <ArticleEngagement articleSlug={annonce.slug} title={annonce.title} isAdmin={isAdmin} />
 
             {/* Attachments */}
             {hasAttachments && (

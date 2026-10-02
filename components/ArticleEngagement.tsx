@@ -7,9 +7,10 @@ type ArticleEngagementProps = {
   articleSlug: string;
   title: string;
   sharePath: string;
+  isAdmin?: boolean;
 };
 
-export default function ArticleEngagement({ articleSlug, title, sharePath }: ArticleEngagementProps) {
+export default function ArticleEngagement({ articleSlug, title, sharePath, isAdmin = false }: ArticleEngagementProps) {
   const [counts, setCounts] = useState({ likes: 0, shares: 0 });
   const [liked, setLiked] = useState(false);
   const [pending, setPending] = useState(false);
@@ -20,11 +21,11 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
     return `${window.location.origin}${sharePath}`;
   }
 
-  async function track(action: 'like' | 'share') {
+  async function track(action: 'like' | 'share', network?: string) {
     const response = await fetch('/api/news/engagement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ articleSlug, action }),
+      body: JSON.stringify({ articleSlug, action, network }),
     });
     if (!response.ok) return false;
 
@@ -77,6 +78,7 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
     try {
       await navigator.clipboard.writeText(getShareUrl());
       setShareNotice('Lien copié. Collez-le dans votre publication ou description YouTube.');
+      void track('share', 'youtube');
       setShareOptionsOpen(false);
     } catch {
       setShareNotice('La copie du lien n’est pas disponible dans ce navigateur.');
@@ -118,7 +120,7 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
           >
             <Share2 size={14} aria-hidden="true" />
             <span className="text-xs font-semibold">Partager</span>
-            <span className="text-[10px] text-slate-400">{counts.shares}</span>
+            {isAdmin && <span className="text-[10px] text-slate-400">{counts.shares}</span>}
           </button>
         {shareOptionsOpen && (
           <div
@@ -132,20 +134,23 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
                 <Share2 size={20} aria-hidden="true" /> Appareil
               </button>
             )}
-            <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer" onClick={stopCountingFallbackShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800">
+            <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer" onClick={() => { void track('share', 'whatsapp'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800">
               <img src="/partages/whatsapp.svg" alt="" className="h-5 w-5" /> WhatsApp
             </a>
-            <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" onClick={stopCountingFallbackShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800">
+            <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" onClick={() => { void track('share', 'facebook'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800">
               <img src="/partages/facebook.svg" alt="" className="h-5 w-5" /> Facebook
             </a>
-            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" onClick={stopCountingFallbackShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800">
+            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" onClick={() => { void track('share', 'linkedin'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800">
               <img src="/partages/linkedin.svg" alt="" className="h-5 w-5" /> LinkedIn
             </a>
             <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" onClick={() => void copyForYouTube()} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-800">
               <img src="/partages/youtube.svg" alt="" className="h-5 w-5" /> YouTube
             </a>
-            <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${shareText}`} onClick={stopCountingFallbackShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950">
+            <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${shareText}`} onClick={() => { void track('share', 'mail'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950">
               <img src="/partages/mail-send.svg" alt="" className="h-5 w-5" /> E-mail
+            </a>
+            <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" onClick={() => { void navigator.clipboard.writeText(shareUrl).catch(() => {}); void track('share', 'tiktok'); setShareNotice('Lien copié. Collez-le dans votre publication TikTok.'); setShareOptionsOpen(false); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-900 hover:text-white">
+              <img src="/partages/tiktok.svg" alt="" className="h-5 w-5" /> TikTok
             </a>
           </div>
         )}

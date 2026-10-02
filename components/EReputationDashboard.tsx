@@ -33,7 +33,7 @@ function getPlatformIcon(platform: MentionItem['platform']) {
 
 export default function EReputationDashboard() {
   const [mentions, setMentions] = useState<MentionItem[]>([]);
-    const [comments, setComments] = useState<MentionItem[]>([]);
+  const [comments, setComments] = useState<MentionItem[]>([]);
   const [filter, setFilter] = useState<'all' | 'positif' | 'neutre' | 'negatif'>('all');
   const [replyText, setReplyText] = useState('');
   const [replyingId, setReplyingId] = useState<string | null>(null);
@@ -197,6 +197,7 @@ export default function EReputationDashboard() {
         </button>
       </div>
 
+
       {/* ── CENTRE DE NOTIFICATION TEMPS RÉEL (COMMENTAIRES PÉJORATIFS & DÉGRADANTS) ── */}
       {negativeAlerts.length > 0 && (
         <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-5 shadow-lg space-y-4 animate-in fade-in duration-300">
@@ -349,6 +350,59 @@ export default function EReputationDashboard() {
         </div>
       )}
 
+      {/* ── SECTION COMMENTAIRES FACEBOOK & YOUTUBE ── */}
+      <section aria-labelledby="recent-comments-heading" className="space-y-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={16} className="text-blue-600" />
+            <h4 id="recent-comments-heading" className="text-sm font-black text-slate-900">
+              10 derniers commentaires Facebook et YouTube
+            </h4>
+          </div>
+          <span className="text-xs text-slate-500">{comments.length} commentaire{comments.length > 1 ? 's' : ''}</span>
+        </div>
+        {comments.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+            Aucun commentaire récent accessible. Vérifiez les accès Facebook et YouTube.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {comments.map((comment) => (
+              <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2.5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span role="img" aria-label={comment.platform} title={comment.platform} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-800">
+                      {getPlatformIcon(comment.platform)}
+                    </span>
+                    <strong className="text-xs text-slate-900">{comment.author}</strong>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                      <Clock size={11} />{comment.date}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${
+                      comment.sentiment === 'positif'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : comment.sentiment === 'negatif'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {comment.sentiment}
+                    </span>
+                  </div>
+                </div>
+                <p className="whitespace-pre-wrap text-xs sm:text-sm leading-relaxed text-slate-700">{comment.content}</p>
+                <div className="pt-1">
+                  <a href={comment.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
+                    <ExternalLink size={12} />Voir sur {comment.platform}
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Liste des mentions */}
       <div className="space-y-3.5">
         {isScanning && mentions.length === 0 ? (
@@ -464,51 +518,7 @@ export default function EReputationDashboard() {
                   className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
                 >
                   <option value="Facebook">Facebook</option>
-                                    <option value="YouTube">YouTube</option>
-                        <section aria-labelledby="recent-comments-heading" className="space-y-3.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <h4 id="recent-comments-heading" className="text-sm font-black text-slate-900">
-                              10 derniers commentaires Facebook et YouTube
-                            </h4>
-                            <span className="text-xs text-slate-500">{comments.length} commentaire{comments.length > 1 ? 's' : ''}</span>
-                          </div>
-                          {comments.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
-                              Aucun commentaire récent accessible. Vérifiez les accès Facebook et la configuration YouTube.
-                            </div>
-                          ) : (
-                            comments.map((comment) => (
-                              <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <span role="img" aria-label={comment.platform} title={comment.platform} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800">{getPlatformIcon(comment.platform)}</span>
-                                    <strong className="text-xs text-slate-900">{comment.author}</strong>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                                      <Clock size={12} />{comment.date}
-                                    </span>
-                                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
-                                      comment.sentiment === 'positif'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : comment.sentiment === 'negatif'
-                                          ? 'bg-red-100 text-red-800'
-                                          : 'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      {comment.sentiment}
-                                    </span>
-                                  </div>
-                                </div>
-                                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{comment.content}</p>
-                                <a href={comment.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
-                                  <ExternalLink size={12} />Voir le commentaire
-                                </a>
-                              </article>
-                            ))
-                          )}
-                        </section>
-
-                        {/* Liste des mentions presse */}
+                  <option value="YouTube">YouTube</option>
                   <option value="Twitter/X">Twitter/X</option>
                   <option value="Google Avis">Google Avis</option>
                   <option value="LinkedIn">LinkedIn</option>

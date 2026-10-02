@@ -4,7 +4,9 @@ import { supabaseAdmin } from '@/lib/supabase';
 const VISITOR_COOKIE = 'inptic_analytics_id';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIONS = ['view', 'like', 'share'] as const;
+const NETWORKS = ['whatsapp', 'facebook', 'linkedin', 'youtube', 'mail', 'tiktok'] as const;
 type EngagementAction = (typeof ACTIONS)[number];
+type ShareNetwork = (typeof NETWORKS)[number];
 
 export async function GET() {
   if (!supabaseAdmin) {
@@ -13,20 +15,34 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('actualites_engagement_counters')
-    .select('article_slug, likes_count, shares_count')
+    .select('article_slug, likes_count, shares_count, shares_whatsapp, shares_facebook, shares_linkedin, shares_youtube, shares_mail, shares_tiktok')
     .like('article_slug', 'tech-%');
 
   if (error) return NextResponse.json({ error: 'Statistiques indisponibles.' }, { status: 503 });
 
-  const totals = (data || []).reduce((result, row) => ({
-    likes: result.likes + (Number(row.likes_count) || 0),
-    shares: result.shares + (Number(row.shares_count) || 0),
-  }), { likes: 0, shares: 0 });
+  const rows = data || [];
 
-  const articles = (data || []).map((row) => ({
-    articleSlug: String(row.article_slug),
-    likes: Number(row.likes_count) || 0,
-    shares: Number(row.shares_count) || 0,
+  const totals = rows.reduce((result, row) => ({
+    likes:            result.likes            + (Number(row.likes_count)      || 0),
+    shares:           result.shares           + (Number(row.shares_count)     || 0),
+    shares_whatsapp:  result.shares_whatsapp  + (Number(row.shares_whatsapp)  || 0),
+    shares_facebook:  result.shares_facebook  + (Number(row.shares_facebook)  || 0),
+    shares_linkedin:  result.shares_linkedin  + (Number(row.shares_linkedin)  || 0),
+    shares_youtube:   result.shares_youtube   + (Number(row.shares_youtube)   || 0),
+    shares_mail:      result.shares_mail      + (Number(row.shares_mail)      || 0),
+    shares_tiktok:    result.shares_tiktok    + (Number(row.shares_tiktok)    || 0),
+  }), { likes: 0, shares: 0, shares_whatsapp: 0, shares_facebook: 0, shares_linkedin: 0, shares_youtube: 0, shares_mail: 0, shares_tiktok: 0 });
+
+  const articles = rows.map((row) => ({
+    articleSlug:     String(row.article_slug),
+    likes:           Number(row.likes_count)     || 0,
+    shares:          Number(row.shares_count)    || 0,
+    shares_whatsapp: Number(row.shares_whatsapp) || 0,
+    shares_facebook: Number(row.shares_facebook) || 0,
+    shares_linkedin: Number(row.shares_linkedin) || 0,
+    shares_youtube:  Number(row.shares_youtube)  || 0,
+    shares_mail:     Number(row.shares_mail)     || 0,
+    shares_tiktok:   Number(row.shares_tiktok)   || 0,
   }));
 
   return NextResponse.json({ data: { ...totals, articles } });
@@ -36,6 +52,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const articleSlug = typeof body?.articleSlug === 'string' ? body.articleSlug.trim() : '';
   const action = body?.action as EngagementAction;
+  const network: ShareNetwork | null = NETWORKS.includes(body?.network) ? body.network : null;
 
   if (!articleSlug || articleSlug.length > 200 || !ACTIONS.includes(action)) {
     return NextResponse.json({ error: 'Article ou interaction invalide.' }, { status: 400 });
@@ -51,8 +68,9 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin.rpc('track_actualites_engagement', {
     p_article_slug: articleSlug,
-    p_visitor_id: visitorId,
-    p_action: action,
+    p_visitor_id:   visitorId,
+    p_action:       action,
+    p_network:      network,
   });
 
   if (error) {

@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2. Interroger les flux RSS de presse et du web pour INPTIC Gabon
+  // 3. Interroger les flux RSS de presse et du web pour INPTIC Gabon
   try {
     const rssUrl = 'https://news.google.com/rss/search?q=INPTIC+Gabon+OR+%22Inptic-Gabon%22&hl=fr&gl=GA&ceid=GA:fr';
     const res = await fetch(rssUrl, {
@@ -214,9 +214,12 @@ export async function GET(request: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const author = body.author || 'Visiteur Facebook';
+    const author = body.author || 'Visiteur Réseau Social';
     const content = body.content || body.message || '';
     const supportedPlatforms = ['Facebook', 'YouTube', 'Twitter/X', 'Google Avis', 'LinkedIn'] as const;
+    if (body.platform && !supportedPlatforms.includes(body.platform)) {
+      return NextResponse.json({ error: 'Cette plateforme n’est pas prise en charge par la veille e-réputation.' }, { status: 400 });
+    }
     const platform = supportedPlatforms.includes(body.platform) ? body.platform : 'Facebook';
     const url = body.url || 'https://www.facebook.com/people/Inptic-Gabon/61557159190234/';
 
