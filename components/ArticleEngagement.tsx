@@ -1,21 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Facebook, Heart, Linkedin, Mail, MessageCircle, Share2 } from 'lucide-react';
 
 type ArticleEngagementProps = {
   articleSlug: string;
   title: string;
   sharePath: string;
-  isAdmin?: boolean;
 };
 
-export default function ArticleEngagement({ articleSlug, title, sharePath, isAdmin = false }: ArticleEngagementProps) {
+export default function ArticleEngagement({ articleSlug, title, sharePath }: ArticleEngagementProps) {
   const [counts, setCounts] = useState({ likes: 0, shares: 0 });
   const [liked, setLiked] = useState(false);
   const [pending, setPending] = useState(false);
   const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let refreshInProgress = false;
+
+    const refreshStats = async () => {
+      if (document.visibilityState !== 'visible' || refreshInProgress) return;
+      refreshInProgress = true;
+      try {
+        const response = await fetch(`/api/news/engagement?articleSlug=${encodeURIComponent(articleSlug)}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        const data = payload?.data as { likes?: number; shares?: number; liked?: boolean } | undefined;
+        if (!data || typeof data.liked !== 'boolean') return;
+        if (active) {
+          setCounts({ likes: Number(data.likes) || 0, shares: Number(data.shares) || 0 });
+          setLiked(data.liked);
+        }
+      } catch {
+        // Keep the latest confirmed counts when a refresh temporarily fails.
+      } finally {
+        refreshInProgress = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshStats();
+    };
+
+    void refreshStats();
+    const interval = window.setInterval(() => void refreshStats(), 5000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [articleSlug]);
 
   function getShareUrl() {
     return `${window.location.origin}${sharePath}`;
@@ -37,7 +75,7 @@ export default function ArticleEngagement({ articleSlug, title, sharePath, isAdm
 
     setCounts({ likes: Number(data.likes) || 0, shares: Number(data.shares) || 0 });
     setLiked(data.liked);
-    window.dispatchEvent(new Event('inptic:article-engagement-updated'));
+    window.dispatchEvent(new CustomEvent('inptic:article-engagement-updated', { detail: { articleSlug, data } }));
     return true;
   }
 
@@ -120,7 +158,7 @@ export default function ArticleEngagement({ articleSlug, title, sharePath, isAdm
           >
             <Share2 size={14} aria-hidden="true" />
             <span className="text-xs font-semibold">Partager</span>
-            {isAdmin && <span className="text-[10px] text-slate-400">{counts.shares}</span>}
+            <span className="text-[10px] text-slate-500">{counts.shares}</span>
           </button>
         {shareOptionsOpen && (
           <div
@@ -135,22 +173,19 @@ export default function ArticleEngagement({ articleSlug, title, sharePath, isAdm
               </button>
             )}
             <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer" onClick={() => { void track('share', 'whatsapp'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800">
-              <img src="/partages/whatsapp.svg" alt="" className="h-5 w-5" /> WhatsApp
+              <img src="/partages/whatsapp.svg" alt="" className="h-5 w-5" /> 
             </a>
             <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" onClick={() => { void track('share', 'facebook'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800">
-              <img src="/partages/facebook.svg" alt="" className="h-5 w-5" /> Facebook
+              <img src="/partages/facebook.svg" alt="" className="h-5 w-5" /> 
             </a>
             <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" onClick={() => { void track('share', 'linkedin'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800">
-              <img src="/partages/linkedin.svg" alt="" className="h-5 w-5" /> LinkedIn
+              <img src="/partages/linkedin.svg" alt="" className="h-5 w-5" /> 
             </a>
             <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" onClick={() => void copyForYouTube()} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-800">
-              <img src="/partages/youtube.svg" alt="" className="h-5 w-5" /> YouTube
+              <img src="/partages/youtube.svg" alt="" className="h-5 w-5" /> 
             </a>
             <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${shareText}`} onClick={() => { void track('share', 'mail'); stopCountingFallbackShare(); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950">
-              <img src="/partages/mail-send.svg" alt="" className="h-5 w-5" /> E-mail
-            </a>
-            <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" onClick={() => { void navigator.clipboard.writeText(shareUrl).catch(() => {}); void track('share', 'tiktok'); setShareNotice('Lien copié. Collez-le dans votre publication TikTok.'); setShareOptionsOpen(false); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-900 hover:text-white">
-              <img src="/partages/tiktok.svg" alt="" className="h-5 w-5" /> TikTok
+              <img src="/partages/mail-send.svg" alt="" className="h-5 w-5" /> 
             </a>
           </div>
         )}

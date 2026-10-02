@@ -338,7 +338,6 @@ export default function PressNewsFeed() {
                   articleSlug={`tech-${item.id}`}
                   title={item.title}
                   sharePath={`/actualites#${encodeURIComponent(item.id)}`}
-                  isAdmin={isAdmin}
                 />
               </div>
             </article>

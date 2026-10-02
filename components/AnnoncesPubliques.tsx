@@ -193,12 +193,51 @@ function parsePublicationDetails(excerpt: string, title: string): PublicationDet
   };
 }
 
-function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: string; title: string; isAdmin: boolean }) {
+function ArticleEngagement({ articleSlug, title }: { articleSlug: string; title: string }) {
   const [counts, setCounts] = useState({ likes: 0, shares: 0 });
   const [liked, setLiked] = useState(false);
   const [pending, setPending] = useState(false);
   const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let refreshInProgress = false;
+
+    const refreshStats = async () => {
+      if (document.visibilityState !== 'visible' || refreshInProgress) return;
+      refreshInProgress = true;
+      try {
+        const response = await fetch(`/api/news/engagement?articleSlug=${encodeURIComponent(articleSlug)}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        const data = payload?.data as { likes?: number; shares?: number; liked?: boolean } | undefined;
+        if (!data || typeof data.liked !== 'boolean') return;
+        if (active) {
+          setCounts({ likes: Number(data.likes) || 0, shares: Number(data.shares) || 0 });
+          setLiked(data.liked);
+        }
+      } catch {
+        // Keep the latest confirmed counts when a refresh temporarily fails.
+      } finally {
+        refreshInProgress = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshStats();
+    };
+
+    void refreshStats();
+    const interval = window.setInterval(() => void refreshStats(), 5000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [articleSlug]);
 
   async function track(action: 'like' | 'share', network?: string) {
     const response = await fetch('/api/news/engagement', {
@@ -215,6 +254,7 @@ function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: strin
       shares: Number(data.shares) || 0,
     });
     setLiked(Boolean(data.liked));
+    window.dispatchEvent(new CustomEvent('inptic:article-engagement-updated', { detail: { articleSlug, data } }));
   }
 
   async function handleLike() {
@@ -230,7 +270,7 @@ function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: strin
     const url = `${window.location.origin}/annonces#${encodeURIComponent(articleSlug)}`;
     if (typeof navigator.share !== 'function') {
       setShareOptionsOpen((open) => !open);
-      setShareNotice('Les liens externes ne confirment pas l’envoi; le compteur reste inchangé.');
+      setShareNotice('Choisissez un réseau pour enregistrer le partage.');
       return;
     }
 
@@ -249,8 +289,9 @@ function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: strin
     }
   }
 
-  function trackPlatformShare() {
+  function trackPlatformShare(network: string) {
     setShareOptionsOpen(false);
+    void track('share', network);
   }
 
   const shareUrl = `${typeof window === 'undefined' ? '' : window.location.origin}/annonces#${encodeURIComponent(articleSlug)}`;
@@ -260,6 +301,7 @@ function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: strin
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShareNotice('Lien copié. Collez-le dans votre publication ou description YouTube.');
+      void track('share', 'youtube');
       setShareOptionsOpen(false);
     } catch {
       setShareNotice('La copie du lien n’est pas disponible dans ce navigateur.');
@@ -294,23 +336,23 @@ function ArticleEngagement({ articleSlug, title, isAdmin }: { articleSlug: strin
         >
           <Share2 size={14} aria-hidden="true" />
           <span className="text-xs font-semibold">Partager</span>
-          {isAdmin && <span className="text-[10px] text-slate-400">{counts.shares}</span>}
+          <span className="text-[10px] text-slate-500">{counts.shares}</span>
         </button>
         {shareOptionsOpen && (
           <div id={`share-options-${articleSlug}`} role="group" aria-label="Choisir une plateforme de partage" className="share-platform-popover absolute bottom-[calc(100%+0.5rem)] right-0 z-50 flex w-max max-w-[calc(100vw-2rem)] items-center gap-1 border border-slate-200 bg-white p-2 shadow-xl">
-            <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer" onClick={trackPlatformShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800">
+            <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer" onClick={() => trackPlatformShare('whatsapp')} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800">
               <img src="/partages/whatsapp.svg" alt="" className="h-5 w-5" /> WhatsApp
             </a>
-            <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" onClick={trackPlatformShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800">
+            <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" onClick={() => trackPlatformShare('facebook')} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800">
               <img src="/partages/facebook.svg" alt="" className="h-5 w-5" /> Facebook
             </a>
-            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" onClick={trackPlatformShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800">
+            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" onClick={() => trackPlatformShare('linkedin')} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800">
               <img src="/partages/linkedin.svg" alt="" className="h-5 w-5" /> LinkedIn
             </a>
             <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" onClick={() => void copyForYouTube()} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-800">
               <img src="/partages/youtube.svg" alt="" className="h-5 w-5" /> YouTube
             </a>
-            <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${shareText}`} onClick={trackPlatformShare} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950">
+            <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${shareText}`} onClick={() => trackPlatformShare('mail')} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950">
               <img src="/partages/mail-send.svg" alt="" className="h-5 w-5" /> E-mail
             </a>
             <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" onClick={() => { void navigator.clipboard.writeText(shareUrl).catch(() => {}); void track('share', 'tiktok'); setShareOptionsOpen(false); }} className="flex min-w-[58px] flex-col items-center gap-1 px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-900 hover:text-white">
@@ -544,7 +586,7 @@ export default function AnnoncesPubliques() {
               </div>
             )}
 
-            <ArticleEngagement articleSlug={annonce.slug} title={annonce.title} isAdmin={isAdmin} />
+            <ArticleEngagement articleSlug={annonce.slug} title={annonce.title} />
 
             {/* Attachments */}
             {hasAttachments && (

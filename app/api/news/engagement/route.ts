@@ -8,9 +8,47 @@ const NETWORKS = ['whatsapp', 'facebook', 'linkedin', 'youtube', 'mail', 'tiktok
 type EngagementAction = (typeof ACTIONS)[number];
 type ShareNetwork = (typeof NETWORKS)[number];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!supabaseAdmin) {
     return NextResponse.json({ error: 'Statistiques indisponibles.' }, { status: 503 });
+  }
+
+  const requestedArticleSlug = request.nextUrl.searchParams.get('articleSlug');
+  if (requestedArticleSlug !== null) {
+    const articleSlug = requestedArticleSlug.trim();
+    if (!articleSlug || articleSlug.length > 200) {
+      return NextResponse.json({ error: 'Article invalide.' }, { status: 400 });
+    }
+
+    const { data: counter, error: counterError } = await supabaseAdmin
+      .from('actualites_engagement_counters')
+      .select('likes_count, shares_count')
+      .eq('article_slug', articleSlug)
+      .maybeSingle();
+
+    if (counterError) return NextResponse.json({ error: 'Statistiques indisponibles.' }, { status: 503 });
+
+    const storedVisitorId = request.cookies.get(VISITOR_COOKIE)?.value;
+    let liked = false;
+    if (storedVisitorId && UUID_PATTERN.test(storedVisitorId)) {
+      const { data: visitor, error: visitorError } = await supabaseAdmin
+        .from('actualites_engagement_visitors')
+        .select('liked')
+        .eq('article_slug', articleSlug)
+        .eq('visitor_id', storedVisitorId)
+        .maybeSingle();
+
+      if (visitorError) return NextResponse.json({ error: 'Statistiques indisponibles.' }, { status: 503 });
+      liked = Boolean(visitor?.liked);
+    }
+
+    return NextResponse.json({
+      data: {
+        likes: Number(counter?.likes_count) || 0,
+        shares: Number(counter?.shares_count) || 0,
+        liked,
+      },
+    }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
   }
 
   const { data, error } = await supabaseAdmin
