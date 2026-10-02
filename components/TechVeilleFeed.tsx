@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ExternalLink, Megaphone, Sparkles, Share2, Globe, Cpu, Database, Code, Wifi, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { ExternalLink, Megaphone, Sparkles, Globe, Cpu, Database, Code, Wifi, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 type TechItem = {
   id: string;
@@ -26,6 +26,17 @@ const INITIAL_TECH_NEWS: TechItem[] = [
     coverImage: '',
   },
 ];
+
+function getSocialIcon(network: 'whatsapp' | 'facebook' | 'linkedin' | 'x') {
+  if (network === 'whatsapp' || network === 'facebook' || network === 'linkedin') {
+    return <img src={`/partages/${network}.svg`} alt="" className="h-4 w-4" />;
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.257 5.63 5.907-5.63Zm-1.161 17.52h1.833L7.084 4.126H5.117Z" />
+    </svg>
+  );
+}
 
 export default function TechVeilleFeed({ accessToken }: { accessToken: string }) {
   const [news, setNews] = useState<TechItem[]>(INITIAL_TECH_NEWS);
@@ -106,7 +117,8 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
     setSuccessMsg('');
     setPublishError('');
 
-    const formattedPost = ` [VEILLE IT & IA - INPTIC GABON]\n\n${item.title}\n\n Résumé : ${item.summary}\n\n Source officielle : ${item.url}\n\n#INPTIC #Gabon #Tech #IA #Innovation #Digital`;
+    const coverLine = item.coverImage ? `\n\nImage de couverture : ${item.coverImage}` : '';
+    const formattedPost = ` [VEILLE IT & IA - INPTIC GABON]\n\n${item.title}\n\n Résumé : ${item.summary}\n\n Source officielle : ${item.url}\n\n#INPTIC #Gabon #Tech #IA #Innovation #Digital${coverLine}`;
     const activeNetworks = (Object.keys(selectedNetworks) as (keyof typeof selectedNetworks)[])
       .filter((network) => selectedNetworks[network]);
     const shareWindows: Partial<Record<keyof typeof selectedNetworks, Window | null>> = {};
@@ -305,8 +317,7 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
-            <span className="text-xs font-semibold text-slate-300">Préparer un partage sur :</span>
+          <div role="group" aria-label="Sélectionner les réseaux de partage" className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
             {(
               [
                 ['whatsapp', 'WhatsApp'],
@@ -319,12 +330,15 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
                 key={net}
                 type="button"
                 onClick={() => toggleNetwork(net)}
-                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  selectedNetworks[net] ? 'bg-blue-600 text-white shadow' : 'bg-white/10 text-slate-400 line-through hover:bg-white/20'
+                title={`${selectedNetworks[net] ? 'Désactiver' : 'Activer'} le partage sur ${label}`}
+                aria-label={`Partager sur ${label}`}
+                aria-pressed={selectedNetworks[net]}
+                className={`inline-flex h-10 w-10 items-center justify-center border transition ${
+                  selectedNetworks[net] ? 'border-cyan-300 bg-white text-slate-950 shadow' : 'border-white/15 bg-white/10 text-slate-400 hover:bg-white/20'
                 }`}
               >
-                <span>{label}</span>
-                <span>{selectedNetworks[net] ? '✓' : '✗'}</span>
+                {getSocialIcon(net)}
+                <span className="sr-only">{label}</span>
               </button>
             ))}
           </div>

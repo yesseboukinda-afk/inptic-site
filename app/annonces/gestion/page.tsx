@@ -294,14 +294,14 @@ function PublicationCard({
           {isPublished && (
             <div className="ml-auto flex flex-wrap items-center gap-1.5">
               {([
-                { key: 'whatsapp', label: 'WA', href: shareLinks.whatsapp, icon: <MessageCircle size={12} />, cls: 'hover:border-green-400 hover:bg-green-50 hover:text-green-700' },
-                { key: 'facebook', label: 'FB', href: shareLinks.facebook, icon: <Facebook size={12} />, cls: 'hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700' },
-                { key: 'linkedin', label: 'LI', href: shareLinks.linkedin, icon: renderSocialIcon('linkedin'), cls: 'hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700' },
-                { key: 'x', label: 'X', href: shareLinks.x, icon: renderSocialIcon('x'), cls: 'hover:border-slate-800 hover:bg-slate-900 hover:text-white' },
+                { key: 'whatsapp', label: 'WhatsApp', href: shareLinks.whatsapp, icon: '/partages/whatsapp.svg', cls: 'hover:border-green-400 hover:bg-green-50' },
+                { key: 'facebook', label: 'Facebook', href: shareLinks.facebook, icon: '/partages/facebook.svg', cls: 'hover:border-blue-400 hover:bg-blue-50' },
+                { key: 'linkedin', label: 'LinkedIn', href: shareLinks.linkedin, icon: '/partages/linkedin.svg', cls: 'hover:border-sky-400 hover:bg-sky-50' },
+                { key: 'x', label: 'X', href: shareLinks.x, icon: null, cls: 'hover:border-slate-800 hover:bg-slate-900 hover:text-white' },
               ] as const).map(({ key, label, href, icon, cls }) => (
-                <a key={key} href={href} target="_blank" rel="noopener noreferrer"
-                  className={`inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition ${cls}`}>
-                  {icon}{label}
+                <a key={key} href={href} target="_blank" rel="noopener noreferrer" title={`Partager sur ${label}`} aria-label={`Partager sur ${label}`}
+                  className={`inline-flex h-9 w-9 items-center justify-center border border-slate-200 bg-white text-slate-600 transition ${cls}`}>
+                  {icon ? <img src={icon} alt="" className="h-4 w-4" /> : renderSocialIcon('x')}
                 </a>
               ))}
               <button onClick={() => void copy()}

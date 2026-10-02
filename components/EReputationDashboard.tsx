@@ -15,6 +15,22 @@ type MentionItem = {
   platform: 'Facebook' | 'YouTube' | 'Twitter/X' | 'LinkedIn' | 'Google Avis' | 'Presse en ligne' | 'WhatsApp / Groupes';
 };
 
+function getPlatformIcon(platform: MentionItem['platform']) {
+  const value = platform.toLowerCase();
+  if (value.includes('facebook')) return <img src="/partages/facebook.svg" alt="" className="h-4 w-4" />;
+  if (value.includes('youtube')) return <img src="/partages/youtube.svg" alt="" className="h-4 w-4" />;
+  if (value.includes('linkedin')) return <img src="/partages/linkedin.svg" alt="" className="h-4 w-4" />;
+  if (value.includes('whatsapp')) return <img src="/partages/whatsapp.svg" alt="" className="h-4 w-4" />;
+  if (value.includes('twitter') || value === 'x') {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.257 5.63 5.907-5.63Zm-1.161 17.52h1.833L7.084 4.126H5.117Z" />
+      </svg>
+    );
+  }
+  return <Globe size={15} aria-hidden="true" />;
+}
+
 export default function EReputationDashboard() {
   const [mentions, setMentions] = useState<MentionItem[]>([]);
     const [comments, setComments] = useState<MentionItem[]>([]);
@@ -158,7 +174,7 @@ export default function EReputationDashboard() {
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-blue-400 transition"
           >
-            <Globe size={13} className="text-blue-600" />
+            <img src="/partages/facebook.svg" alt="" className="h-4 w-4" />
             <span>Facebook Officiel</span>
           </a>
           <a
@@ -167,7 +183,7 @@ export default function EReputationDashboard() {
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-green-400 transition"
           >
-            <Globe size={13} className="text-green-600" />
+            <img src="/partages/whatsapp.svg" alt="" className="h-4 w-4" />
             <span>WhatsApp Channel</span>
           </a>
         </div>
@@ -205,7 +221,9 @@ export default function EReputationDashboard() {
               <div key={alertItem.id} className="rounded-xl border border-red-200 bg-white p-4 space-y-2 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="rounded bg-red-100 px-2 py-0.5 font-bold text-red-800">{alertItem.platform}</span>
+                    <span role="img" aria-label={alertItem.platform} title={alertItem.platform} className="inline-flex h-8 w-8 items-center justify-center bg-red-100 text-red-800">
+                      {getPlatformIcon(alertItem.platform)}
+                    </span>
                     <strong className="text-slate-900">Auteur : {alertItem.author}</strong>
                   </div>
                   <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
@@ -347,8 +365,8 @@ export default function EReputationDashboard() {
             <div key={m.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-800">
-                    {m.platform}
+                  <span role="img" aria-label={m.platform} title={m.platform} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800">
+                    {getPlatformIcon(m.platform)}
                   </span>
                   <span className="text-xs font-bold text-slate-800">{m.author}</span>
                   <span className="text-xs text-slate-400">({m.source})</span>
@@ -463,7 +481,7 @@ export default function EReputationDashboard() {
                               <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
-                                    <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-800">{comment.platform}</span>
+                                    <span role="img" aria-label={comment.platform} title={comment.platform} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800">{getPlatformIcon(comment.platform)}</span>
                                     <strong className="text-xs text-slate-900">{comment.author}</strong>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-2">

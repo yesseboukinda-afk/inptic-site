@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Award,
@@ -56,6 +56,13 @@ export default function ConcoursPage() {
 
   // Modal détails / résultat sélectionné
   const [selectedConcours, setSelectedConcours] = useState<ConcoursItem | null>(null);
+  const [showPreRegistration, setShowPreRegistration] = useState(false);
+  const [preRegistrationSaving, setPreRegistrationSaving] = useState(false);
+  const [preRegistrationMessage, setPreRegistrationMessage] = useState('');
+  const [preRegistrationError, setPreRegistrationError] = useState('');
+  const [showPreRegistrations, setShowPreRegistrations] = useState(false);
+  const [preRegistrations, setPreRegistrations] = useState<Array<{ id: string; full_name: string; email: string; phone: string; concours_slug: string; created_at: string }>>([]);
+  const [preRegistrationsLoading, setPreRegistrationsLoading] = useState(false);
 
   // Authentification & Rôles
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -123,6 +130,57 @@ export default function ConcoursPage() {
   }, []);
 
   const isStaff = isStaffOrAdminUser(userEmail, userRole);
+
+  const handlePreRegistration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedConcours) return;
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setPreRegistrationSaving(true);
+    setPreRegistrationError('');
+    setPreRegistrationMessage('');
+    try {
+      const response = await fetch('/api/concours/preinscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          concoursSlug: selectedConcours.slug,
+          fullName: formData.get('fullName'),
+          email: formData.get('email'),
+          phone: formData.get('phone'),
+          consent: formData.get('consent') === 'on',
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Préinscription impossible.');
+      form.reset();
+      setShowPreRegistration(false);
+      setPreRegistrationMessage('Préinscription enregistrée. Elle ne remplace pas le dépôt du dossier officiel.');
+    } catch (error) {
+      setPreRegistrationError(error instanceof Error ? error.message : 'Préinscription impossible.');
+    } finally {
+      setPreRegistrationSaving(false);
+    }
+  };
+
+  const handleShowPreRegistrations = async () => {
+    setShowPreRegistrations(true);
+    setPreRegistrationsLoading(true);
+    try {
+      const response = await fetch('/api/concours/preinscriptions', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: 'no-store',
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Chargement des préinscriptions impossible.');
+      setPreRegistrations(Array.isArray(payload.data) ? payload.data : []);
+    } catch (error) {
+      setPreRegistrations([]);
+      setPreRegistrationError(error instanceof Error ? error.message : 'Chargement impossible.');
+    } finally {
+      setPreRegistrationsLoading(false);
+    }
+  };
 
   const fetchConcours = async () => {
     setLoading(true);
@@ -482,13 +540,22 @@ export default function ConcoursPage() {
                   Mode gestionnaire activé ({userRole || 'Admin'})
                 </span>
               </div>
-              <button
-                onClick={handleOpenCreate}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:brightness-110"
-              >
-                <Plus size={16} />
-                Publier un nouveau concours
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => void handleShowPreRegistrations()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 px-4 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-900/50"
+                >
+                  <Users size={16} />
+                  Préinscriptions
+                </button>
+                <button
+                  onClick={handleOpenCreate}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:brightness-110"
+                >
+                  <Plus size={16} />
+                  Publier un nouveau concours
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -902,6 +969,40 @@ export default function ConcoursPage() {
               </div>
             )}
 
+            {preRegistrationMessage && <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{preRegistrationMessage}</p>}
+            {preRegistrationError && !showPreRegistrations && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{preRegistrationError}</p>}
+
+            {showPreRegistration && (
+              <form onSubmit={handlePreRegistration} className="mt-6 space-y-4 border-y border-slate-200 py-5">
+                <div>
+                  <h4 className="font-bold text-slate-900">Préinscription au concours</h4>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">Laissez vos coordonnées pour être informé des prochaines étapes. Cette démarche ne constitue pas le dépôt d’une candidature.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-semibold text-slate-700">Nom complet
+                    <input name="fullName" autoComplete="name" required minLength={2} maxLength={160} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                  </label>
+                  <label className="text-xs font-semibold text-slate-700">Adresse e-mail
+                    <input name="email" type="email" autoComplete="email" required maxLength={254} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                  </label>
+                  <label className="text-xs font-semibold text-slate-700 sm:col-span-2">Téléphone
+                    <input name="phone" type="tel" autoComplete="tel" required minLength={6} maxLength={30} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
+                  </label>
+                </div>
+                <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
+                  <input name="consent" type="checkbox" required className="mt-1 accent-blue-700" />
+                  J’accepte que l’INPTIC utilise ces coordonnées pour me contacter au sujet de ce concours.
+                </label>
+                {preRegistrationError && <p role="alert" className="text-sm text-rose-700">{preRegistrationError}</p>}
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button type="button" onClick={() => { setShowPreRegistration(false); setPreRegistrationError(''); }} className="min-h-10 rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Annuler</button>
+                  <button type="submit" disabled={preRegistrationSaving} className="min-h-10 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">
+                    {preRegistrationSaving ? 'Envoi…' : 'Envoyer ma préinscription'}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {/* Section RÉSULTATS DES ADMIS */}
             {selectedConcours.results?.published ? (
               <div className="mt-6 rounded-2xl border border-[#D4AF37]/50 bg-amber-50/50 p-5">
@@ -998,6 +1099,15 @@ export default function ConcoursPage() {
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              {selectedConcours.status !== 'termine' && !selectedConcours.results?.published && (
+                <button
+                  type="button"
+                  onClick={() => { setShowPreRegistration((visible) => !visible); setPreRegistrationError(''); setPreRegistrationMessage(''); }}
+                  className="min-h-10 rounded-lg border border-blue-300 px-4 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50"
+                >
+                  Préinscription
+                </button>
+              )}
               {selectedConcours.status === 'en_cours' && (
                 <Link
                   href="/admissions/depot"
@@ -1014,6 +1124,52 @@ export default function ConcoursPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showPreRegistrations && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm">
+          <section className="my-4 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase text-blue-700">Gestion des concours</p>
+                <h2 className="mt-1 text-xl font-black text-slate-900">Préinscriptions reçues</h2>
+                <p className="mt-1 text-sm text-slate-500">{preRegistrations.length} candidat{preRegistrations.length > 1 ? 's' : ''}</p>
+              </div>
+              <button type="button" onClick={() => setShowPreRegistrations(false)} aria-label="Fermer" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+                <X size={20} />
+              </button>
+            </header>
+            {preRegistrationError && <p role="alert" className="mt-4 text-sm text-rose-700">{preRegistrationError}</p>}
+            {preRegistrationsLoading ? (
+              <p className="py-10 text-center text-sm text-slate-500">Chargement…</p>
+            ) : preRegistrations.length === 0 ? (
+              <p className="py-10 text-center text-sm text-slate-500">Aucune préinscription enregistrée pour le moment.</p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[650px] border-collapse text-left text-sm">
+                  <thead className="border-b border-slate-200 text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="py-3 pr-4">Candidat</th>
+                      <th className="py-3 pr-4">Contact</th>
+                      <th className="py-3 pr-4">Concours</th>
+                      <th className="py-3">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {preRegistrations.map((candidate) => (
+                      <tr key={candidate.id}>
+                        <td className="py-3 pr-4 font-semibold text-slate-900">{candidate.full_name}</td>
+                        <td className="py-3 pr-4 text-slate-600"><a href={`mailto:${candidate.email}`} className="block hover:text-blue-700">{candidate.email}</a><a href={`tel:${candidate.phone}`} className="mt-1 block text-xs hover:text-blue-700">{candidate.phone}</a></td>
+                        <td className="py-3 pr-4 text-slate-600">{concours.find((item) => item.slug === candidate.concours_slug)?.title || candidate.concours_slug}</td>
+                        <td className="py-3 text-slate-600">{new Date(candidate.created_at).toLocaleDateString('fr-FR')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
       )}
 

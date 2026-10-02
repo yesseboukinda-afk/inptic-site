@@ -1,122 +1,230 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { XMLParser } from 'fast-xml-parser';
 
-const DEFAULT_TECH_ITEMS = [
-  {
-    id: 'live-1',
-    title: 'OpenAI annonce GPT-5 et de nouvelles avancées majeures en raisonnement autonome',
-    summary: 'La recherche mondiale en intelligence artificielle franchit un nouveau cap décisif avec l’automatisation des agents complexes.',
-    source: 'Tech Community / AI News',
-    url: 'https://openai.com/news',
-    domain: 'IA' as const,
-    date: 'En direct',
-    coverImage: 'https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'live-2',
-    title: 'PostgreSQL 17 : Performances inégalées pour les bases de données d’entreprise et cloud',
-    summary: 'Optimisations massives sur la réplication, la gestion de la mémoire vive et le traitement des requêtes distribuées.',
-    source: 'PostgreSQL Global Development Group',
-    url: 'https://www.postgresql.org/about/news/',
-    domain: 'Base de données' as const,
-    date: 'Aujourd’hui',
-    coverImage: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'live-3',
-    title: 'Node.js 23 et TypeScript natif : L’ère des microservices ultra-rapides',
-    summary: 'Découvrez les benchmarks de vitesse d’exécution et le support natif des modules ES pour le développement backend moderne.',
-    source: 'Dev.to / Node.js',
-    url: 'https://dev.to',
-    domain: 'Développement' as const,
-    date: 'Aujourd’hui',
-    coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'live-4',
-    title: 'Wi-Fi 7 et Fibre 50G-PON : La nouvelle frontière des réseaux de télécommunication',
-    summary: 'Analyse des infrastructures réseau haute vitesse et réduction de la latence pour les universités et entreprises.',
-    source: 'IEEE Spectrum / Telecom News',
-    url: 'https://www.networkworld.com',
-    domain: 'Réseaux' as const,
-    date: 'Hier',
-    coverImage: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80',
-  },
-];
+const RSS_SOURCES = [
+  { name: 'DEV Community', url: 'https://dev.to/feed' },
+  { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml' },
+  { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index' },
+  { name: 'TechCrunch', url: 'https://techcrunch.com/feed/' },
+  { name: 'WIRED', url: 'https://www.wired.com/feed/rss' },
+  { name: 'Engadget', url: 'https://www.engadget.com/rss.xml' },
+  { name: 'MIT Technology Review', url: 'https://www.technologyreview.com/feed/' },
+  { name: 'ZDNET', url: 'https://www.zdnet.com/news/rss.xml' },
+  { name: 'CNET', url: 'https://www.cnet.com/rss/news/' },
+  { name: 'Tom’s Hardware', url: 'https://www.tomshardware.com/feeds/all' },
+  { name: 'BBC Technology', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
+  { name: 'The Guardian Technology', url: 'https://www.theguardian.com/technology/rss' },
+  { name: 'ScienceDaily AI', url: 'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml' },
+  { name: 'InfoQ', url: 'https://www.infoq.com/feed/' },
+  { name: 'AWS News Blog', url: 'https://aws.amazon.com/blogs/aws/feed/' },
+  { name: 'OpenAI News', url: 'https://openai.com/news/rss.xml' },
+  { name: 'Microsoft Blog', url: 'https://blogs.microsoft.com/feed/' },
+  { name: 'Dark Reading', url: 'https://www.darkreading.com/rss.xml' },
+  { name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/' },
+  { name: 'Schneier on Security', url: 'https://www.schneier.com/feed/atom/' },
+] as const;
 
-const TECH_TAGS = ['ai', 'database', 'javascript', 'security', 'devops'] as const;
+const rssParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  textNodeName: '#text',
+  parseTagValue: false,
+  trimValues: true,
+});
+
+const DOMAIN_PATTERN: Record<'IA' | 'Base de données' | 'Développement' | 'Réseaux', RegExp> = {
+  'IA': /ai|artificial|gpt|llm|machine learning|openai|deepseek|claude|agent/i,
+  'Base de données': /sql|postgres|database|mongo|redis|data engineer|data lake/i,
+  'Développement': /javascript|typescript|software|programming|developer|code|github|node\.js/i,
+  'Réseaux': /network|cloud|security|wifi|devops|linux|telecom|cyber/i,
+};
+
+function getDomain(values: string[]) {
+  const text = values.join(' ');
+  return (Object.entries(DOMAIN_PATTERN).find(([, pattern]) => pattern.test(text))?.[0] || 'Développement') as keyof typeof DOMAIN_PATTERN;
+}
+
+function asEntries(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null);
+  if (typeof value === 'object' && value !== null) return [value as Record<string, unknown>];
+  return [];
+}
+
+function textValue(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object' && value !== null && '#text' in value) return textValue((value as Record<string, unknown>)['#text']);
+  return '';
+}
+
+function cleanFeedText(value: unknown): string {
+  return textValue(value)
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function makeSummary(value: unknown, title: string) {
+  let summary = cleanFeedText(value);
+  if (summary.toLocaleLowerCase().startsWith(title.toLocaleLowerCase())) {
+    summary = summary.slice(title.length).replace(/^\s*[-:—|]+\s*/, '').trim();
+  }
+  if (!summary) return title;
+  if (summary.length <= 320) return summary;
+
+  const preview = summary.slice(0, 320);
+  const sentenceEnd = preview.search(/[.!?](?:\s|$)/);
+  if (sentenceEnd >= 120) return `${preview.slice(0, sentenceEnd + 1).trim()}…`;
+
+  const wordEnd = preview.lastIndexOf(' ');
+  return `${preview.slice(0, wordEnd > 0 ? wordEnd : preview.length).trim()}…`;
+}
+
+function feedLink(entry: Record<string, unknown>): string {
+  const links = asEntries(entry.link);
+  const selected = links.find((link) => !link['@_rel'] || link['@_rel'] === 'alternate') || links[0];
+  const value = selected?.['@_href'] || entry.link || entry.guid || entry.id;
+  const url = textValue(value);
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' ? parsed.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function feedImage(entry: Record<string, unknown>): string {
+  for (const candidate of [entry['media:content'], entry['media:thumbnail'], entry.enclosure]) {
+    for (const imageEntry of asEntries(candidate)) {
+      const url = textValue(imageEntry['@_url'] || imageEntry.url);
+      if (url.startsWith('https://')) return url;
+    }
+  }
+
+  const content = textValue(entry['content:encoded'] || entry.content || entry.description || entry.summary);
+  const imageUrl = content.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)?.[1];
+  return imageUrl?.startsWith('https://') ? imageUrl : '';
+}
+
+async function fetchLatestFromSource(source: (typeof RSS_SOURCES)[number], forceRefresh: boolean) {
+  try {
+    const response = await fetch(source.url, {
+      headers: { 'User-Agent': 'INPTIC-International-Tech-News/1.0', Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
+      signal: AbortSignal.timeout(8000),
+      ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 900 } }),
+    });
+    if (!response.ok) return null;
+
+    const parsed = rssParser.parse(await response.text()) as Record<string, unknown>;
+    const rssChannel = parsed.rss && typeof parsed.rss === 'object' ? (parsed.rss as Record<string, unknown>).channel : null;
+    const atomFeed = parsed.feed;
+    const rdfFeed = parsed['rdf:RDF'];
+    const feed = (rssChannel || atomFeed || rdfFeed) as Record<string, unknown> | null;
+    if (!feed) return null;
+
+    const entries = asEntries(feed.item || feed.entry).map((entry) => {
+      const title = cleanFeedText(entry.title);
+      const summary = makeSummary(entry.description || entry.summary || entry['content:encoded'] || entry.content, title);
+      const url = feedLink(entry);
+      if (!title || !url) return null;
+
+      const dateString = textValue(entry.pubDate || entry.published || entry.updated || entry['dc:date']);
+      const timestamp = Date.parse(dateString) || 0;
+      return {
+        id: `rss-${hashString(url)}`,
+        title,
+        summary,
+        source: source.name,
+        url,
+        domain: getDomain([title, summary, source.name]),
+        date: new Date(timestamp || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+        coverImage: feedImage(entry),
+        timestamp,
+      };
+    }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    entries.sort((first, second) => second.timestamp - first.timestamp);
+    return entries[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
 
 export async function GET(request: NextRequest) {
+  const articleUrl = request.nextUrl.searchParams.get('article');
+  if (articleUrl) {
+    try {
+      const url = new URL(articleUrl);
+      const parts = url.pathname.split('/').filter(Boolean);
+      if ((url.hostname !== 'dev.to' && url.hostname !== 'www.dev.to') || parts.length !== 2 ||
+          !parts.every((part) => /^[a-zA-Z0-9_-]+$/.test(part))) {
+        return NextResponse.json({ error: 'Source d’article invalide.' }, { status: 400 });
+      }
+
+      const response = await fetch(`https://dev.to/api/articles/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}`, {
+        headers: { 'User-Agent': 'INPTIC-TechWatch/1.0' },
+        next: { revalidate: 3600 },
+      });
+      if (!response.ok) return NextResponse.json({ error: 'Article source indisponible.' }, { status: 404 });
+
+      const article = await response.json();
+      const image = typeof article.cover_image === 'string' && article.cover_image.startsWith('https://')
+        ? article.cover_image
+        : typeof article.social_image === 'string' && article.social_image.startsWith('https://')
+          ? article.social_image
+          : '';
+      return NextResponse.json({ success: true, item: { url: article.url, coverImage: image } });
+    } catch {
+      return NextResponse.json({ error: 'Impossible de récupérer la couverture de l’article.' }, { status: 502 });
+    }
+  }
+
   const forceRefresh = request.nextUrl.searchParams.get('refresh') === '1';
 
   try {
-    const feedResults = await Promise.all(TECH_TAGS.map(async (tag) => {
-      try {
-        const params = new URLSearchParams({ per_page: '12', tag });
-        const res = await fetch(`https://dev.to/api/articles?${params}`, {
-          headers: {
-            'User-Agent': 'INPTIC-TechWatch/1.0',
-          },
-          ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 1800 } }),
-        });
-
-        if (!res.ok) return { ok: false, articles: [] };
-        const articles = await res.json();
-        return { ok: true, articles: Array.isArray(articles) ? articles : [] };
-      } catch {
-        return { ok: false, articles: [] };
-      }
-    }));
-
-    const uniqueArticles = new Map<string, any>();
-    for (const { articles } of feedResults) {
-      for (const article of articles) {
-        const id = String(article.id || article.url || '');
-        if (id && !uniqueArticles.has(id)) uniqueArticles.set(id, article);
-      }
-    }
-
-    const articles = Array.from(uniqueArticles.values())
-      .sort((first, second) => Date.parse(second.published_at || '') - Date.parse(first.published_at || ''))
-      .slice(0, 12);
-    const hasLiveArticles = articles.length > 0;
-    const formatted = hasLiveArticles
-      ? articles.map((art: any, index: number) => {
-          const tags = Array.isArray(art.tag_list) ? art.tag_list : [];
-          let domain: 'IA' | 'Base de données' | 'Développement' | 'Réseaux' = 'Développement';
-          if (tags.some((t: string) => /ai|artificial|gpt|llm|ml|openai|deepseek|claude/i.test(t))) domain = 'IA';
-          else if (tags.some((t: string) => /sql|postgres|database|mongo|db|redis/i.test(t))) domain = 'Base de données';
-          else if (tags.some((t: string) => /network|cloud|security|wifi|devops|linux/i.test(t))) domain = 'Réseaux';
-
-          return {
-            id: String(art.id || index),
-            title: art.title || 'Actualité IT',
-            summary: art.description || art.title || '',
-            source: art.user?.name ? `Dev.to • ${art.user.name}` : 'Tech Community',
-            url: art.url || 'https://dev.to',
-            domain,
-            date: new Date(art.published_at || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
-            coverImage: art.cover_image || art.social_image || '',
-          };
-        })
-      : DEFAULT_TECH_ITEMS;
+    const feedItems = (await Promise.all(RSS_SOURCES.map((source) => fetchLatestFromSource(source, forceRefresh))))
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((first, second) => second.timestamp - first.timestamp);
+    const seenDomains = new Set<string>();
+    const formatted = feedItems.filter((item) => {
+      const hostname = new URL(item.url).hostname.toLowerCase().replace(/^www\./, '');
+      if (seenDomains.has(hostname)) return false;
+      seenDomains.add(hostname);
+      return true;
+    }).slice(0, 20).map(({ timestamp: _timestamp, ...item }) => item);
+    const hasLiveArticles = formatted.length > 0;
 
     return NextResponse.json({
       success: true,
       items: formatted,
       source: hasLiveArticles ? 'live' : 'fallback',
       ...(hasLiveArticles ? {} : {
-        fallbackReason: feedResults.some((feed) => feed.ok)
-          ? 'Aucune actualité récente trouvée pour les catégories surveillées.'
-          : 'Le service Dev.to est momentanément inaccessible.',
+        fallbackReason: 'Aucun des 20 flux éditeurs n’est momentanément accessible.',
       }),
     });
   } catch (error) {
     console.error('Tech veille fetch error:', error);
     return NextResponse.json({
       success: true,
-      items: DEFAULT_TECH_ITEMS,
+      items: [],
       source: 'fallback',
-      fallbackReason: 'Impossible de joindre les flux de veille IT.',
+      fallbackReason: 'Impossible de joindre les flux RSS/Atom internationaux.',
     });
   }
 }

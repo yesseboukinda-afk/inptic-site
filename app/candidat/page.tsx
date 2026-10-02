@@ -315,7 +315,7 @@ export default function Candidat() {
 
     const normalizedEmail = form.email.trim().toLowerCase();
 
-    if (isDirectorAccountEmail(normalizedEmail)) {
+    if (isDirectorAccountEmail(normalizedEmail) && !supabase) {
       localStorage.removeItem('inptic_user');
       localStorage.setItem('inptic_directeur', JSON.stringify({ email: normalizedEmail, name: 'Directeur Général', role: 'directeur' }));
       window.dispatchEvent(new Event('auth-state-changed'));

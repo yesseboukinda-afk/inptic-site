@@ -1,9 +1,6 @@
 'use client';
 
-import AnnoncesPubliques from '@/components/AnnoncesPubliques';
 import PressNewsFeed from '@/components/PressNewsFeed';
-import Link from 'next/link';
-import { Megaphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function Actualites() {
@@ -23,66 +20,8 @@ export default function Actualites() {
         </div>
       </section>
 
-      {/* ── Section Annonces publiées par les admins ─────────────────── */}
-      <section className="mx-auto max-w-6xl px-4 py-12 md:px-8">
-        <header className="mb-8 flex items-start gap-4">
-          <span className="mt-1 rounded-xl bg-blue-100 p-2.5 text-blue-700">
-            <Megaphone size={22} />
-          </span>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">INPTIC · Communications</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-900">Annonces de l&apos;Institut</h2>
-            <p className="mt-1 text-sm text-slate-500">Retrouvez ici toutes les annonces officielles publiées par l&apos;administration.</p>
-          </div>
-        </header>
-        <AnnoncesPubliques />
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-8 md:px-8">
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              title: t('home.innovationWeek'),
-              label: t('public.event'),
-              text: t('home.innovationText'),
-              href: '/recherche/projets',
-            },
-            {
-              title: t('home.alumniLaunch'),
-              label: t('public.network'),
-              text: t('home.alumniText'),
-              href: '/alumni',
-            },
-            {
-              title: t('home.researchers'),
-              label: t('public.research'),
-              text: t('home.researchersText'),
-              href: '/recherche',
-            },
-          ].map((item) => (
-            <article key={item.title} className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-              <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">
-                {item.label}
-              </span>
-              <h2 className="mt-5 text-2xl font-bold text-slate-900">{item.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{item.text}</p>
-              <Link href={item.href} className="mt-6 inline-flex font-semibold text-blue-700 transition hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                {t('public.newsLink')}
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-16 md:px-8">
-        <div className="rounded-3xl bg-slate-900 p-8 text-white shadow-sm">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-200">{t('public.press')}</p>
-          <h2 className="mt-3 text-2xl font-bold">{t('public.pressTitle')}</h2>
-          <p className="mt-4 max-w-3xl text-slate-300 leading-7">
-            {t('public.pressText')}
-          </p>
-          <PressNewsFeed />
-        </div>
+      <section className="mx-auto max-w-screen-xl px-4 py-12 md:px-8 md:py-16">
+        <PressNewsFeed />
       </section>
     </main>
   );
