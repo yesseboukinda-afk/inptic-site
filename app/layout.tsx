@@ -21,7 +21,7 @@ export const metadata = {
     "Portail numérique de l'INPTIC",
 
   icons: {
-    icon: "/logoinptic.png",
+    icon: "/icons/icon-192.png",
   },
 };
 
