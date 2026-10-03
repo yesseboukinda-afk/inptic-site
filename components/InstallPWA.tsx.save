@@ -1,0 +1,181 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+  }>;
+}
+
+export default function InstallPWA() {
+  const [installPrompt, setInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  useEffect(() => {
+    const checkInstalled = () => {
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as Navigator & {
+          standalone?: boolean;
+        }).standalone === true;
+
+      setIsInstalled(standalone);
+    };
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      console.log("INPTIC PWA : beforeinstallprompt détecté");
+
+      event.preventDefault();
+
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      console.log("INPTIC PWA : application installée");
+
+      setIsInstalled(true);
+      setInstallPrompt(null);
+      setShowHelp(false);
+    };
+
+    checkInstalled();
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt
+    );
+
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
+
+      window.removeEventListener(
+        "appinstalled",
+        handleAppInstalled
+      );
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    console.log(
+      "INPTIC PWA : clic installation",
+      installPrompt
+    );
+
+    if (installPrompt) {
+      await installPrompt.prompt();
+
+      const { outcome } = await installPrompt.userChoice;
+
+      console.log(
+        "INPTIC PWA : résultat installation",
+        outcome
+      );
+
+      if (outcome === "accepted") {
+        setInstallPrompt(null);
+      }
+
+      return;
+    }
+
+    setShowHelp(true);
+  };
+
+  if (isInstalled) {
+    return null;
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleInstall}
+        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37] bg-[#D4AF37] px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[#c89d2c] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+        aria-label="Installer l'application INPTIC"
+      >
+        <span aria-hidden="true">📱</span>
+
+        <span>
+          Installer l'application INPTIC
+        </span>
+      </button>
+
+      {showHelp && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowHelp(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 text-slate-900 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="mb-3 text-xl font-bold">
+              Installer l'application INPTIC
+            </h2>
+
+            <p className="mb-5 text-sm text-gray-600">
+              L'installation automatique n'est pas disponible
+              dans ce navigateur. Utilisez le menu du navigateur
+              pour installer INPTIC.
+            </p>
+
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="font-semibold">
+                  💻 Windows / Linux / macOS
+                </p>
+
+                <p className="mt-1 text-gray-600">
+                  Dans Chromium, ouvrez le menu ⋮ puis choisissez
+                  « Installer INPTIC », ou utilisez l'icône
+                  d'installation dans la barre d'adresse.
+                </p>
+              </div>
+
+              <div>
+                <p className="font-semibold">
+                  📱 Android
+                </p>
+
+                <p className="mt-1 text-gray-600">
+                  Ouvrez le menu ⋮ puis choisissez
+                  « Installer l'application » ou
+ ²                 « Ajouter à l'écran d'accueil ».
+                </p>
+              </div>
+
+              <div>
+                <p className="font-semibold">
+                  🍎 iPhone / iPad
+                </p>
+
+                <p className="mt-1 text-gray-600">
+                  Dans Safari, touchez « Partager », puis
+                  choisissez « Sur l'écran d'accueil ».
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowHelp(false)}
+              className="mt-6 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
