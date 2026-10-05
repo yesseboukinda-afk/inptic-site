@@ -88,7 +88,11 @@ Le sélecteur de langue permet de consulter les textes traduits lorsqu'une tradu
 
 Les boutons **Partager** ouvrent les réseaux ou services de partage avec le contenu courant; ce ne sont pas des liens vers des profils officiels. Le site ne configure actuellement pas de lien de profil Instagram, LinkedIn, X ou TikTok dans son pied de page.
 
-Les pages d'administration nécessitent le rôle approprié. La réinitialisation du mot de passe, la vérification d'une quittance et la vérification d'une carte RH utilisent des liens individuels; elles ne figurent pas ici, car leur URL dépend du compte, de la référence ou du QR concerné.
+Les pages d'administration nécessitent le rôle approprié. Les rôles et leurs variantes reconnues sont centralisés dans [`lib/roles.ts`](./lib/roles.ts). Les rôles courants sont **Administrateur**, **Directeur**, **Communication**, **Scolarité**, **Direction des études**, **Ressources humaines** et **Étudiant**. Le site accepte aussi certaines variantes de libellé (par exemple `admin`/`administrateur`, `dg`/`directeur`, et `responsable_communication`) et les normalise avant vérification.
+
+Les droits précis dépendent de l'espace et de l'opération : un rôle affiché dans l'interface ne donne pas automatiquement accès à toutes les fonctions d'administration. Certains accès sont également reconnus à partir d'adresses de comptes autorisés. L'URL proposée après connexion est un raccourci de navigation, pas une preuve de permission. Si une page refuse l'accès, demander à l'administrateur de vérifier le compte et ses métadonnées de rôle dans Supabase; le rôle `user_metadata` n'est pas une source d'autorisation.
+
+Repères de navigation : **RH** vers `/admin/rh`, **Scolarité** vers `/scolarite`, **Direction** vers `/directeur`, **Administrateur** vers `/annonces/gestion`, **Direction des études** vers `/direction-etudes`, et les autres comptes vers le suivi des admissions. Les espaces dédiés peuvent évoluer; utiliser les liens de cette notice pour les pages effectivement documentées. La réinitialisation du mot de passe, la vérification d'une quittance et la vérification d'une carte RH utilisent des liens individuels; elles ne figurent pas ici, car leur URL dépend du compte, de la référence ou du QR concerné.
 
 ## 2. Créer un compte candidat
 
