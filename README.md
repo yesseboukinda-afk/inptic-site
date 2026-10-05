@@ -116,9 +116,11 @@ Pour activer les inscriptions et envois de newsletter :
    `/api/ereputation` et `/api/newsletter` sur ce domaine ; un 404 sur ces
    routes signifie que le domaine pointe vers un hébergement qui ne sert pas
    l'application Next.js.
-4. Relancer un déploiement Production après l'ajout des variables. Une
-   inscription n'est confirmée qu'après son enregistrement réussi dans
-   `subscribers`. Une nouvelle actualité publiée et ciblée sur `actualites`
+4. Relancer un déploiement Production après l'ajout des variables. Pour les
+   installations existantes, réexécuter le script SQL afin d'ajouter la colonne
+   `confirmation_sent_at`. Après une inscription enregistrée, Resend envoie un
+   courriel de confirmation ; en cas d'échec, le formulaire affiche une erreur
+   et permet de réessayer. Une nouvelle actualité publiée et ciblée sur `actualites`
    déclenche son envoi aux abonnés actifs ; les modifications d'une actualité
    déjà publiée ne relancent pas un envoi. Chaque courriel contient le logo,
    l'image si elle est fournie dans l'annonce, un résumé, le lien et un

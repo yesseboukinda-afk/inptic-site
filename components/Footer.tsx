@@ -56,7 +56,7 @@ export default function Footer() {
 
       setNewsletterMessage(
         data.message ||
-          "Votre adresse est bien enregistrée comme abonnée."
+          "Inscription confirmée ! Consultez votre boîte e-mail."
       );
     } catch (error) {
       setNewsletterError(true);

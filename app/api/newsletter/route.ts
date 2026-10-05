@@ -1,5 +1,15 @@
+import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -28,23 +38,130 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { error } = await supabaseAdmin
+  const resendKey = process.env.RESEND_API_KEY;
+  const from = process.env.NEWSLETTER_FROM_EMAIL;
+  if (!resendKey || !from) {
+    return NextResponse.json(
+      { error: 'L’envoi du courriel de confirmation n’est pas configuré. Veuillez réessayer plus tard.' },
+      { status: 503 },
+    );
+  }
+
+  const { data: existingSubscriber, error: lookupError } = await supabaseAdmin
+    .from('subscribers')
+    .select('is_active, subscribed_at, confirmation_sent_at')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error('Erreur de vérification d’une inscription newsletter:', lookupError.code);
+    return NextResponse.json(
+      { error: 'Impossible de vérifier votre inscription pour le moment. Veuillez réessayer plus tard.' },
+      { status: 503 },
+    );
+  }
+
+  if (existingSubscriber?.is_active && existingSubscriber.confirmation_sent_at) {
+    return NextResponse.json({
+      success: true,
+      message: 'Cette adresse est déjà inscrite à la newsletter.',
+    });
+  }
+
+  const subscribedAt = existingSubscriber?.is_active
+    ? existingSubscriber.subscribed_at
+    : new Date().toISOString();
+  const { error: saveError } = await supabaseAdmin
     .from('subscribers')
     .upsert(
-      { email, subscribed_at: new Date().toISOString(), is_active: true },
+      { email, subscribed_at: subscribedAt, is_active: true, confirmation_sent_at: null },
       { onConflict: 'email' },
     );
 
-  if (error) {
-    console.error('Erreur d’enregistrement d’une inscription newsletter:', error.code);
+  if (saveError) {
+    console.error('Erreur d’enregistrement d’une inscription newsletter:', saveError.code);
     return NextResponse.json(
       { error: 'Impossible d’enregistrer votre inscription pour le moment. Veuillez réessayer plus tard.' },
       { status: 503 },
     );
   }
 
+  const siteUrl = (
+    process.env.NEWSLETTER_SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    'https://inptic-site.vercel.app'
+  ).replace(/\/+$/, '');
+  const idempotencyKey = createHash('sha256')
+    .update(`inptic-newsletter-confirmation/${email}/${subscribedAt}`)
+    .digest('hex');
+
+  let response: Response;
+  try {
+    response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify({
+        from,
+        to: [email],
+        subject: 'Confirmation de votre inscription à la newsletter INPTIC',
+        text: `Bonjour,\n\nVotre adresse e-mail est bien inscrite à la newsletter de l’INPTIC Gabon. Vous recevrez les prochaines actualités publiées sur ${siteUrl}.\n\nSi vous n’êtes pas à l’origine de cette inscription, vous pouvez ignorer ce message.`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#0f172a">
+            <div style="margin:0 0 24px;text-align:center">
+              <img src="${escapeHtml(`${siteUrl}/logoinptic.png`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
+            </div>
+            <p style="font-size:12px;font-weight:bold;letter-spacing:.12em;color:#1d4ed8">NEWSLETTER INPTIC GABON</p>
+            <h1 style="font-size:24px;line-height:1.3">Inscription confirmée</h1>
+            <p style="font-size:16px;line-height:1.7">Votre adresse e-mail est bien inscrite à la newsletter de l’INPTIC Gabon. Vous recevrez les prochaines actualités publiées sur le site.</p>
+            <p><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:12px 18px;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:8px">Visiter le site de l’INPTIC</a></p>
+            <p style="font-size:12px;color:#64748b">Si vous n’êtes pas à l’origine de cette inscription, vous pouvez ignorer ce message.</p>
+          </div>
+        `,
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (error) {
+    console.error(
+      'Échec réseau de l’envoi de confirmation newsletter:',
+      error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+    );
+    return NextResponse.json(
+      { error: 'Votre inscription est enregistrée, mais le courriel de confirmation n’a pas pu être envoyé. Veuillez réessayer.' },
+      { status: 502 },
+    );
+  }
+
+  const result: unknown = await response.json().catch(() => null);
+  const resendResult = result && typeof result === 'object'
+    ? result as Record<string, unknown>
+    : null;
+  if (!response.ok || typeof resendResult?.id !== 'string') {
+    const errorCode = typeof resendResult?.name === 'string'
+      ? resendResult.name
+      : `HTTP_${response.status}`;
+    console.error('Échec Resend pour le courriel de confirmation newsletter:', errorCode);
+    return NextResponse.json(
+      { error: 'Votre inscription est enregistrée, mais le courriel de confirmation n’a pas pu être envoyé. Veuillez vérifier la configuration d’envoi et réessayer.' },
+      { status: 502 },
+    );
+  }
+
+  const { error: confirmationUpdateError } = await supabaseAdmin
+    .from('subscribers')
+    .update({ confirmation_sent_at: new Date().toISOString() })
+    .eq('email', email);
+
+  if (confirmationUpdateError) {
+    console.error('Erreur de sauvegarde de la confirmation newsletter:', confirmationUpdateError.code);
+  }
+
   return NextResponse.json({
     success: true,
-    message: 'Votre adresse est bien enregistrée comme abonnée.',
+    message: 'Inscription confirmée ! Un courriel de confirmation vient de vous être envoyé.',
   });
 }
