@@ -67,6 +67,11 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; bar: string }>
   'Vie étudiante':   { bg: 'bg-pink-50',    text: 'text-pink-700',    bar: 'bg-pink-500'   },
 };
 const DEFAULT_STYLE = { bg: 'bg-slate-50', text: 'text-slate-700', bar: 'bg-slate-400' };
+type NewsletterDelivery = {
+  status: 'sent' | 'no_subscribers' | 'not_configured' | 'partial' | 'failed' | 'skipped';
+  sent: number;
+  failed: number;
+};
 
 /* ─────────────────────────── utils ── */
 const catStyle = (c: string) => CATEGORY_STYLES[c] ?? DEFAULT_STYLE;
@@ -327,7 +332,7 @@ export function Composer({
   initialForm: PublicationForm;
   accessToken: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (newsletter?: NewsletterDelivery) => void;
 }) {
   const [form, setForm] = useState<PublicationForm>(initialForm);
   const [isSaving, setIsSaving] = useState(false);
@@ -428,7 +433,7 @@ export function Composer({
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error || 'Impossible d\'enregistrer.');
-      onSaved();
+      onSaved(result.newsletter);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement.');
@@ -867,9 +872,17 @@ export default function GestionAnnoncesPage() {
           initialForm={editingForm}
           accessToken={accessToken}
           onClose={() => setComposerOpen(false)}
-          onSaved={() => {
-            setGlobalOk(true);
-            setGlobalMsg(editingId ? 'Annonce mise à jour.' : 'Annonce créée.');
+          onSaved={(newsletter) => {
+            const messages: Record<NewsletterDelivery['status'], string> = {
+              sent: `Annonce publiée et envoyée à ${newsletter?.sent ?? 0} abonné(s).`,
+              no_subscribers: 'Annonce publiée. Aucun abonné actif à prévenir.',
+              not_configured: 'Annonce publiée, mais l’envoi automatique n’est pas configuré. Ajoutez RESEND_API_KEY et NEWSLETTER_FROM_EMAIL.',
+              partial: `Annonce publiée ; ${newsletter?.sent ?? 0} e-mail(s) envoyé(s), ${newsletter?.failed ?? 0} en échec.`,
+              failed: 'Annonce publiée, mais l’envoi automatique a échoué. Vérifiez la configuration de Resend.',
+              skipped: editingId ? 'Annonce mise à jour.' : 'Annonce publiée.',
+            };
+            setGlobalOk(!newsletter || newsletter.status === 'sent' || newsletter.status === 'skipped');
+            setGlobalMsg(newsletter ? messages[newsletter.status] : editingId ? 'Annonce mise à jour.' : 'Annonce créée.');
             void load(accessToken);
           }}
         />
@@ -985,7 +998,7 @@ export default function GestionAnnoncesPage() {
 
             {/* Sidebar Droite (E-réputation) */}
             <aside className="lg:sticky lg:top-24 max-h-[88vh] overflow-y-auto pr-1">
-              <EReputationDashboard />
+              <EReputationDashboard accessToken={accessToken} />
             </aside>
           </div>
         </div>

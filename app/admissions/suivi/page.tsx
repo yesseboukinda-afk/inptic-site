@@ -4,26 +4,23 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Award,
   CheckCircle2,
-  Clock,
   CreditCard,
-  Download,
   FileCheck2,
   FileText,
   Printer,
   QrCode,
-  RefreshCw,
   ShieldCheck,
-  User,
   X,
-  AlertCircle,
-  Phone,
   ArrowRight,
   Eye,
 } from 'lucide-react';
 import { generateQRCodeSVG } from '@/lib/qrcode';
 import { useTranslation } from 'react-i18next';
+import {
+  hasCompletedAdmissionPreRegistration,
+  hasCompleteAdmissionDossier,
+} from '@/lib/admissionsWorkflow';
 
 type Notification = {
   id: string;
@@ -68,6 +65,14 @@ type CandidateProfile = {
   paymentTransactionId?: string;
   paymentReference?: string;
   paymentDate?: string;
+  admissionWorkflow?: {
+    preRegistration?: {
+      concoursSlug?: string;
+      completedAt?: string;
+    };
+    applicationCompletedAt?: string;
+  };
+  candidatureData?: Record<string, unknown>;
 };
 
 export default function Suivi() {
@@ -76,9 +81,6 @@ export default function Suivi() {
 
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [operator, setOperator] = useState<'airtel' | 'moov' | ''>('');
-  const [paymentPhone, setPaymentPhone] = useState('');
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showQuittanceModal, setShowQuittanceModal] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<ProfileDocument | null>(null);
 
@@ -92,12 +94,24 @@ export default function Suivi() {
 
       try {
         const stored = JSON.parse(storedRaw) as CandidateProfile;
+        const concoursSlug = stored.admissionWorkflow?.preRegistration?.concoursSlug;
+        if (!hasCompletedAdmissionPreRegistration(stored)) {
+          router.replace('/concours');
+          return;
+        }
+        if (!hasCompleteAdmissionDossier(stored)) {
+          router.replace(`/admissions/depot?concours=${encodeURIComponent(concoursSlug || '')}`);
+          return;
+        }
+        if (stored.paymentStatus !== 'paid') {
+          router.replace(`/admissions/paiement?concours=${encodeURIComponent(concoursSlug || '')}`);
+          return;
+        }
         // Garantir un accusé de réception automatique si dossier soumis
         if (!stored.accuseReceptionDate && (stored.status === 'en_attente' || stored.status === 'valide')) {
           stored.accuseReceptionDate = new Date().toISOString();
         }
         setProfile(stored);
-        if (stored.phone) setPaymentPhone(stored.phone);
       } catch {
         localStorage.removeItem('inptic_user');
         router.replace('/candidat');
@@ -110,63 +124,6 @@ export default function Suivi() {
     window.addEventListener('auth-state-changed', syncProfile);
     return () => window.removeEventListener('auth-state-changed', syncProfile);
   }, [router]);
-
-  const handleProcessPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-
-    if (!operator) {
-      alert('Veuillez choisir un opérateur Mobile Money (Airtel Money ou Moov Money).');
-      return;
-    }
-
-    if (!paymentPhone.trim() || paymentPhone.trim().length < 8) {
-      alert('Veuillez saisir un numéro de téléphone valide.');
-      return;
-    }
-
-    setIsProcessingPayment(true);
-
-    // Simulation paiement sécurisé Mobile Money
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const transactionId = `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-    const reference = `PAY-INPTIC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-    const nowIso = new Date().toISOString();
-
-    const updatedProfile: CandidateProfile = {
-      ...profile,
-      paymentStatus: 'paid',
-      paymentOperator: operator,
-      paymentPhone: paymentPhone.trim(),
-      paymentAmount: 20000,
-      paymentTransactionId: transactionId,
-      paymentReference: reference,
-      paymentDate: nowIso,
-    };
-
-    // Sauvegarder
-    localStorage.setItem('inptic_user', JSON.stringify(updatedProfile));
-
-    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]');
-    const nextUsers = storedUsers.map((u: any) => (u.email === updatedProfile.email ? updatedProfile : u));
-    localStorage.setItem('inptic_users', JSON.stringify(nextUsers));
-
-    try {
-      await fetch('/api/candidat/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProfile),
-      });
-    } catch {
-      // ignore
-    }
-
-    setProfile(updatedProfile);
-    setIsProcessingPayment(false);
-    setShowQuittanceModal(true);
-    window.dispatchEvent(new Event('auth-state-changed'));
-  };
 
   if (loading || !profile) {
     return (
@@ -247,72 +204,18 @@ export default function Suivi() {
                 <CreditCard size={24} />
               </div>
               <div className="flex-1">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-200/80 px-3 py-0.5 text-xs font-bold text-amber-900">
-                  Paiement autorisé
-                </div>
                 <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Règlement des Frais de Dossier (20 000 FCFA)
+                  Règlement des frais de dossier
                 </h3>
                 <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-                  Votre dossier a été bien reçu et certifié éligible au paiement par la Scolarité. Choisissez votre opérateur Mobile Money pour valider votre inscription.
+                  Le paiement Mobile Money est disponible après la préinscription et l’enregistrement complet de votre dossier.
                 </p>
-
-                <form onSubmit={handleProcessPayment} className="mt-5 space-y-4 max-w-lg">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Choix de l&apos;opérateur Mobile Money</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setOperator('airtel')}
-                        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ${
-                          operator === 'airtel'
-                            ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-500/30 shadow-sm'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <img src="/payment/airtel.png" alt="Airtel Money" className="h-7 w-auto object-contain" />
-                        <span>Airtel Money</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setOperator('moov')}
-                        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border p-3.5 text-xs font-bold transition ${
-                          operator === 'moov'
-                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/30 shadow-sm'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <img src="/payment/moovmoney.webp" alt="Moov Money" className="h-7 w-auto object-contain" />
-                        <span>Moov Money</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Numéro de téléphone du compte Mobile Money</label>
-                    <div className="relative">
-                      <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="tel"
-                        required
-                        value={paymentPhone}
-                        onChange={(e) => setPaymentPhone(e.target.value)}
-                        placeholder="Ex. 077 00 00 00 ou 066 00 00 00"
-                        className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isProcessingPayment || !operator}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-xs font-bold text-white shadow-md hover:bg-blue-600 disabled:opacity-50 transition"
-                  >
-                    {isProcessingPayment ? <RefreshCw size={15} className="animate-spin" /> : <CreditCard size={15} />}
-                    <span>{isProcessingPayment ? 'Traitement du paiement...' : 'Procéder au paiement (20 000 FCFA)'}</span>
-                  </button>
-                </form>
+                <Link
+                  href={`/admissions/paiement?concours=${encodeURIComponent(profile.admissionWorkflow?.preRegistration?.concoursSlug || '')}`}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Continuer vers le paiement <ArrowRight size={15} />
+                </Link>
               </div>
             </div>
           </div>

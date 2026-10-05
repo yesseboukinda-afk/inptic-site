@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Image from "next/image";
 import InstallPWA from "@/components/InstallPWA";
@@ -9,30 +9,31 @@ export default function Footer() {
   const [email, setEmail] = useState("");
   const [newsletterMessage, setNewsletterMessage] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newsletterError, setNewsletterError] = useState(false);
 
   const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
-
-  useEffect(() => {
-    setIsSubscribed(
-      Boolean(localStorage.getItem("inptic-newsletter-email"))
-    );
-  }, []);
 
   const handleNewsletterSubmit = async (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+    if (isSubmitting || isSubscribed) return;
 
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setNewsletterError(true);
       setNewsletterMessage(
         "Veuillez saisir une adresse e-mail valide."
       );
       return;
     }
 
+    setIsSubmitting(true);
+    setNewsletterError(false);
+    setNewsletterMessage("");
     try {
       const res = await fetch("/api/newsletter", {
         method: "POST",
@@ -44,36 +45,28 @@ export default function Footer() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error || "Erreur");
       }
-
-      localStorage.setItem(
-        "inptic-newsletter-email",
-        normalizedEmail
-      );
 
       setEmail("");
       setIsSubscribed(true);
 
       setNewsletterMessage(
         data.message ||
-          "Inscription confirmée. E-mail de confirmation envoyé !"
+          "Votre adresse est bien enregistrée comme abonnée."
       );
-    } catch {
-      localStorage.setItem(
-        "inptic-newsletter-email",
-        normalizedEmail
-      );
-
-      setEmail("");
-      setIsSubscribed(true);
-
+    } catch (error) {
+      setNewsletterError(true);
       setNewsletterMessage(
-        "Inscription confirmée. Merci !"
+        error instanceof Error
+          ? error.message
+          : "Impossible d’enregistrer votre inscription. Veuillez réessayer."
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -112,15 +105,6 @@ export default function Footer() {
                   className="transition-colors duration-200 hover:text-[#D4AF37]"
                 >
                   {t("footer.presentation")}
-                </a>
-              </li>
-
-              <li>
-                <a
-                  href="/institut/organigramme"
-                  className="transition-colors duration-200 hover:text-[#D4AF37]"
-                >
-                  {t("footer.organizationChart")}
                 </a>
               </li>
 
@@ -266,17 +250,18 @@ export default function Footer() {
                 onChange={(event) => {
                   setEmail(event.target.value);
                   setNewsletterMessage("");
+                  setNewsletterError(false);
                 }}
                 className="w-full rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-[#D4AF37]"
                 placeholder={t("footer.emailPlaceholder")}
                 aria-label={t("footer.emailPlaceholder")}
-                disabled={isSubscribed}
+                disabled={isSubscribed || isSubmitting}
                 required
               />
 
               <button
                 type="submit"
-                disabled={isSubscribed}
+                disabled={isSubscribed || isSubmitting}
                 className="mobile-icon-action inline-flex h-[48px] shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#c89d2c] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
                 aria-label="S’inscrire à la newsletter"
                 title="S’inscrire à la newsletter"
@@ -298,14 +283,16 @@ export default function Footer() {
                 <span className="btn-label">
                   {isSubscribed
                     ? t("footer.subscribed")
-                    : t("footer.subscribe")}
+                    : isSubmitting
+                      ? "Inscription…"
+                      : t("footer.subscribe")}
                 </span>
               </button>
             </form>
 
             {newsletterMessage && (
               <p
-                className="mt-2 text-xs text-[#F4D06F]"
+                className={`mt-2 text-xs ${newsletterError ? "text-red-300" : "text-[#F4D06F]"}`}
                 role="status"
                 aria-live="polite"
               >

@@ -101,28 +101,24 @@ La page propose également une connexion sociale. Facebook Login fonctionne seul
 
 En cas d'oubli du mot de passe, choisir **Mot de passe oublié**, saisir l'adresse e-mail et utiliser le lien reçu pour définir un nouveau mot de passe.
 
-## 3. Préinscription à un concours
+## 3. Parcours d'inscription au concours
 
-1. Ouvrir [`/concours`](https://inptic-site.vercel.app/concours).
-2. Consulter l'onglet **Concours**, rechercher un concours ou filtrer les résultats selon l'année.
-3. Ouvrir la fiche du concours et, si l'option est proposée, remplir le formulaire de préinscription.
-4. Conserver la confirmation affichée.
+Le parcours de candidature comporte quatre étapes à compléter dans l'ordre. L'étape suivante reste inaccessible tant que la précédente n'est pas entièrement validée.
 
-**La préinscription ne remplace pas le dépôt du dossier officiel.** Il faut aussi compléter le parcours de candidature ci-dessous.
+1. Créer un compte candidat ou se connecter dans [`/candidat`](https://inptic-site.vercel.app/candidat).
+2. Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Une session ouverte est rattachée automatiquement; en l'absence de session, le candidat peut quand même enregistrer sa préinscription sans choisir de concours.
+3. Cliquer sur **Me préinscrire**. L'action est rattachée au compte candidat, sans formulaire ni justificatif à cette étape. Si le candidat n'est pas connecté, il se connecte ou crée d'abord son compte.
+4. Remplir et enregistrer le formulaire officiel dans [`/admissions/depot`](https://inptic-site.vercel.app/admissions/depot), puis téléverser les trois pièces obligatoires : acte de naissance ou CNI, Bac/attestation de réussite (ou certificat de scolarité pour les candidats en Terminale), et relevé de notes officiel. Les fichiers acceptés sont PDF, JPG, PNG et WebP (5 Mo maximum par fichier).
+5. Une fois le formulaire et les trois pièces enregistrés, poursuivre vers [`/admissions/paiement`](https://inptic-site.vercel.app/admissions/paiement). La page [`/admissions/suivi`](https://inptic-site.vercel.app/admissions/suivi) permet de consulter l'état du dossier et de la quittance.
 
-## 4. Déposer un dossier de candidature
+Si une étape est incomplète, le parcours renvoie le candidat vers l'étape correspondante. En cas de déconnexion, revenir à `/candidat` et se reconnecter.
 
-1. Se connecter ou créer un compte dans [`/candidat`](https://inptic-site.vercel.app/candidat).
-2. Ouvrir [`/admissions/depot`](https://inptic-site.vercel.app/admissions/depot).
-3. Remplir le formulaire officiel avec les informations personnelles, le parcours scolaire et la filière souhaitée.
-4. Joindre les pièces demandées dans les formats et tailles indiqués à l'écran. Vérifier chaque pièce avant l'envoi.
-5. Soumettre le dossier et noter le numéro de dossier et la confirmation affichée.
+Avant le déploiement, appliquer les migrations `scripts/09_add_admissions_workflow_to_profiles.sql` et `scripts/10_allow_preinscription_without_concours.sql` dans Supabase pour enregistrer les étapes et autoriser une préinscription sans session active.
 
-Si l'accès au dépôt est refusé, vérifier que la session candidat est toujours active. En cas de déconnexion, revenir à `/candidat` et se reconnecter.
+## 4. Payer les frais et suivre le dossier
 
-## 5. Payer les frais et suivre le dossier
-
-Après la soumission, suivre la redirection vers [`/admissions/paiement`](https://inptic-site.vercel.app/admissions/paiement). La page [`/admissions/suivi`](https://inptic-site.vercel.app/admissions/suivi) permet de consulter l'état du dossier et de la quittance.
+1. Vérifier le numéro de dossier et le statut affiché.
+2. Choisir Airtel Money ou Moov Money et saisir le numéro associé au compte Mobile Money.
 
 1. Vérifier le numéro de dossier et le statut affiché.
 2. Lorsque le paiement est autorisé, choisir Airtel Money ou Moov Money et saisir le numéro associé au compte Mobile Money.
@@ -132,7 +128,7 @@ Après la soumission, suivre la redirection vers [`/admissions/paiement`](https:
 
 Si le paiement reste en attente ou échoue, conserver la référence de transaction et contacter le service indiqué par l'institut. Ne pas considérer une capture d'écran ou une simple demande de paiement comme une confirmation définitive.
 
-## 6. Lire les actualités et interagir
+## 5. Lire les actualités et interagir
 
 Dans **Actualités** et **Annonces**, ouvrir une carte pour lire son contenu ou suivre le lien source. Les compteurs de likes et de partages s'actualisent automatiquement sans recharger la page; le total est resynchronisé périodiquement entre les visiteurs.
 
@@ -141,15 +137,15 @@ Dans **Actualités** et **Annonces**, ouvrir une carte pour lire son contenu ou 
 
 L'identifiant anonyme utilisé pour mémoriser le like est stocké dans le navigateur. Deux appareils différents peuvent donc représenter deux visiteurs distincts, même s'ils sont utilisés par la même personne.
 
-## 7. Publications scientifiques
+## 6. Publications scientifiques
 
 Ouvrir [`/recherche/publications`](https://inptic-site.vercel.app/recherche/publications) pour rechercher ou filtrer les publications par domaine, année ou auteur. Ouvrir une fiche pour consulter ses détails et télécharger les documents disponibles. Les actions de création, modification et suppression nécessitent les droits correspondants.
 
-## 8. Outils du personnel
+## 7. Outils du personnel
 
 Les espaces d'administration ne sont accessibles qu'aux comptes et rôles autorisés. Si une page redirige vers la connexion ou refuse l'accès, demander à l'administrateur de vérifier le rôle attribué au compte. Ne partagez jamais le compte d'un collègue. Avant une opération importante, vérifiez que vous êtes dans le bon espace et relisez la fiche avant de la publier, modifier, archiver ou supprimer.
 
-### 8.1 Gestion des annonces et veille de communication
+### 7.1 Gestion des annonces et veille de communication
 
 Ouvrir [`/annonces/gestion`](https://inptic-site.vercel.app/annonces/gestion) avec un compte administrateur, directeur ou communication autorisé.
 
@@ -179,7 +175,7 @@ Le panneau **Engagement par domaine et par réseau** présente les statistiques 
 - **Saisir un commentaire capté** sert à ajouter manuellement une observation reçue sur une plateforme. Cette saisie n'interroge pas le réseau social et le stockage actuel est temporaire en mémoire serveur : ne l'utilisez pas comme registre durable.
 - Le bouton **Répondre officiellement** ne publie pas la réponse sur Facebook ou YouTube actuellement. Le texte saisi n'est pas envoyé à la plateforme; pour répondre, ouvrir le commentaire original via son lien et publier depuis le compte officiel. Ne pas considérer le message de confirmation affiché par l'interface comme une preuve de diffusion.
 
-### 8.2 Gestion des concours et des résultats
+### 7.2 Gestion des concours et des résultats
 
 Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Le personnel autorisé voit les commandes d'administration en haut de la page.
 
@@ -190,7 +186,7 @@ Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Le personnel auto
 5. Pour consulter les demandes reçues, cliquer sur **Préinscriptions**. Cette liste concerne les préinscriptions et non les dossiers officiels déposés par les candidats.
 6. Utiliser **Concours**, **Résultats** et **Historique** pour contrôler les éléments actifs, publiés et terminés. La suppression d'une fiche est définitive pour le public; vérifier avant de confirmer.
 
-### 8.3 Scolarité et traitement des candidatures
+### 7.3 Scolarité et traitement des candidatures
 
 Ouvrir [`/scolarite`](https://inptic-site.vercel.app/scolarite) avec le rôle de scolarité ou un rôle supérieur autorisé.
 
@@ -202,19 +198,19 @@ Ouvrir [`/scolarite`](https://inptic-site.vercel.app/scolarite) avec le rôle de
 
 Le rôle **Direction des études** peut voir les outils correspondant à ses droits. Le suivi individuel du candidat est une page candidat, pas un tableau d'administration : [`/admissions/suivi`](https://inptic-site.vercel.app/admissions/suivi).
 
-### 8.4 Direction générale
+### 7.4 Direction générale
 
 Ouvrir [`/directeur`](https://inptic-site.vercel.app/directeur) avec un compte de direction autorisé. Le tableau présente les effectifs candidats et des indicateurs de dossiers validés ou en attente; il consolide les profils disponibles dans la base et, selon la session, les profils locaux. Utiliser cet espace pour le suivi général. Le traitement opérationnel des dossiers se fait dans **Scolarité**. Se déconnecter avant de quitter un poste partagé.
 
 Dans [`/directeur/compte`](https://inptic-site.vercel.app/directeur/compte), ouvrir **Paramètres du compte** pour modifier le nom, l'e-mail affiché, le téléphone, le poste, le département, le bureau, la présentation ou la photo, puis cliquer **Enregistrer**. Dans cette version, ces paramètres sont conservés dans le navigateur utilisé; ils ne sont pas automatiquement synchronisés entre appareils.
 
-### 8.5 Publications scientifiques
+### 7.5 Publications scientifiques
 
 Ouvrir [`/recherche/publications`](https://inptic-site.vercel.app/recherche/publications). Les visiteurs peuvent rechercher par texte, domaine, année ou auteur, ouvrir la source, télécharger le PDF et copier un lien.
 
 Avec un rôle autorisé, cliquer sur **Ajouter une publication**. Renseigner le titre, les auteurs (séparés par des virgules), le domaine, l'année, la date de parution, le résumé, les mots-clés et, si disponibles, la revue/conférence, le DOI ou l'URL. Ajouter le PDF et les pièces jointes, vérifier les informations, puis enregistrer. Pour corriger une fiche, choisir **Modifier**; pour la retirer, utiliser **Supprimer** et confirmer.
 
-### 8.6 Catalogue de formations et ressources vidéo
+### 7.6 Catalogue de formations et ressources vidéo
 
 Ouvrir [`/formations`](https://inptic-site.vercel.app/formations). Un membre du personnel ayant les droits voit **Gérer le catalogue**.
 
@@ -223,7 +219,7 @@ Ouvrir [`/formations`](https://inptic-site.vercel.app/formations). Un membre du 
 3. Cliquer **Publier en ligne** et attendre la confirmation.
 4. La page publique présente une seule ressource PDF et une seule vidéo à la fois : une nouvelle publication du même type remplace la précédente mise en avant. Utiliser **Dépublier/Publier** pour changer son état, ou supprimer une ressource seulement après vérification.
 
-### 8.7 Administration des ressources humaines
+### 7.7 Administration des ressources humaines
 
 Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un rôle RH ou administrateur. Un compte de consultation peut voir les données mais pas effectuer les actions de gestion.
 
@@ -248,7 +244,7 @@ Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un rôle RH o
 - **Tableau de Bord & Stats** présente effectifs, répartition par genre, statut, direction/service, tranches d'âge, ancienneté et QR actifs.
 - **Journal d'Audit** retrace les opérations RH, notamment créations, modifications, archivages et actions QR. Utiliser ce journal pour vérifier une modification ou une révocation.
 
-## 9. Problèmes courants
+## 8. Problèmes courants
 
 - **Je ne peux pas déposer mon dossier** : vérifier la connexion candidat et revenir à `/candidat` si nécessaire.
 - **Je ne vois pas mon paiement confirmé** : attendre la réponse de l'opérateur, actualiser le suivi et conserver la référence de transaction.
@@ -256,6 +252,6 @@ Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un rôle RH o
 - **Je ne vois pas un outil de gestion** : le compte doit posséder le rôle correspondant; contacter l'administrateur.
 - **Une actualité ou un compteur semble ancien** : actualiser la page et vérifier la connexion Internet; les compteurs se synchronisent périodiquement.
 
-## 10. Protection du compte et des données
+## 9. Protection du compte et des données
 
 Ne partage jamais un mot de passe, un code PIN Mobile Money, un jeton d'accès, un App Secret ou une clé API. Les équipes de support n'ont pas besoin de ces valeurs. Sur un ordinateur partagé, se déconnecter après utilisation et fermer la session du navigateur.

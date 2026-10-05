@@ -74,6 +74,8 @@ export async function GET() {
     dossierValide: Boolean(profile.dossier_valide),
     status: profile.dossier_status || 'en_attente',
     documents: await addSignedDocumentUrls(Array.isArray(profile.documents) ? profile.documents : []),
+    admissionWorkflow: profile.admission_workflow || {},
+    candidatureData: profile.candidature_data || null,
     departement: profile.departement || '',
     emploiDuTemps: Array.isArray(profile.emploi_du_temps) ? profile.emploi_du_temps : [],
   })));
@@ -188,7 +190,7 @@ export async function POST(req: NextRequest) {
 
     const { data: existingProfile, error: profileLookupError } = await db
       .from('profiles')
-      .select('id, documents')
+      .select('id, documents, admission_workflow, candidature_data')
       .eq('email', payload.email)
       .maybeSingle();
 
@@ -212,6 +214,8 @@ export async function POST(req: NextRequest) {
       photo: payload.photo || '',
       departement: payload.departement || '',
       documents: profileDocuments,
+      admission_workflow: payload.admissionWorkflow ?? existingProfile?.admission_workflow ?? {},
+      candidature_data: payload.candidatureData ?? existingProfile?.candidature_data ?? null,
       role: payload.role || 'etudiant',
       dossier_status: payload.status || (payload.dossierValide ? 'valide' : 'en_attente'),
       updated_at: new Date().toISOString(),

@@ -30,7 +30,6 @@ export default function Header() {
       description: t('header.institutDescription'),
       submenu: [
         { id: 'presentation', label: t('header.presentation'), href: '/institut/presentation', description: '' },
-        { id: 'organigramme', label: t('footer.organizationChart'), href: '/institut/organigramme', description: '' },
         { id: 'gouvernance', label: t('header.governance'), href: '/institut/gouvernance', description: '' },
         { id: 'certifications', label: t('header.certifications'), href: '/institut/certifications', description: '' },
         { id: 'partenariats', label: t('header.partnerships'), href: '/institut/partenariats', description: '' },

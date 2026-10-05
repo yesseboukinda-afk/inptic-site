@@ -42,7 +42,6 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
   const [news, setNews] = useState<TechItem[]>(INITIAL_TECH_NEWS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [publishingId, setPublishingId] = useState<string | null>(null);
-  const [targetPage, setTargetPage] = useState<'actualites' | 'annonces' | 'both'>('both');
   const [selectedNetworks, setSelectedNetworks] = useState({
     whatsapp: true,
     facebook: true,
@@ -141,7 +140,7 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
           excerpt: formattedPost,
           attachments: [],
           socialLinks: [{ label: 'Source originale', url: item.url }],
-          targetPages: targetPage === 'both' ? ['actualites', 'annonces'] : [targetPage],
+          targetPages: ['actualites'],
           status: 'published',
         }),
       });
@@ -150,7 +149,7 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
 
       const slug = result.data?.slug;
       if (!slug) throw new Error('La publication a été enregistrée, mais son lien public est introuvable.');
-      const publicationUrl = `${window.location.origin}/annonces#${encodeURIComponent(slug)}`;
+      const publicationUrl = `${window.location.origin}/actualites#${encodeURIComponent(item.id)}`;
       const shareText = `${formattedPost}\n\n${publicationUrl}`;
       try {
         await navigator.clipboard.writeText(shareText);
@@ -175,11 +174,10 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
         shareWindow.opener = null;
       }
 
-      const targetLabels = targetPage === 'both' ? 'Actualités et Annonces' : targetPage === 'actualites' ? 'Actualités' : 'Annonces';
       const blockedMessage = blockedNetworks.length > 0
         ? ` Fenêtres bloquées (${blockedNetworks.join(', ')}); autorisez les popups pour les ouvrir.`
         : '';
-      setSuccessMsg(`Publication enregistrée sur ${targetLabels}. Les partages sont prêts; confirmez-les sur chaque réseau.${blockedMessage}`);
+      setSuccessMsg(`Publication enregistrée sur Actualités. Les partages sont prêts; confirmez-les sur chaque réseau.${blockedMessage}`);
       setTimeout(() => setSuccessMsg(''), 10000);
     } catch (error) {
       Object.values(shareWindows).forEach((shareWindow) => shareWindow?.close());
@@ -293,28 +291,10 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{current.summary}</p>
         </div>
 
-        {/* Sélection de la page de publication */}
-        <div className="space-y-2.5 bg-white/5 p-3.5 rounded-2xl border border-white/10">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-300">Publier sur les pages :</span>
-            {(
-              [
-                ['actualites', 'Page Actualités'],
-                ['annonces', 'Page Annonces'],
-                ['both', 'Les deux pages'],
-              ] as const
-            ).map(([val, label]) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => setTargetPage(val)}
-                className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
-                  targetPage === val ? 'bg-[#D4AF37] text-slate-950 shadow' : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="space-y-2.5 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+          <div>
+            <p className="text-xs font-semibold text-slate-200">Publication destinée à la page Actualités</p>
+            <p className="mt-1 text-[11px] text-slate-400">Les annonces institutionnelles restent séparées dans la page Annonces.</p>
           </div>
 
           <div role="group" aria-label="Sélectionner les réseaux de partage" className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
@@ -363,7 +343,7 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-5 py-2.5 text-xs font-bold text-slate-950 shadow-lg hover:bg-[#e6c141] transition shadow disabled:opacity-50"
             >
               <Megaphone size={14} />
-              <span>{publishingId === current.id ? 'Publication en cours...' : 'Publier sur les pages & préparer les partages'}</span>
+              <span>{publishingId === current.id ? 'Publication en cours...' : 'Publier sur Actualités & préparer les partages'}</span>
             </button>
           </div>
         </div>

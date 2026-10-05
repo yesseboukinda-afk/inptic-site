@@ -107,6 +107,9 @@ interface Props {
   session?: string;
   /** Logo INPTIC (chemin public, ex. « /logo-inptic.png »). */
   logoSrc?: string;
+  submitDisabled?: boolean;
+  initialValues?: Partial<CandidatureValues>;
+  lockEmail?: boolean;
   /** Appelé à l'envoi. Lancer une erreur affiche un message d'échec. */
   onSubmit?: (values: CandidatureValues, photo: File | null) => void | Promise<void>;
 }
@@ -278,13 +281,20 @@ function validate(v: CandidatureValues): Record<string, string> {
 export default function FormulaireCandidatureLicence({
   session = `${new Date().getFullYear()} - ${new Date().getFullYear() + 1}`,
   logoSrc,
+  submitDisabled = false,
+  initialValues,
+  lockEmail = false,
   onSubmit,
 }: Props) {
-  const [values, setValues] = useState<CandidatureValues>(buildInitialValues);
+  const [values, setValues] = useState<CandidatureValues>(() => ({
+    ...buildInitialValues(),
+    ...initialValues,
+  }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -343,10 +353,12 @@ export default function FormulaireCandidatureLicence({
       return;
     }
     setStatus('sending');
+    setSubmitError('');
     try {
       await onSubmit?.(values, photo);
       setStatus('sent');
-    } catch {
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'L’envoi a échoué. Réessayez.');
       setStatus('error');
     }
   };
@@ -355,6 +367,7 @@ export default function FormulaireCandidatureLicence({
     setValues(buildInitialValues());
     setPhoto(null);
     setErrors({});
+    setSubmitError('');
     setStatus('idle');
   };
 
@@ -590,9 +603,10 @@ export default function FormulaireCandidatureLicence({
           <Field label="E-mail" required error={errors.email}>
             <input
               type="email"
-              className={inputCls}
+              className={`${inputCls} ${lockEmail ? 'bg-slate-100' : ''}`}
               value={values.email}
               onChange={text('email')}
+              readOnly={lockEmail}
               aria-invalid={!!errors.email}
               autoComplete="email"
             />
@@ -907,7 +921,7 @@ export default function FormulaireCandidatureLicence({
 
       {status === 'error' && (
         <p role="alert" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-          L’envoi a échoué. Vérifiez votre connexion et réessayez.
+          {submitError || 'L’envoi a échoué. Vérifiez votre connexion et réessayez.'}
         </p>
       )}
 
@@ -921,7 +935,7 @@ export default function FormulaireCandidatureLicence({
         </button>
         <button
           type="submit"
-          disabled={status === 'sending'}
+          disabled={status === 'sending' || submitDisabled}
           className="rounded-md bg-[#14306b] px-6 py-2 text-sm font-semibold text-white hover:bg-[#2f6db5] disabled:opacity-60"
         >
           {status === 'sending' ? 'Envoi en cours…' : 'Envoyer ma candidature'}

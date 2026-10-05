@@ -17,6 +17,10 @@ import {
 } from 'lucide-react';
 import { generateQRCodeSVG } from '@/lib/qrcode';
 import { useTranslation } from 'react-i18next';
+import {
+  hasCompletedAdmissionPreRegistration,
+  hasCompleteAdmissionDossier,
+} from '@/lib/admissionsWorkflow';
 
 type CandidateProfile = {
   name: string;
@@ -24,6 +28,15 @@ type CandidateProfile = {
   phone?: string;
   filiere?: string;
   dossierNumero?: string;
+  admissionWorkflow?: {
+    preRegistration?: {
+      concoursSlug?: string;
+      completedAt?: string;
+    };
+    applicationCompletedAt?: string;
+  };
+  candidatureData?: Record<string, unknown>;
+  documents?: Array<{ name?: string; category?: string }>;
   accuseReceptionDate?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed';
   paymentOperator?: 'airtel' | 'moov' | '';
@@ -58,6 +71,19 @@ export default function PaiementPage() {
 
     try {
       const stored = JSON.parse(raw) as CandidateProfile;
+      const selectedConcours = new URLSearchParams(window.location.search).get('concours');
+      if (!hasCompletedAdmissionPreRegistration(stored)) {
+        router.replace('/concours');
+        return;
+      }
+      if (selectedConcours && stored.admissionWorkflow?.preRegistration?.concoursSlug !== selectedConcours) {
+        router.replace(`/admissions/depot?concours=${encodeURIComponent(stored.admissionWorkflow?.preRegistration?.concoursSlug || '')}`);
+        return;
+      }
+      if (!hasCompleteAdmissionDossier(stored)) {
+        router.replace(`/admissions/depot?concours=${encodeURIComponent(stored.admissionWorkflow?.preRegistration?.concoursSlug || '')}`);
+        return;
+      }
       setProfile(stored);
       if (stored.phone) setPaymentPhone(stored.phone);
       if (stored.paymentStatus === 'paid') {

@@ -51,40 +51,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Service de préinscription indisponible.' }, { status: 503 });
   }
 
+  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!accessToken) {
+    return NextResponse.json({ error: 'Connectez-vous à votre compte candidat avant de vous préinscrire.' }, { status: 401 });
+  }
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+  if (authError || !authData.user?.email) {
+    return NextResponse.json({ error: 'Votre session candidat a expiré. Reconnectez-vous pour continuer.' }, { status: 401 });
+  }
+
   const body = await request.json().catch(() => null);
-  const concoursSlug = typeof body?.concoursSlug === 'string' ? body.concoursSlug.trim() : '';
-  const fullName = typeof body?.fullName === 'string' ? body.fullName.trim() : '';
-  const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-  const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
+  const concoursSlug = typeof body?.concoursSlug === 'string' ? body.concoursSlug.trim() : null;
+  const metadataName = authData.user.user_metadata?.full_name ?? authData.user.user_metadata?.name;
+  const fullName = typeof body?.fullName === 'string' && body.fullName.trim()
+    ? body.fullName.trim()
+    : typeof metadataName === 'string' && metadataName.trim()
+      ? metadataName.trim()
+      : authData.user.email.split('@')[0];
+  const email = authData.user.email.trim().toLowerCase();
 
-  if (!concoursSlug || fullName.length < 2 || fullName.length > 160 ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
-      phone.length < 6 || phone.length > 30 || body?.consent !== true) {
-    return NextResponse.json({ error: 'Vérifiez vos coordonnées et confirmez votre consentement.' }, { status: 400 });
+  if (fullName.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    return NextResponse.json({ error: 'Les informations du compte candidat ne sont pas valides.' }, { status: 400 });
   }
 
-  const { data: concours, error: concoursError } = await supabaseAdmin
-    .from('concours')
-    .select('slug, status, calendar')
-    .eq('slug', concoursSlug)
-    .maybeSingle();
-  if (concoursError) return NextResponse.json({ error: 'Vérification du concours impossible.' }, { status: 503 });
-  const registrationEnd = concours?.calendar?.registrationEnd;
-  const registrationClosed = typeof registrationEnd === 'string' && new Date(registrationEnd).getTime() < Date.now();
-  if (!concours || concours.status === 'termine' || registrationClosed) {
-    return NextResponse.json({ error: 'Les préinscriptions à ce concours ne sont pas ouvertes.' }, { status: 400 });
+  if (concoursSlug) {
+    const { data: concours, error: concoursError } = await supabaseAdmin
+      .from('concours')
+      .select('slug, status, calendar')
+      .eq('slug', concoursSlug)
+      .maybeSingle();
+    if (concoursError) return NextResponse.json({ error: 'Vérification du concours impossible.' }, { status: 503 });
+    const registrationEnd = concours?.calendar?.registrationEnd;
+    const registrationStart = concours?.calendar?.registrationStart;
+    const registrationNotStarted =
+      typeof registrationStart === 'string' && new Date(registrationStart).getTime() > Date.now();
+    const registrationClosed = typeof registrationEnd === 'string' && new Date(registrationEnd).getTime() < Date.now();
+    if (!concours || concours.status !== 'en_cours' || registrationNotStarted || registrationClosed) {
+      return NextResponse.json({ error: 'La session sélectionnée n’est pas ouverte aux préinscriptions.' }, { status: 400 });
+    }
   }
 
-  const { error } = await supabaseAdmin.from('concours_preinscriptions').insert({
+  const { error } = await supabaseAdmin.from('concours_preinscriptions').upsert({
+    user_id: authData.user.id,
     concours_slug: concoursSlug,
     full_name: fullName,
     email,
-    phone,
-    consented_at: new Date().toISOString(),
-  });
-  if (error?.code === '23505') {
-    return NextResponse.json({ error: 'Cette adresse e-mail est déjà préinscrite à ce concours.' }, { status: 409 });
-  }
+  }, { onConflict: 'user_id' });
   if (error) return NextResponse.json({ error: 'Enregistrement impossible. Réessayez plus tard.' }, { status: 500 });
 
   return NextResponse.json({ success: true }, { status: 201 });

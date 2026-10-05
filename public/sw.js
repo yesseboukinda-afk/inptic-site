@@ -1,10 +1,16 @@
-const CACHE_NAME = "inptic-pwa-v2";
+const CACHE_NAME = "inptic-pwa-v4";
 
 const STATIC_ASSETS = [
   "/",
   "/offline.html",
+  "/favicon.ico",
+  "/apple-touch-icon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/icon-512-maskable.png",
+  "/partages/facebook.svg",
+  "/partages/youtube.svg",
+  "/partages/whatsapp.svg",
 ];
 
 self.addEventListener("install", (event) => {

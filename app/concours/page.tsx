@@ -1,7 +1,8 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Award,
   Calendar,
@@ -37,6 +38,7 @@ import { isStaffOrAdminUser } from '@/lib/roles';
 import { ConcoursAttachment, ConcoursItem, ConcoursStatus } from '@/types/concours';
 import DeleteButton from '@/components/DeleteButton';
 import TranslatedText from '@/components/TranslatedText';
+import { getCurrentAdmissionConcours } from '@/lib/admissionsWorkflow';
 
 function formatFileSize(bytes?: number) {
   if (!bytes) return '';
@@ -46,9 +48,11 @@ function formatFileSize(bytes?: number) {
 }
 
 export default function ConcoursPage() {
+  const router = useRouter();
   const { t } = useTranslation();
 
   const [concours, setConcours] = useState<ConcoursItem[]>([]);
+  const [candidate, setCandidate] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'concours' | 'resultats' | 'historique'>('concours');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +60,6 @@ export default function ConcoursPage() {
 
   // Modal détails / résultat sélectionné
   const [selectedConcours, setSelectedConcours] = useState<ConcoursItem | null>(null);
-  const [showPreRegistration, setShowPreRegistration] = useState(false);
   const [preRegistrationSaving, setPreRegistrationSaving] = useState(false);
   const [preRegistrationMessage, setPreRegistrationMessage] = useState('');
   const [preRegistrationError, setPreRegistrationError] = useState('');
@@ -130,32 +133,93 @@ export default function ConcoursPage() {
   }, []);
 
   const isStaff = isStaffOrAdminUser(userEmail, userRole);
+  const currentConcours = useMemo(() => getCurrentAdmissionConcours(concours), [concours]);
 
-  const handlePreRegistration = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedConcours) return;
-    const form = event.currentTarget;
-    const formData = new FormData(form);
+  useEffect(() => {
+    const syncCandidate = () => {
+      try {
+        const stored = localStorage.getItem('inptic_user');
+        const profile = stored ? JSON.parse(stored) as Record<string, any> : null;
+        setCandidate(profile);
+        if (profile?.email && !isStaffOrAdminUser(profile.email, null)) setUserEmail(profile.email);
+      } catch {
+        setCandidate(null);
+      }
+    };
+
+    syncCandidate();
+    window.addEventListener('auth-state-changed', syncCandidate);
+    return () => window.removeEventListener('auth-state-changed', syncCandidate);
+  }, []);
+
+  const handlePreRegistration = async () => {
+    if (!candidate?.email) {
+      router.push('/candidat');
+      return;
+    }
     setPreRegistrationSaving(true);
     setPreRegistrationError('');
     setPreRegistrationMessage('');
     try {
+      if (!supabase) {
+        throw new Error('La connexion en ligne n’est pas configurée pour ce compte. Connectez-vous avec un compte candidat vérifié.');
+      }
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Votre compte a été créé, mais la session n’est pas encore active. Confirmez votre adresse e-mail, puis connectez-vous avant de vous préinscrire.');
+      }
+      const completedAt = new Date().toISOString();
       const response = await fetch('/api/concours/preinscriptions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
-          concoursSlug: selectedConcours.slug,
-          fullName: formData.get('fullName'),
-          email: formData.get('email'),
-          phone: formData.get('phone'),
-          consent: formData.get('consent') === 'on',
+          concoursSlug: currentConcours?.slug ?? null,
+          fullName: candidate.name || '',
+          phone: candidate.phone || '',
         }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Préinscription impossible.');
-      form.reset();
-      setShowPreRegistration(false);
-      setPreRegistrationMessage('Préinscription enregistrée. Elle ne remplace pas le dépôt du dossier officiel.');
+      const updatedCandidate: Record<string, any> = {
+        ...candidate,
+        admissionWorkflow: {
+          ...candidate.admissionWorkflow,
+          preRegistration: {
+            concoursSlug: currentConcours?.slug ?? null,
+            concoursTitle: currentConcours?.title ?? null,
+            completedAt,
+            status: 'dossier_en_attente',
+          },
+        },
+      };
+      const profileResponse = await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedCandidate),
+      });
+      const profilePayload = await profileResponse.json().catch(() => ({}));
+      if (!profileResponse.ok) {
+        throw new Error(profilePayload.error || 'La préinscription a été reçue, mais son rattachement au compte a échoué. Réessayez.');
+      }
+
+      const profileToPersist: Record<string, any> = profilePayload.profile
+        ? { ...updatedCandidate, documents: profilePayload.profile.documents || updatedCandidate.documents }
+        : updatedCandidate;
+      localStorage.setItem('inptic_user', JSON.stringify(profileToPersist));
+      setCandidate(profileToPersist);
+      const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]');
+      const updatedUsers = storedUsers.map((profile: Record<string, unknown>) =>
+        profile.email === profileToPersist.email ? { ...profile, ...profileToPersist } : profile
+      );
+      localStorage.setItem('inptic_users', JSON.stringify(updatedUsers));
+      window.dispatchEvent(new Event('auth-state-changed'));
+      setPreRegistrationMessage('Préinscription enregistrée. Votre dossier est en attente de complément.');
+      router.push(`/admissions/depot${currentConcours ? `?concours=${encodeURIComponent(currentConcours.slug)}` : ''}`);
     } catch (error) {
       setPreRegistrationError(error instanceof Error ? error.message : 'Préinscription impossible.');
     } finally {
@@ -510,16 +574,16 @@ export default function ConcoursPage() {
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {[
-                { label: t('concoursPage.guide', "Guide d'admission"),         href: '/admissions/guide',        icon: FileText },
-                { label: t('concoursPage.concoursAndResults', 'Concours & Résultats'), href: '/concours',                icon: Award },
-                { label: t('concoursPage.calculator', "Calculateur d'éligibilité"), href: '/admissions/calculateur',  icon: Sparkles },
-                { label: t('concoursPage.fileDeposit', 'Dépôt de dossier'),          href: '/admissions/depot',        icon: UploadCloud },
-                { label: t('concoursPage.tracking', 'Suivi en temps réel'),       href: '/admissions/suivi',        icon: FileCheck },
+                { id: 'guide', label: t('concoursPage.guide', "Guide d'admission"),         href: '/admissions/guide',       icon: FileText },
+                { id: 'concours-results', label: t('concoursPage.concoursAndResults', 'Concours & Résultats'), href: '/concours',               icon: Award },
+                { id: 'calculator', label: t('concoursPage.calculator', "Calculateur d'éligibilité"), href: '/admissions/calculateur', icon: Sparkles },
+                { id: 'registration', label: t('concoursPage.fileDeposit', 'Commencer mon inscription'), href: '/concours',               icon: UploadCloud },
+                { id: 'tracking', label: t('concoursPage.tracking', 'Suivi en temps réel'),       href: '/admissions/suivi',       icon: FileCheck },
               ].map((item) => {
                 const IconComp = item.icon;
                 return (
                   <Link
-                    key={item.href}
+                    key={item.id}
                     href={item.href}
                     className="inline-flex items-center justify-center sm:justify-start gap-2 rounded-xl border border-white/15 bg-white/15 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/25 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
                   >
@@ -560,6 +624,41 @@ export default function ConcoursPage() {
           )}
         </div>
       </section>
+
+      {!loading && (
+        <section id="inscription" className="container-x px-4 pt-6 md:px-0">
+          <div className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Inscription au concours</p>
+              <h2 className="mt-1 text-lg font-black text-slate-900">
+                {currentConcours ? currentConcours.title : 'Préinscription ouverte'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Préinscrivez-vous en un clic avec votre compte. Vous pourrez compléter votre dossier plus tard.
+              </p>
+              {preRegistrationMessage && <p role="status" className="mt-2 text-sm font-medium text-emerald-800">{preRegistrationMessage}</p>}
+              {preRegistrationError && <p role="alert" className="mt-2 text-sm font-medium text-rose-700">{preRegistrationError}</p>}
+            </div>
+            {candidate?.admissionWorkflow?.preRegistration?.completedAt ? (
+              <Link
+                href={`/admissions/depot${candidate.admissionWorkflow.preRegistration.concoursSlug ? `?concours=${encodeURIComponent(candidate.admissionWorkflow.preRegistration.concoursSlug)}` : ''}`}
+                className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800"
+              >
+                Continuer mon dossier
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled={preRegistrationSaving}
+                onClick={() => candidate?.email ? void handlePreRegistration() : router.push('/candidat')}
+                className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-60"
+              >
+                {preRegistrationSaving ? 'Enregistrement…' : candidate?.email ? 'Me préinscrire' : 'Se connecter pour se préinscrire'}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── BARRE DE NAVIGATION DES ONGLETS & FILTRES ── */}
       <section className="sticky top-16 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
@@ -969,40 +1068,6 @@ export default function ConcoursPage() {
               </div>
             )}
 
-            {preRegistrationMessage && <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{preRegistrationMessage}</p>}
-            {preRegistrationError && !showPreRegistrations && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{preRegistrationError}</p>}
-
-            {showPreRegistration && (
-              <form onSubmit={handlePreRegistration} className="mt-6 space-y-4 border-y border-slate-200 py-5">
-                <div>
-                  <h4 className="font-bold text-slate-900">Préinscription au concours</h4>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">Laissez vos coordonnées pour être informé des prochaines étapes. Cette démarche ne constitue pas le dépôt d’une candidature.</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-xs font-semibold text-slate-700">Nom complet
-                    <input name="fullName" autoComplete="name" required minLength={2} maxLength={160} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-slate-700">Adresse e-mail
-                    <input name="email" type="email" autoComplete="email" required maxLength={254} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-slate-700 sm:col-span-2">Téléphone
-                    <input name="phone" type="tel" autoComplete="tel" required minLength={6} maxLength={30} className="mt-1 min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm" />
-                  </label>
-                </div>
-                <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
-                  <input name="consent" type="checkbox" required className="mt-1 accent-blue-700" />
-                  J’accepte que l’INPTIC utilise ces coordonnées pour me contacter au sujet de ce concours.
-                </label>
-                {preRegistrationError && <p role="alert" className="text-sm text-rose-700">{preRegistrationError}</p>}
-                <div className="flex flex-wrap justify-end gap-2">
-                  <button type="button" onClick={() => { setShowPreRegistration(false); setPreRegistrationError(''); }} className="min-h-10 rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Annuler</button>
-                  <button type="submit" disabled={preRegistrationSaving} className="min-h-10 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60">
-                    {preRegistrationSaving ? 'Envoi…' : 'Envoyer ma préinscription'}
-                  </button>
-                </div>
-              </form>
-            )}
-
             {/* Section RÉSULTATS DES ADMIS */}
             {selectedConcours.results?.published ? (
               <div className="mt-6 rounded-2xl border border-[#D4AF37]/50 bg-amber-50/50 p-5">
@@ -1099,23 +1164,6 @@ export default function ConcoursPage() {
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
-              {selectedConcours.status !== 'termine' && !selectedConcours.results?.published && (
-                <button
-                  type="button"
-                  onClick={() => { setShowPreRegistration((visible) => !visible); setPreRegistrationError(''); setPreRegistrationMessage(''); }}
-                  className="min-h-10 rounded-lg border border-blue-300 px-4 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50"
-                >
-                  Préinscription
-                </button>
-              )}
-              {selectedConcours.status === 'en_cours' && (
-                <Link
-                  href="/admissions/depot"
-                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  Déposer mon dossier
-                </Link>
-              )}
               <button
                 onClick={() => setSelectedConcours(null)}
                 className="rounded-xl bg-slate-100 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200"

@@ -10,9 +10,16 @@ type CarouselAnnouncement = {
   tag: string;
   title: string;
   description: string;
+  coverImage?: string;
   link: string;
   cta: string;
 };
+
+function getCoverImage(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const url = value.trim();
+  return url.startsWith('/') || /^https?:\/\//i.test(url) ? url : undefined;
+}
 
 export default function AnnouncementsCarousel() {
   const { t } = useTranslation();
@@ -27,7 +34,7 @@ export default function AnnouncementsCarousel() {
       tag: t('announcements.tagConcours', 'Concours 2026'),
       title: t('announcements.titleConcours', 'Dépôt des dossiers et paiement des frais de dossier en ligne ouverts'),
       description: t('announcements.descConcours', 'Déposez vos pièces justificatives, obtenez votre accusé de réception et réglez via Airtel/Moov Money.'),
-      link: '/admissions/depot',
+      link: '/concours',
       cta: t('announcements.ctaConcours', 'Déposer mon dossier'),
     },
     {
@@ -69,12 +76,27 @@ export default function AnnouncementsCarousel() {
           const title = typeof attributes.title === 'string' ? attributes.title.trim() : '';
           if (!id || !title) return [];
 
+          const description = typeof attributes.excerpt === 'string' ? attributes.excerpt : '';
+          const coverLine = description.match(/(?:^|\n)\s*Image de couverture\s*:\s*(\S+)/i);
+          const attachments = Array.isArray(attributes.attachments) ? attributes.attachments : [];
+          const attachmentImage = attachments.find((attachment) => {
+            if (!attachment || typeof attachment !== 'object') return false;
+            const file = attachment as Record<string, unknown>;
+            const url = typeof file.url === 'string' ? file.url : '';
+            return typeof file.type === 'string' && file.type.startsWith('image/')
+              || /\.(?:avif|gif|jpe?g|png|webp)(?:[?#]|$)/i.test(url);
+          }) as Record<string, unknown> | undefined;
+          const coverImage = getCoverImage(attributes.coverImage)
+            ?? getCoverImage(attributes.cover_image)
+            ?? getCoverImage(coverLine?.[1])
+            ?? getCoverImage(attachmentImage?.url);
           const slug = typeof attributes.slug === 'string' && attributes.slug ? attributes.slug : id;
           return [{
             id: `published-${id}`,
             tag: typeof attributes.category === 'string' ? attributes.category : t('announcements.tagEvent', 'Annonce'),
             title,
-            description: typeof attributes.excerpt === 'string' ? attributes.excerpt : '',
+            description: description.replace(/(?:^|\n)\s*Image de couverture\s*:\s*\S+/i, '').trim(),
+            coverImage,
             link: `/annonces#${encodeURIComponent(slug)}`,
             cta: t('announcements.ctaPublished', 'Lire l’annonce'),
           }];
@@ -138,12 +160,22 @@ export default function AnnouncementsCarousel() {
         <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-[#D4AF37]/20 blur-3xl pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/30">
-              <Megaphone size={20} className="animate-bounce" />
-            </div>
+          <div className="flex min-w-0 flex-1 items-start gap-3.5 sm:items-center">
+            {current.coverImage ? (
+              <img
+                src={current.coverImage}
+                alt={current.title}
+                loading="lazy"
+                decoding="async"
+                className="h-20 w-28 shrink-0 rounded-xl object-cover sm:h-24 sm:w-36"
+              />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/30">
+                <Megaphone size={20} className="animate-bounce" />
+              </div>
+            )}
 
-            <div key={currentIndex} className="transition-all">
+            <div key={currentIndex} className="min-w-0 flex-1 transition-all">
               <style jsx>{`
                 @keyframes slideInFromRight {
                   0% {

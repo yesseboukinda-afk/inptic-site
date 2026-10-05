@@ -999,7 +999,7 @@ export default function Hero() {
                       ? '/visite-3d'
                       : actionKey === 'alumni'
                         ? '/alumni'
-                        : '/admissions/depot'
+                        : '/concours'
                   }
                   aria-label={localizedAriaLabel}
                   className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
@@ -1147,7 +1147,7 @@ export default function Hero() {
                       ? '/visite-3d'
                       : actionKey === 'alumni'
                         ? '/alumni'
-                        : '/admissions/depot'
+                        : '/concours'
                   }
                   className={commonClassName}
                   aria-label={localizedAriaLabel}

@@ -40,11 +40,11 @@ sont vérifiés par Supabase Auth. Pour la production :
 	**Authentication > Users**. Les comptes créés uniquement en local ne peuvent pas
 	fonctionner en production.
 3. Vérifier que l'URL de production est autorisée dans **Authentication > URL
-	Configuration** de Supabase.
-4. Vérifier que `NEXT_PUBLIC_SITE_URL` contient exactement l'URL publique du site,
-	par exemple `https://votre-domaine.tld`, puis ajouter
-	`https://votre-domaine.tld/reset-password` dans les **Redirect
-	URLs** Supabase. En local, utiliser `http://localhost:3000/reset-password`.
+	Configuration** de Supabase, notamment `https://votre-domaine.tld/reset-password`
+	dans les **Redirect URLs** (et `http://localhost:3000/reset-password` en local).
+4. Le formulaire demande à Supabase de revenir sur `/reset-password` du domaine
+	actuellement ouvert. Configurer l'URL du site Supabase avec la racine du domaine
+	public, par exemple `https://votre-domaine.tld`.
 5. Relancer un déploiement après toute modification des variables d'environnement.
 
 Depuis `/candidat`, le lien **Mot de passe oublié** envoie un email Supabase. Le
@@ -78,6 +78,42 @@ La publication crée ou modifie le contenu dans Strapi. Les boutons de partage
 ouvrent WhatsApp, Facebook, LinkedIn ou X avec le lien de l’annonce; ils ne publient
 pas automatiquement sur les comptes officiels. La publication automatique exige
 des applications développeur et autorisations OAuth propres à chaque plateforme.
+
+## Veille Facebook et newsletter
+
+La veille Facebook et les réponses aux commentaires utilisent les variables
+serveur `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` et
+`FACEBOOK_GRAPH_API_VERSION`. Le token doit appartenir à la Page INPTIC et
+disposer au minimum des autorisations `pages_read_engagement`,
+`pages_read_user_content` et `pages_manage_engagement`. Un token qui expire
+rapidement doit être renouvelé avant son expiration. La clé API YouTube
+(`YOUTUBE_API_KEY`) permet la lecture des commentaires YouTube ; leur réponse
+automatique n'est pas intégrée.
+
+Pour activer les inscriptions et envois de newsletter :
+
+1. Exécuter `scripts/11_create_newsletter_subscribers.sql` dans le SQL Editor du
+   projet Supabase de production. Ce script crée uniquement le schéma ; il
+   n'insère aucun abonné.
+2. Configurer `RESEND_API_KEY`, `NEWSLETTER_FROM_EMAIL` avec une adresse d'un
+   domaine vérifié dans Resend,
+   `NEWSLETTER_SITE_URL=https://inptic-site.vercel.app`,
+   `NEXT_PUBLIC_SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` dans
+   **Vercel > Project Settings > Environment Variables**, pour **Production**.
+   Les valeurs secrètes restent côté serveur. Ne jamais les préfixer par
+   `NEXT_PUBLIC_`.
+3. Vérifier que le domaine `inptic-site.vercel.app` est bien rattaché au projet
+   Vercel qui exécute les routes Next.js. La configuration actuelle doit servir notamment
+   `/api/ereputation` et `/api/newsletter` sur ce domaine ; un 404 sur ces
+   routes signifie que le domaine pointe vers un hébergement qui ne sert pas
+   l'application Next.js.
+4. Relancer un déploiement Production après l'ajout des variables. Une
+   inscription n'est confirmée qu'après son enregistrement réussi dans
+   `subscribers`. Une nouvelle actualité publiée et ciblée sur `actualites`
+   déclenche son envoi aux abonnés actifs ; les modifications d'une actualité
+   déjà publiée ne relancent pas un envoi. Chaque courriel contient le logo,
+   l'image si elle est fournie dans l'annonce, un résumé, le lien et un
+   désabonnement avec confirmation.
 
 ## Connexions prévues
 - Frontend: Next.js 15 / React 19 / Tailwind v4.

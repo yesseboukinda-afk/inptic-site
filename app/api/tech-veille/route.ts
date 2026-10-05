@@ -1,28 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
-
-const RSS_SOURCES = [
-  { name: 'DEV Community', url: 'https://dev.to/feed' },
-  { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml' },
-  { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index' },
-  { name: 'TechCrunch', url: 'https://techcrunch.com/feed/' },
-  { name: 'WIRED', url: 'https://www.wired.com/feed/rss' },
-  { name: 'Engadget', url: 'https://www.engadget.com/rss.xml' },
-  { name: 'MIT Technology Review', url: 'https://www.technologyreview.com/feed/' },
-  { name: 'ZDNET', url: 'https://www.zdnet.com/news/rss.xml' },
-  { name: 'CNET', url: 'https://www.cnet.com/rss/news/' },
-  { name: 'Tom’s Hardware', url: 'https://www.tomshardware.com/feeds/all' },
-  { name: 'BBC Technology', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
-  { name: 'The Guardian Technology', url: 'https://www.theguardian.com/technology/rss' },
-  { name: 'ScienceDaily AI', url: 'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml' },
-  { name: 'InfoQ', url: 'https://www.infoq.com/feed/' },
-  { name: 'AWS News Blog', url: 'https://aws.amazon.com/blogs/aws/feed/' },
-  { name: 'OpenAI News', url: 'https://openai.com/news/rss.xml' },
-  { name: 'Microsoft Blog', url: 'https://blogs.microsoft.com/feed/' },
-  { name: 'Dark Reading', url: 'https://www.darkreading.com/rss.xml' },
-  { name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/' },
-  { name: 'Schneier on Security', url: 'https://www.schneier.com/feed/atom/' },
-] as const;
+import { RSS_SOURCES } from '@/lib/techVeilleSources';
 
 const rssParser = new XMLParser({
   ignoreAttributes: false,
@@ -126,10 +104,13 @@ async function fetchLatestFromSource(source: (typeof RSS_SOURCES)[number], force
     const rssChannel = parsed.rss && typeof parsed.rss === 'object' ? (parsed.rss as Record<string, unknown>).channel : null;
     const atomFeed = parsed.feed;
     const rdfFeed = parsed['rdf:RDF'];
+    const rdfFeedItems = rdfFeed && typeof rdfFeed === 'object'
+      ? (rdfFeed as Record<string, unknown>).item
+      : undefined;
     const feed = (rssChannel || atomFeed || rdfFeed) as Record<string, unknown> | null;
     if (!feed) return null;
 
-    const entries = asEntries(feed.item || feed.entry).map((entry) => {
+    const entries = asEntries(feed.item || feed.entry || rdfFeedItems).map((entry) => {
       const title = cleanFeedText(entry.title);
       const summary = makeSummary(entry.description || entry.summary || entry['content:encoded'] || entry.content, title);
       const url = feedLink(entry);
@@ -142,9 +123,11 @@ async function fetchLatestFromSource(source: (typeof RSS_SOURCES)[number], force
         title,
         summary,
         source: source.name,
+        region: source.region,
         url,
         domain: getDomain([title, summary, source.name]),
         date: new Date(timestamp || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+        publishedAt: timestamp ? new Date(timestamp).toISOString() : null,
         coverImage: feedImage(entry),
         timestamp,
       };
@@ -207,7 +190,7 @@ export async function GET(request: NextRequest) {
       if (seenDomains.has(hostname)) return false;
       seenDomains.add(hostname);
       return true;
-    }).slice(0, 20).map(({ timestamp: _timestamp, ...item }) => item);
+    }).slice(0, RSS_SOURCES.length).map(({ timestamp: _timestamp, ...item }) => item);
     const hasLiveArticles = formatted.length > 0;
 
     return NextResponse.json({
@@ -215,7 +198,7 @@ export async function GET(request: NextRequest) {
       items: formatted,
       source: hasLiveArticles ? 'live' : 'fallback',
       ...(hasLiveArticles ? {} : {
-        fallbackReason: 'Aucun des 20 flux éditeurs n’est momentanément accessible.',
+        fallbackReason: 'Aucun flux de veille n’est momentanément accessible.',
       }),
     });
   } catch (error) {
@@ -224,7 +207,7 @@ export async function GET(request: NextRequest) {
       success: true,
       items: [],
       source: 'fallback',
-      fallbackReason: 'Impossible de joindre les flux RSS/Atom internationaux.',
+      fallbackReason: 'Impossible de joindre les flux RSS/Atom de veille.',
     });
   }
 }

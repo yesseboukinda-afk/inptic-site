@@ -31,12 +31,15 @@ function getPlatformIcon(platform: MentionItem['platform']) {
   return <Globe size={15} aria-hidden="true" />;
 }
 
-export default function EReputationDashboard() {
+export default function EReputationDashboard({ accessToken }: { accessToken: string }) {
   const [mentions, setMentions] = useState<MentionItem[]>([]);
   const [comments, setComments] = useState<MentionItem[]>([]);
   const [filter, setFilter] = useState<'all' | 'positif' | 'neutre' | 'negatif'>('all');
   const [replyText, setReplyText] = useState('');
   const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyError, setReplyError] = useState('');
+  const [replySuccess, setReplySuccess] = useState('');
   const [isScanning, setIsScanning] = useState(true);
   const [scanError, setScanError] = useState('');
   const [scanWarning, setScanWarning] = useState('');
@@ -70,7 +73,9 @@ export default function EReputationDashboard() {
       setComments(Array.isArray(data.comments) ? data.comments.slice(0, 10) : []);
       setLastScannedAt(new Date());
       const unavailableSources: string[] = [];
-      if (data.sources?.facebook === 'unavailable') unavailableSources.push('Facebook indisponible');
+      if (data.sources?.facebook === 'unavailable') {
+        unavailableSources.push(data.sourceErrors?.facebook || 'Facebook indisponible');
+      }
       if (data.sources?.facebook === 'not_configured') unavailableSources.push('Facebook non configuré');
       if (data.sources?.youtube === 'unavailable') unavailableSources.push('YouTube indisponible');
       if (data.sources?.youtube === 'not_configured') unavailableSources.push('YouTube non configuré');
@@ -129,11 +134,40 @@ export default function EReputationDashboard() {
   const filtered = mentions.filter((m) => filter === 'all' || m.sentiment === filter);
   const negativeAlerts = mentions.filter((m) => m.sentiment === 'negatif');
 
-  const handleSendReply = (id: string) => {
-    if (!replyText.trim()) return;
-    alert('Réponse officielle / Droit de réponse enregistré et diffusé.');
-    setReplyText('');
-    setReplyingId(null);
+  const handleSendReply = async (id: string) => {
+    const message = replyText.trim();
+    if (!message || isReplying) return;
+    if (!accessToken || accessToken === 'local-admin-token') {
+      setReplyError('Connectez-vous avec un compte INPTIC autorisé via Supabase pour publier une réponse.');
+      setReplySuccess('');
+      return;
+    }
+
+    setIsReplying(true);
+    setReplyError('');
+    setReplySuccess('');
+    try {
+      const response = await fetch('/api/ereputation', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ commentId: id, message }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Facebook n’a pas publié la réponse.');
+      }
+
+      setReplyText('');
+      setReplySuccess('Réponse publiée sur Facebook.');
+      void loadLiveMentions(true);
+    } catch (error) {
+      setReplyError(error instanceof Error ? error.message : 'Impossible de publier la réponse sur Facebook.');
+    } finally {
+      setIsReplying(false);
+    }
   };
 
   return (
@@ -248,31 +282,49 @@ export default function EReputationDashboard() {
                     <span>Lien direct vers le commentaire d&apos;origine</span>
                   </a>
 
-                  <button
-                    onClick={() => setReplyingId(replyingId === alertItem.id ? null : alertItem.id)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-600 transition"
-                  >
-                    <MessageSquare size={13} />
-                    <span>Publier un droit de réponse</span>
-                  </button>
+                  {alertItem.platform === 'Facebook' && alertItem.id.startsWith('fb-live-') && (
+                    <button
+                      onClick={() => {
+                        setReplyingId(replyingId === alertItem.id ? null : alertItem.id);
+                        setReplyError('');
+                        setReplySuccess('');
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-600 transition"
+                    >
+                      <MessageSquare size={13} />
+                      <span>Publier un droit de réponse</span>
+                    </button>
+                  )}
                 </div>
 
-                {replyingId === alertItem.id && (
-                  <div className="mt-2 flex items-center gap-2 pt-2 border-t border-slate-100">
+                {replyingId === alertItem.id && alertItem.platform === 'Facebook' && alertItem.id.startsWith('fb-live-') && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
                     <input
                       type="text"
                       value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
+                      maxLength={8000}
+                      disabled={isReplying}
+                      onChange={(e) => {
+                        setReplyText(e.target.value);
+                        setReplyError('');
+                        setReplySuccess('');
+                      }}
                       placeholder="Rédiger la réponse officielle de l'INPTIC..."
                       className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-blue-500"
                     />
                     <button
                       onClick={() => handleSendReply(alertItem.id)}
-                      className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition"
+                      disabled={isReplying || !replyText.trim()}
+                      className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Send size={13} />
-                      <span>Diffuser</span>
+                      {isReplying ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
+                      <span>{isReplying ? 'Publication…' : 'Publier sur Facebook'}</span>
                     </button>
+                    {(replyError || replySuccess) && (
+                      <p role={replyError ? 'alert' : 'status'} className={`basis-full text-xs ${replyError ? 'text-red-700' : 'text-emerald-700'}`}>
+                        {replyError || replySuccess}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -454,31 +506,49 @@ export default function EReputationDashboard() {
                   <span>Voir la source originale</span>
                 </a>
 
-                <button
-                  onClick={() => setReplyingId(replyingId === m.id ? null : m.id)}
-                  className="inline-flex items-center gap-1 rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
-                >
-                  <MessageSquare size={13} />
-                  <span>Répondre officiellement</span>
-                </button>
+                {m.platform === 'Facebook' && m.id.startsWith('fb-live-') && (
+                  <button
+                    onClick={() => {
+                      setReplyingId(replyingId === m.id ? null : m.id);
+                      setReplyError('');
+                      setReplySuccess('');
+                    }}
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                  >
+                    <MessageSquare size={13} />
+                    <span>Répondre officiellement</span>
+                  </button>
+                )}
               </div>
 
-              {replyingId === m.id && (
-                <div className="mt-3 flex items-center gap-2 pt-2 border-t border-slate-200">
+              {replyingId === m.id && m.platform === 'Facebook' && m.id.startsWith('fb-live-') && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
                   <input
                     type="text"
                     value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
+                    maxLength={8000}
+                    disabled={isReplying}
+                    onChange={(e) => {
+                      setReplyText(e.target.value);
+                      setReplyError('');
+                      setReplySuccess('');
+                    }}
                     placeholder="Écrire un communiqué ou une réponse officielle..."
                     className="flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-blue-500"
                   />
                   <button
                     onClick={() => handleSendReply(m.id)}
-                    className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition"
+                    disabled={isReplying || !replyText.trim()}
+                    className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Send size={13} />
-                    <span>Envoyer</span>
+                    {isReplying ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
+                    <span>{isReplying ? 'Publication…' : 'Publier sur Facebook'}</span>
                   </button>
+                  {(replyError || replySuccess) && (
+                    <p role={replyError ? 'alert' : 'status'} className={`basis-full text-xs ${replyError ? 'text-red-700' : 'text-emerald-700'}`}>
+                      {replyError || replySuccess}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

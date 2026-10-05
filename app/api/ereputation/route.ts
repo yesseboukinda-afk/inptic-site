@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
+import {
+  isAdminAccountEmail,
+  isAdminRole,
+  isCommunicationRole,
+  isDirectorAccountEmail,
+  normalizeRole,
+} from '@/lib/roles';
 
 type MentionItem = {
   id: string;
@@ -13,6 +21,45 @@ type MentionItem = {
 };
 
 type SourceStatus = 'available' | 'unavailable' | 'not_configured';
+
+async function authorizeFacebookReply(request: NextRequest) {
+  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!accessToken) {
+    return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
+  }
+
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: 'La vérification de la session serveur n’est pas configurée.' },
+      { status: 500 },
+    );
+  }
+
+  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
+  if (error || !data.user) {
+    return NextResponse.json({ error: 'Session expirée ou invalide.' }, { status: 401 });
+  }
+
+  const role = normalizeRole(
+    data.user.app_metadata?.role ??
+    data.user.app_metadata?.roles,
+  );
+  const email = data.user.email || '';
+  const isAuthorized =
+    isAdminRole(role) ||
+    isCommunicationRole(role) ||
+    isAdminAccountEmail(email) ||
+    isDirectorAccountEmail(email);
+
+  if (!isAuthorized) {
+    return NextResponse.json(
+      { error: 'Vous n’êtes pas autorisé à répondre au nom de la Page INPTIC.' },
+      { status: 403 },
+    );
+  }
+
+  return null;
+}
 
 // In-memory store pour les commentaires captés manuellement ou par webhook.
 let liveIngestedComments: MentionItem[] = [];
@@ -49,6 +96,7 @@ export async function GET(request: NextRequest) {
   let facebookSource: SourceStatus = fbAccessToken ? 'unavailable' : 'not_configured';
   let youtubeSource: SourceStatus = youtubeApiKey ? 'unavailable' : 'not_configured';
   let pressSource: 'available' | 'unavailable' = 'unavailable';
+  let facebookError: string | null = null;
 
   const mentions: MentionItem[] = [...liveIngestedComments];
 
@@ -82,9 +130,21 @@ export async function GET(request: NextRequest) {
             });
           }
         }
+      } else {
+        const fbJson = await fbRes.json().catch(() => null);
+        const errorCode = fbJson?.error?.code;
+        if (errorCode === 190) {
+          facebookError = 'Le jeton Facebook est invalide ou expiré. Renouvelez le jeton de la Page.';
+        } else if (errorCode === 10 || errorCode === 200) {
+          facebookError = 'Le jeton ne dispose pas des autorisations nécessaires pour lire les publications et commentaires de la Page.';
+        } else if (errorCode === 100) {
+          facebookError = 'La Page configurée est introuvable ou inaccessible avec ce jeton. Vérifiez FACEBOOK_PAGE_ID et l’accès du jeton.';
+        } else {
+          facebookError = `Facebook Graph API a refusé la requête (HTTP ${fbRes.status}${Number.isInteger(errorCode) ? `, code ${errorCode}` : ''}).`;
+        }
       }
-    } catch (err) {
-      console.error('Erreur Facebook Graph API:', err);
+    } catch {
+      facebookError = 'Impossible de joindre Facebook Graph API depuis le serveur.';
     }
   }
 
@@ -207,7 +267,94 @@ export async function GET(request: NextRequest) {
     mentions,
     comments,
     sources: { facebook: facebookSource, youtube: youtubeSource, press: pressSource },
+    sourceErrors: { facebook: facebookError },
   });
+}
+
+export async function PATCH(request: NextRequest) {
+  const authorizationError = await authorizeFacebookReply(request);
+  if (authorizationError) return authorizationError;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Corps de requête JSON invalide.' }, { status: 400 });
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Corps de requête invalide.' }, { status: 400 });
+  }
+
+  const payload = body as Record<string, unknown>;
+  const commentId = typeof payload.commentId === 'string' ? payload.commentId : '';
+  const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+  const graphCommentId = commentId.startsWith('fb-live-') ? commentId.slice('fb-live-'.length) : '';
+
+  if (!graphCommentId || graphCommentId.length > 100 || !/^[A-Za-z0-9_.-]+$/.test(graphCommentId)) {
+    return NextResponse.json({ error: 'Ce commentaire Facebook ne peut pas recevoir de réponse.' }, { status: 400 });
+  }
+  if (!message) {
+    return NextResponse.json({ error: 'Saisissez une réponse avant de la publier.' }, { status: 400 });
+  }
+  if (message.length > 8000) {
+    return NextResponse.json({ error: 'La réponse dépasse la limite de 8 000 caractères.' }, { status: 400 });
+  }
+
+  const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  if (!accessToken) {
+    return NextResponse.json({ error: 'Le token d’accès de la Page Facebook n’est pas configuré.' }, { status: 503 });
+  }
+
+  const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0';
+  const replyParams = new URLSearchParams({ message, access_token: accessToken });
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(graphCommentId)}/comments`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: replyParams,
+        cache: 'no-store',
+      },
+    );
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const errorCode = result?.error?.code;
+      if (errorCode === 190) {
+        return NextResponse.json(
+          { error: 'Le token Facebook est invalide ou expiré. Renouvelez le token de la Page.' },
+          { status: 401 },
+        );
+      }
+      if (errorCode === 10 || errorCode === 200) {
+        return NextResponse.json(
+          { error: 'Le token ne permet pas de répondre à ce commentaire. Vérifiez pages_manage_engagement.' },
+          { status: 403 },
+        );
+      }
+      if (errorCode === 100) {
+        return NextResponse.json(
+          { error: 'Facebook ne trouve pas ce commentaire ou n’autorise pas de réponse à celui-ci.' },
+          { status: 400 },
+        );
+      }
+      return NextResponse.json(
+        { error: `Facebook a refusé la réponse (HTTP ${response.status}${Number.isInteger(errorCode) ? `, code ${errorCode}` : ''}).` },
+        { status: 502 },
+      );
+    }
+
+    if (typeof result?.id !== 'string') {
+      return NextResponse.json({ error: 'Facebook n’a pas confirmé la publication de la réponse.' }, { status: 502 });
+    }
+
+    return NextResponse.json({ success: true, replyId: result.id });
+  } catch {
+    return NextResponse.json({ error: 'Impossible de joindre Facebook pour publier la réponse.' }, { status: 502 });
+  }
 }
 
 // Ingestion par Webhook ou publication manuelle d'un commentaire capturé

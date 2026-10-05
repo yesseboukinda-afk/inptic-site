@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Copy, Download,
-  ExternalLink, Facebook, FileText, Megaphone, MessageCircle, Paperclip,
-  Pencil, Plus, Share2, ShieldCheck, Tag, Trash2,
+  ExternalLink, Facebook, FileText, Megaphone, Paperclip,
+  Pencil, Plus, ShieldCheck, Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import ArticleEngagement from '@/components/ArticleEngagement';
 import {
   Composer,
   DeleteConfirm,
@@ -38,6 +39,7 @@ type Annonce = {
   category: string;
   attachments?: Attachment[];
   socialLinks?: SocialLink[];
+  coverImage?: string;
   publishedAt: string | null;
   createdAt: string | null;
 };
@@ -134,6 +136,9 @@ function parsePayload(payload: unknown): Annonce[] {
         : Array.isArray(a.socialLinks)
           ? a.socialLinks
           : []) as SocialLink[],
+      coverImage: typeof (a.cover_image ?? a.coverImage) === 'string'
+        ? String(a.cover_image ?? a.coverImage)
+        : undefined,
       publishedAt: typeof a.publishedAt === 'string' ? a.publishedAt
         : typeof a.published_at === 'string' ? a.published_at : null,
       createdAt: typeof a.createdAt === 'string' ? a.createdAt
@@ -147,6 +152,43 @@ function parsePayload(payload: unknown): Annonce[] {
 function getShareUrl(slug: string) {
   if (typeof window === 'undefined') return '';
   return `${window.location.origin}/annonces#${encodeURIComponent(slug)}`;
+}
+
+function getCoverImage(annonce: Annonce) {
+  const coverLine = annonce.excerpt
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => /^Image de couverture\s*:/i.test(line));
+  const candidate = annonce.coverImage || coverLine?.replace(/^Image de couverture\s*:\s*/i, '') ||
+    annonce.attachments?.find((attachment) =>
+      attachment.type?.startsWith('image/') ||
+      /\.(?:avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(attachment.url),
+    )?.url;
+  if (!candidate) return undefined;
+
+  try {
+    const url = new URL(candidate);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : undefined;
+  } catch {
+    return candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : undefined;
+  }
+}
+
+function getAnnouncementSummary(excerpt: string) {
+  const lines = excerpt.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const summaryIndex = lines.findIndex((line) => /^Résumé\s*:/i.test(line));
+  if (summaryIndex >= 0) {
+    const summaryLines: string[] = [];
+    for (const line of lines.slice(summaryIndex)) {
+      if (/^(?:Source officielle|Image de couverture)\s*:/i.test(line) || /^#/.test(line)) break;
+      summaryLines.push(line.replace(/^Résumé\s*:\s*/i, '').trim());
+    }
+    if (summaryLines.length > 0) return summaryLines.join(' ');
+  }
+
+  return lines
+    .filter((line) => !/^(?:Source officielle|Image de couverture)\s*:/i.test(line))
+    .join('\n');
 }
 
 /* ───────────────────────── AnnonceCard component ── */
@@ -168,13 +210,13 @@ function AnnonceCard({
   const color = getColor(annonce.category);
   const date = formatDate(annonce.publishedAt ?? annonce.createdAt, i18n.language);
 
-  // Split: first paragraph as excerpt, rest as full body
-  const paragraphs = annonce.excerpt.split(/\n{2,}/);
+  const summary = getAnnouncementSummary(annonce.excerpt);
+  const paragraphs = summary.split(/\n{2,}/);
   const previewText = paragraphs[0] ?? '';
-  const hasMore = annonce.excerpt.length > previewText.length || annonce.excerpt.length > 280;
+  const hasMore = paragraphs.length > 1 || summary.length > 160;
+  const coverImage = getCoverImage(annonce);
 
   const shareUrl = getShareUrl(annonce.slug);
-  const shareText = `${annonce.title} — ${shareUrl}`;
 
   const hasAttachments = Boolean(annonce.attachments && annonce.attachments.length > 0);
   const hasSocials = Boolean(annonce.socialLinks && annonce.socialLinks.length > 0);
@@ -190,26 +232,32 @@ function AnnonceCard({
   return (
     <article
       id={annonce.slug}
-      className="scroll-mt-28 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg"
+      className="group flex min-w-0 scroll-mt-28 flex-col overflow-hidden border border-slate-200 bg-white transition hover:border-cyan-700 hover:shadow-md"
     >
-      {/* Colored top bar */}
-      <div className={`h-1.5 w-full ${color.dot}`} />
+      <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+        {coverImage ? (
+          <img src={coverImage} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+        ) : (
+          <div className="grid h-full place-items-center bg-gradient-to-br from-slate-100 via-blue-50 to-cyan-100 text-cyan-800">
+            <Megaphone size={34} aria-hidden="true" />
+          </div>
+        )}
+        <span className={`absolute bottom-3 left-3 rounded-full px-3 py-1 text-[10px] font-bold uppercase ${color.bg} ${color.text}`}>
+          {categoryLabel}
+        </span>
+      </div>
 
-      <div className="p-6 md:p-8">
+      <div className="flex flex-1 flex-col p-4">
         {/* ── Meta row ── */}
-        <div className="flex flex-wrap items-center gap-3">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${color.bg} ${color.text}`}>
-            <Tag size={10} />
-            {categoryLabel}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
           {date && (
-            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
               <Calendar size={11} />
               {date}
             </span>
           )}
           {hasAttachments && (
-            <span className="flex items-center gap-1 text-xs text-blue-600 font-semibold bg-blue-50 px-2.5 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
               <Paperclip size={11} />
               {annonce.attachments!.length === 1
                 ? t('annonces.documentCount_one', { count: 1 })
@@ -219,17 +267,17 @@ function AnnonceCard({
         </div>
 
         {/* ── Title ── */}
-        <h2 className="mt-4 text-2xl font-black leading-snug text-slate-900 md:text-3xl">
+        <h2 className="mt-2 line-clamp-2 text-base font-bold leading-5 text-slate-950 sm:text-lg">
           {annonce.title}
         </h2>
 
         {/* ── Excerpt / Full text ── */}
-        <div className="mt-4 text-sm leading-7 text-slate-600">
+        <div className="mt-2 flex-1 text-xs leading-5 text-slate-600">
           {expanded ? (
-            <p className="whitespace-pre-wrap">{annonce.excerpt}</p>
+            <p className="whitespace-pre-wrap">{summary}</p>
           ) : (
-            <p className="whitespace-pre-wrap">
-              {previewText.length > 280 ? previewText.slice(0, 280) + '…' : previewText}
+            <p className="whitespace-pre-wrap line-clamp-4">
+              {previewText.length > 160 ? previewText.slice(0, 160) + '…' : previewText}
               {!hasMore && paragraphs.length > 1 && '…'}
             </p>
           )}
@@ -240,7 +288,7 @@ function AnnonceCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${color.bg} ${color.text} hover:opacity-80`}
+            className={`mt-3 inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-[10px] font-bold transition ${color.bg} ${color.text} hover:opacity-80`}
           >
             {expanded ? (
               <><ChevronUp size={13} />{t('annonces.readLess')}</>
@@ -309,69 +357,23 @@ function AnnonceCard({
           </div>
         )}
 
-        {/* ── Social sharing ── */}
-        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
-          <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-            <Share2 size={12} />
-            {t('annonces.share')}
-          </span>
-
-          {/* WhatsApp */}
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t('annonces.shareOn', { network: 'WhatsApp' })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-green-400 hover:bg-green-50 hover:text-green-700"
-          >
-            <MessageCircle size={13} />
-            WhatsApp
-          </a>
-
-          {/* Facebook */}
-          <a
-            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t('annonces.shareOn', { network: 'Facebook' })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
-          >
-            <Facebook size={13} />
-            Facebook
-          </a>
-
-          {/* LinkedIn */}
-          <a
-            href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t('annonces.shareOn', { network: 'LinkedIn' })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-            LinkedIn
-          </a>
-
-          {/* X / Twitter */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
           <a
             href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(annonce.title)}&url=${encodeURIComponent(shareUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t('annonces.shareOn', { network: 'X' })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-800 hover:bg-slate-900 hover:text-white"
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-600 transition hover:border-slate-800 hover:bg-slate-900 hover:text-white"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.257 5.63 5.907-5.63Zm-1.161 17.52h1.833L7.084 4.126H5.117Z"/></svg>
             X
           </a>
-
-          {/* Copy link */}
           <button
             type="button"
             onClick={() => void copyLink()}
             aria-label={t('annonces.copyLink')}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
           >
-            <Copy size={13} />
+            <Copy size={12} />
             {copied ? t('annonces.copied') : t('annonces.copyLink')}
           </button>
 
@@ -397,6 +399,12 @@ function AnnonceCard({
             </div>
           )}
         </div>
+
+        <ArticleEngagement
+          articleSlug={`annonce-${annonce.slug}`}
+          title={annonce.title}
+          sharePath={`/annonces#${encodeURIComponent(annonce.slug)}`}
+        />
       </div>
     </article>
   );
@@ -580,7 +588,7 @@ export default function AnnoncesPublicPage() {
       <section className="relative isolate overflow-hidden text-white bg-slate-950">
         <img src="/banniere/1.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
         <div className="absolute inset-0 z-[1]" style={{ backgroundImage: 'linear-gradient(90deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.88) 30%, rgba(15, 23, 42, 0.48) 50%, rgba(30, 136, 168, 0.16) 75%, rgba(30, 136, 168, 0.04) 100%)' }} aria-hidden="true" />
-        <div className="relative z-20 mx-auto max-w-6xl px-4 py-16 md:px-8">
+        <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
           <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -635,7 +643,7 @@ export default function AnnoncesPublicPage() {
       </section>
 
       {/* ── Content ── */}
-      <section className="mx-auto max-w-5xl px-4 py-10 md:px-8">
+      <section className="mx-auto max-w-screen-xl px-4 py-12 md:px-8 md:py-16">
         {feedback && (
           <div className={`mb-6 flex items-center gap-2 rounded-2xl p-4 text-sm font-semibold shadow-xs ${
             feedback.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
@@ -687,18 +695,18 @@ export default function AnnoncesPublicPage() {
         )}
 
         {loading ? (
-          <div className="space-y-6">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white p-8"
-              >
-                <div className="h-4 w-28 rounded-full bg-slate-200" />
-                <div className="mt-4 h-8 w-3/4 rounded-lg bg-slate-200" />
-                <div className="mt-4 space-y-2">
-                  <div className="h-4 w-full rounded bg-slate-100" />
-                  <div className="h-4 w-5/6 rounded bg-slate-100" />
-                  <div className="h-4 w-2/3 rounded bg-slate-100" />
+              <div key={n} className="animate-pulse overflow-hidden border border-slate-200 bg-white">
+                <div className="aspect-[16/9] bg-slate-100" />
+                <div className="p-4">
+                  <div className="h-3 w-28 rounded-full bg-slate-200" />
+                  <div className="mt-3 h-5 w-3/4 rounded-lg bg-slate-200" />
+                  <div className="mt-3 space-y-2">
+                    <div className="h-4 w-full rounded bg-slate-100" />
+                    <div className="h-4 w-5/6 rounded bg-slate-100" />
+                    <div className="h-4 w-2/3 rounded bg-slate-100" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -723,31 +731,33 @@ export default function AnnoncesPublicPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
-            <p className="text-xs font-semibold text-slate-400">
+          <div>
+            <p className="mb-4 text-xs font-semibold text-slate-400">
               {filtered.length === 1
                 ? t('annonces.publishedCount_one', { count: 1 })
                 : t('annonces.publishedCount_other', { count: filtered.length })}
             </p>
-            {filtered.map((annonce) => (
-              <AnnonceCard
-                key={annonce.id}
-                annonce={annonce}
-                isAdmin={isAdmin}
-                onEdit={() => {
-                  setEditingId(annonce.id);
-                  setEditingForm({
-                    title: annonce.title,
-                    excerpt: annonce.excerpt,
-                    category: annonce.category,
-                    attachments: Array.isArray(annonce.attachments) ? annonce.attachments : [],
-                    socialLinks: Array.isArray(annonce.socialLinks) ? annonce.socialLinks : [],
-                  });
-                  setComposerOpen(true);
-                }}
-                onDelete={() => setDeletingAnnonce(annonce)}
-              />
-            ))}
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {filtered.map((annonce) => (
+                <AnnonceCard
+                  key={annonce.id}
+                  annonce={annonce}
+                  isAdmin={isAdmin}
+                  onEdit={() => {
+                    setEditingId(annonce.id);
+                    setEditingForm({
+                      title: annonce.title,
+                      excerpt: annonce.excerpt,
+                      category: annonce.category,
+                      attachments: Array.isArray(annonce.attachments) ? annonce.attachments : [],
+                      socialLinks: Array.isArray(annonce.socialLinks) ? annonce.socialLinks : [],
+                    });
+                    setComposerOpen(true);
+                  }}
+                  onDelete={() => setDeletingAnnonce(annonce)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </section>

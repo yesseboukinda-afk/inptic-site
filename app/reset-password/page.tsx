@@ -16,25 +16,96 @@ export default function ResetPasswordPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       setMessage(t('pages.supabaseRequired'));
       return;
     }
 
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    const { data } = client.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsReady(true);
+        setMessage('');
       }
     });
 
-    supabase.auth.getSession().then(({ data: sessionData }) => {
-      setIsReady(Boolean(sessionData.session));
-    });
+    let active = true;
+    const prepareRecovery = async () => {
+      const url = new URL(window.location.href);
+      const errorDescription = url.searchParams.get('error_description');
+      const errorCode = url.searchParams.get('error_code');
+      if (errorDescription || errorCode) {
+        setMessage('Ce lien de réinitialisation est invalide ou a expiré. Demandez un nouveau lien.');
+        return;
+      }
 
-    return () => data.subscription.unsubscribe();
-  }, []);
+      try {
+        const code = url.searchParams.get('code');
+        const tokenHash = url.searchParams.get('token_hash');
+        const type = url.searchParams.get('type');
+        let hasRecoverySession = false;
+
+        if (code) {
+          const { data: sessionData, error } = await client.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          hasRecoverySession = Boolean(sessionData.session);
+        } else if (tokenHash && type === 'recovery') {
+          const { data: sessionData, error } = await client.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          if (error) throw error;
+          hasRecoverySession = Boolean(sessionData.session);
+        } else {
+          const fragment = new URLSearchParams(url.hash.slice(1));
+          const accessToken = fragment.get('access_token');
+          const refreshToken = fragment.get('refresh_token');
+          if (accessToken && refreshToken && fragment.get('type') === 'recovery') {
+            const { data: sessionData, error } = await client.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) throw error;
+            hasRecoverySession = Boolean(sessionData.session);
+          }
+        }
+
+        const { data: sessionData, error } = await client.auth.getSession();
+        if (error) throw error;
+        if (active) {
+          setIsReady(hasRecoverySession || Boolean(sessionData.session));
+          if (!hasRecoverySession && !sessionData.session) {
+            setMessage('Le lien n’a pas ouvert une session de récupération. Demandez un nouveau lien et ouvrez-le depuis le même navigateur.');
+          }
+          if (code || tokenHash || url.hash) {
+            window.history.replaceState({}, document.title, url.pathname);
+          }
+        }
+      } catch (error) {
+        if (active) {
+          const { data: sessionData } = await client.auth.getSession();
+          if (sessionData.session) {
+            setIsReady(true);
+            setMessage('');
+          } else {
+            setMessage(error instanceof Error
+              ? `Impossible de valider le lien : ${translateAuthError(error.message, t)}`
+              : 'Impossible de valider le lien de réinitialisation. Demandez-en un nouveau.');
+          }
+        }
+      }
+    };
+
+    void prepareRecovery();
+
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, [t]);
 
   async function updatePassword(event: React.FormEvent) {
     event.preventDefault();
@@ -54,16 +125,24 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setMessage(translateAuthError(error.message, t));
+        return;
+      }
 
-    if (error) {
-      setMessage(translateAuthError(error.message, t));
-      return;
+      setMessage(t('pages.passwordUpdated'));
+      await supabase.auth.signOut();
+      setTimeout(() => router.replace('/candidat'), 800);
+    } catch (error) {
+      setMessage(error instanceof Error
+        ? `La mise à jour a échoué : ${translateAuthError(error.message, t)}`
+        : 'La mise à jour du mot de passe a échoué.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setMessage(t('pages.passwordUpdated'));
-    await supabase.auth.signOut();
-    setTimeout(() => router.replace('/candidat'), 800);
   }
 
   return (
@@ -120,7 +199,7 @@ export default function ResetPasswordPage() {
 
           <button
             type="submit"
-            disabled={!isReady}
+            disabled={!isReady || isSubmitting}
             className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {t('pages.savePassword')}

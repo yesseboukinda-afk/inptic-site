@@ -9,6 +9,7 @@ import {
 } from '@/lib/roles';
 import { strapi } from '@/lib/strapi';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { sendPublicationNewsletter } from '@/lib/newsletter';
 
 const STRAPI_BASE = (process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api').replace(/\/$/, '');
 type PublicationTarget = 'actualites' | 'annonces';
@@ -131,6 +132,19 @@ function parsePublication(value: unknown) {
   };
 }
 
+function isTechVeillePublication(publication: { title: string; excerpt: string }) {
+  return /^\s*\[Veille IT\]/i.test(publication.title) ||
+    /^\s*\[VEILLE IT\s*&\s*IA\s*-\s*INPTIC GABON\]/im.test(publication.excerpt);
+}
+
+function belongsToPublicTarget(
+  publication: { title: string; excerpt: string; targetPages: PublicationTarget[] },
+  target: PublicationTarget,
+) {
+  return publication.targetPages.includes(target) &&
+    (target !== 'annonces' || !isTechVeillePublication(publication));
+}
+
 function createSlug(value: string) {
   const base = value
     .normalize('NFD')
@@ -249,7 +263,7 @@ export async function GET(request: NextRequest) {
             createdAt: item.created_at,
           }));
           return NextResponse.json({
-            data: targetPage ? entries.filter((item) => item.targetPages.includes(targetPage)) : entries,
+            data: targetPage ? entries.filter((item) => belongsToPublicTarget(item, targetPage)) : entries,
             source: 'supabase',
           });
         }
@@ -272,7 +286,7 @@ export async function GET(request: NextRequest) {
     const rawEntries = Array.isArray(strapiPayload?.data) ? strapiPayload.data : [];
     const entries = rawEntries
       .map(parsePublication)
-      .filter((item): item is NonNullable<ReturnType<typeof parsePublication>> => item !== null && item.targetPages.includes(targetPage));
+      .filter((item): item is NonNullable<ReturnType<typeof parsePublication>> => item !== null && belongsToPublicTarget(item, targetPage));
     return NextResponse.json({ data: entries });
   } catch {
     return NextResponse.json({ error: 'API actualités indisponible.' }, { status: 502 });
@@ -331,8 +345,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (!error && data) {
+      const newsletter = status === 'published'
+        ? await sendPublicationNewsletter({
+            id: String(data.id),
+            title: publicationData.title,
+            excerpt: publicationData.excerpt,
+            slug: String(data.slug || publicationData.slug),
+            targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS),
+            attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
+          })
+        : undefined;
       return NextResponse.json(
         {
+          ...(newsletter ? { newsletter } : {}),
           data: {
             id: String(data.id),
             title: data.title,
@@ -373,7 +398,18 @@ export async function POST(request: NextRequest) {
       const detail = error || `Création Strapi refusée (HTTP ${strapiStatus}).`;
       return NextResponse.json({ error: detail }, { status: 502 });
     }
-    return NextResponse.json({ data: parsePublication(payload?.data) }, { status: 201 });
+    const created = parsePublication(payload?.data);
+    const newsletter = status === 'published' && created
+      ? await sendPublicationNewsletter({
+          id: created.id,
+          title: created.title,
+          excerpt: created.excerpt,
+          slug: created.slug,
+          targetPages: created.targetPages,
+          attachments: created.attachments,
+        })
+      : undefined;
+    return NextResponse.json({ data: created, ...(newsletter ? { newsletter } : {}) }, { status: 201 });
   }
 
   return NextResponse.json({ error: 'Aucune base de données configurée pour enregistrer.' }, { status: 500 });
@@ -396,11 +432,17 @@ export async function PATCH(request: NextRequest) {
 
   // 1. Mise à jour Supabase
   if (supabaseAdmin) {
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingError } = await supabaseAdmin
       .from('actualites')
       .select('published_at, slug')
       .eq('id', body.id)
       .maybeSingle();
+    if (existingError) {
+      return NextResponse.json(
+        { error: `Impossible de vérifier le statut de publication : ${existingError.message}` },
+        { status: 500 },
+      );
+    }
 
     const publishedAt = status === 'published'
       ? (existing?.published_at || new Date().toISOString())
@@ -441,7 +483,18 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!error && data) {
+      const newsletter = status === 'published' && !existing?.published_at
+        ? await sendPublicationNewsletter({
+            id: String(data.id),
+            title: publicationData.title,
+            excerpt: publicationData.excerpt,
+            slug: String(data.slug || finalSlug),
+            targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS),
+            attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
+          })
+        : undefined;
       return NextResponse.json({
+        ...(newsletter ? { newsletter } : {}),
         data: {
           id: String(data.id),
           title: data.title,
@@ -471,6 +524,19 @@ export async function PATCH(request: NextRequest) {
 
   // 2. Fallback Strapi
   if (process.env.STRAPI_API_TOKEN) {
+    let shouldSendNewsletter = false;
+    if (status === 'published') {
+      const existing = await strapiManagementRequest(
+        `/actualites/${encodeURIComponent(String(body.id))}?status=published`,
+        { method: 'GET' },
+      );
+      if (existing.ok) {
+        shouldSendNewsletter = !parsePublication(existing.payload?.data)?.publishedAt;
+      } else if (existing.status === 404) {
+        shouldSendNewsletter = true;
+      }
+    }
+
     const statusQuery = `?status=${status}`;
     const { ok, status: strapiStatus, payload, error } = await strapiManagementRequest(
       `/actualites/${encodeURIComponent(String(body.id))}${statusQuery}`,
@@ -483,7 +549,18 @@ export async function PATCH(request: NextRequest) {
       const detail = error || `Modification Strapi refusée (HTTP ${strapiStatus}).`;
       return NextResponse.json({ error: detail }, { status: 502 });
     }
-    return NextResponse.json({ data: parsePublication(payload?.data) });
+    const updated = parsePublication(payload?.data);
+    const newsletter = shouldSendNewsletter && updated
+      ? await sendPublicationNewsletter({
+          id: updated.id,
+          title: publicationData.title,
+          excerpt: publicationData.excerpt,
+          slug: updated.slug,
+          targetPages: updated.targetPages,
+          attachments: updated.attachments,
+        })
+      : undefined;
+    return NextResponse.json({ data: updated, ...(newsletter ? { newsletter } : {}) });
   }
 
   return NextResponse.json({ error: 'Aucune base de données disponible pour modifier.' }, { status: 500 });
