@@ -250,7 +250,7 @@ export async function GET(request: NextRequest) {
           sentiment,
           date: pubDate,
           url,
-          platform: /facebook/i.test(source) ? 'Facebook' : 'Presse en ligne',
+          platform: 'Presse en ligne',
         });
       });
     }
@@ -258,10 +258,15 @@ export async function GET(request: NextRequest) {
     console.error('E-reputation fetch error:', error);
   }
 
-  const comments = mentions
-    .filter((mention) => mention.platform === 'Facebook' || mention.platform === 'YouTube')
-    .sort((first, second) => Date.parse(second.createdAt || '') - Date.parse(first.createdAt || ''))
-    .slice(0, 10);
+  const platformComments = mentions.filter(
+    (mention) => mention.platform === 'Facebook' || mention.platform === 'YouTube',
+  );
+  const comments = (['Facebook', 'YouTube'] as const)
+    .flatMap((platform) => platformComments
+      .filter((mention) => mention.platform === platform)
+      .sort((first, second) => Date.parse(second.createdAt || '') - Date.parse(first.createdAt || ''))
+      .slice(0, 10))
+    .sort((first, second) => Date.parse(second.createdAt || '') - Date.parse(first.createdAt || ''));
 
   return NextResponse.json({
     success: true,

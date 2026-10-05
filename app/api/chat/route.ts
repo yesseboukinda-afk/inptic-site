@@ -10,6 +10,41 @@ type ChatMessage = {
   content: string;
 };
 
+type GroundingSource = {
+  uri: string;
+  title?: string;
+};
+
+function readObject(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function extractGroundingSources(value: unknown): GroundingSource[] {
+  if (!Array.isArray(value)) return [];
+
+  const sources = value.flatMap((chunk): GroundingSource[] => {
+    const web = readObject(readObject(chunk)?.web);
+    if (typeof web?.uri !== 'string') return [];
+
+    try {
+      const uri = new URL(web.uri);
+      if (uri.protocol !== 'https:') return [];
+      return [{
+        uri: uri.href,
+        ...(typeof web.title === 'string' ? { title: web.title } : {}),
+      }];
+    } catch {
+      return [];
+    }
+  });
+
+  return sources.filter((source, index) =>
+    sources.findIndex((candidate) => candidate.uri === source.uri) === index,
+  ).slice(0, 5);
+}
+
 const siteKnowledge = `
 INPTIC signifie Institut National de la Poste, des Technologies de l'Information et de la Communication au Gabon.
 Le site présente notamment les formations en cybersécurité, génie logiciel, monétique,
@@ -23,7 +58,7 @@ Processus d'admission et d'inscription :
 5. Suivi de la validation du dossier par la Direction de la Scolarité sur /admissions/suivi.
 `;
 
-// Cascade de 10 modèles IA (combinant modèles commerciaux et open source de pointe)
+// Providers de repli si Gemini n'est pas configuré.
 const MODEL_CASCADE = [
   { name: 'OpenAI GPT-4o-mini', model: 'gpt-4o-mini', provider: 'openai' },
   { name: 'Meta Llama 3.3 70B (Open Source)', model: 'meta-llama/llama-3.3-70b-instruct', provider: 'openrouter' },
@@ -62,9 +97,6 @@ export async function POST(req: NextRequest) {
     }
 
     const text = messages.filter((item) => item.role === 'user').at(-1)?.content || '';
-    const requestedChatId = typeof body?.chatId === 'string' ? body.chatId : '';
-    const chat = requestedChatId && chatExists(requestedChatId) ? { id: requestedChatId } : createChat(text);
-    saveChatMessage(chat.id, 'user', text);
 
     const systemPrompt = `Tu es l'assistant vocal et textuel officiel de l'INPTIC (Institut National de la Poste, des Technologies de l'Information et de la Communication au Gabon).
 Tu es doté d'une intelligence artificielle avancée capable de répondre à n'importe quelle question (questions générales, scientifiques, météo, culture, comparaisons et équivalences de diplômes comme le Bac B ou autres séries au Gabon par rapport à l'international, etc.) et d'expliquer avec une précision absolue les processus d'inscription et d'admission de l'INPTIC.
@@ -77,26 +109,99 @@ Directives clés :
    - Règlement sécurisé des frais de dossier de 20 000 FCFA via Mobile Money (Airtel Money ou Moov Money) avec sélection de l'opérateur et numéro à débiter.
    - Génération d'une Quittance officielle de paiement dotée d'un QR code d'authenticité vérifiable en temps réel sur [/quittance/[reference]](/quittance/[reference]).
    - Suivi de la validation du dossier par la Direction de la Scolarité sur [/admissions/suivi](/admissions/suivi).
-3. Style de réponse : Clair, structuré, chaleureux, idéal pour la lecture vocale (synthèse vocale) et textuelle. Utilise les liens internes Markdown pertinents fournis dans le contexte.
+3. Raisonnement : Analyse la question avec soin, vérifie les étapes et les faits avant de répondre. Ne révèle pas ton raisonnement interne détaillé ; donne uniquement une conclusion et des explications utiles à l'utilisateur.
+4. Calculs : Pour les calculs complexes ou nécessitant plusieurs étapes, utilise l'exécution de code Python et vérifie le résultat avant de l'expliquer.
+5. Recherche : Pour les informations récentes, vérifiables ou susceptibles d'avoir changé, utilise Google Search et cite les sources consultées dans la réponse.
+6. Style de réponse : Clair, structuré, chaleureux, idéal pour la lecture vocale (synthèse vocale) et textuelle. Utilise les liens internes Markdown pertinents fournis dans le contexte.
 
 Contexte du site :\n${siteKnowledge}`;
 
+    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
     const openAiKey = process.env.OPENAI_API_KEY;
-    const openRouterKey = process.env.OPENROUTER_API_KEY || openAiKey;
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-    if (!openAiKey && !openRouterKey) {
+    if (!geminiApiKey && !openAiKey && !openRouterKey) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Clé API introuvable. Avez-vous bien redémarré votre serveur Next.js après avoir ajouté OPENROUTER_API_KEY dans votre fichier .env.local ? (Arrêtez le serveur avec Ctrl+C puis relancez npm run dev).',
+          error: 'Aucune clé IA configurée. Ajoutez GEMINI_API_KEY dans les variables d’environnement serveur.',
         },
         { status: 500 }
       );
     }
 
+    const requestedChatId = typeof body?.chatId === 'string' ? body.chatId : '';
+    const chat = requestedChatId && chatExists(requestedChatId) ? { id: requestedChatId } : createChat(text);
+    saveChatMessage(chat.id, 'user', text);
+
+    if (geminiApiKey) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': geminiApiKey,
+          },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: messages.map((message) => ({
+              role: message.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: message.content }],
+            })),
+            tools: [
+              { google_search: {} },
+              { code_execution: {} },
+            ],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 12288,
+              thinkingConfig: {
+                thinkingBudget: 8192,
+              },
+            },
+          }),
+        },
+      );
+      const data = await response.json();
+      const reply = data?.candidates?.[0]?.content?.parts
+        ?.map((part: { text?: unknown }) => typeof part.text === 'string' ? part.text : '')
+        .join('')
+        .trim();
+      const sources = extractGroundingSources(data?.candidates?.[0]?.groundingMetadata?.groundingChunks);
+
+      if (!response.ok) {
+        const apiError = typeof data?.error?.message === 'string' ? data.error.message : '';
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Gemini n’a pas pu répondre (HTTP ${response.status}). ${apiError || 'Vérifiez la clé GEMINI_API_KEY, le modèle et le quota Google AI.'}`,
+          },
+          { status: 502 },
+        );
+      }
+
+      if (!reply) {
+        return NextResponse.json(
+          { success: false, error: 'Gemini a renvoyé une réponse vide. Reformulez votre question.' },
+          { status: 502 },
+        );
+      }
+
+      const replyWithSources = sources.length
+        ? `${reply}\n\nSources consultées :\n${sources.map((source: { uri: string; title?: string }) =>
+            `- [${source.title || source.uri}](${source.uri})`,
+          ).join('\n')}`
+        : reply;
+
+      saveChatMessage(chat.id, 'assistant', replyWithSources);
+      return NextResponse.json({ chatId: chat.id, documents: [], reply: replyWithSources, usedModel: `Google ${geminiModel}` });
+    }
+
     let lastError = '';
 
-    // Test de la cascade de 10 modèles en séquence
+    // Legacy provider fallback for installations without a Gemini API key.
     for (const item of MODEL_CASCADE) {
       try {
         let endpoint = 'https://api.openai.com/v1/chat/completions';
@@ -139,6 +244,12 @@ Contexte du site :\n${siteKnowledge}`;
       } catch (err: any) {
         lastError = err?.message || `Échec du modèle ${item.name}`;
       }
+    }
+
+    if (!geminiApiKey) {
+      throw new Error(
+        `GEMINI_API_KEY n’est pas configurée et les fournisseurs IA de secours sont injoignables (${lastError || 'aucune réponse'}). Ajoutez GEMINI_API_KEY aux variables serveur pour activer Gemini.`,
+      );
     }
 
     throw new Error(`Tous les modèles de la cascade ont échoué. Dernier échec : ${lastError}`);

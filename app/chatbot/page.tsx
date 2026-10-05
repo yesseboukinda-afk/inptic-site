@@ -18,6 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import inpticLogo from '@/logoinptic.png';
+import { speakFrenchText } from '@/lib/chatbot-speech';
 import { useTranslation } from 'react-i18next';
 
 type Message = {
@@ -27,22 +28,48 @@ type Message = {
   modelUsed?: string;
 };
 
+function renderMessage(text: string) {
+  const cleanText = text.replace(/^#{1,3}\s+/gm, '');
+  const parts = cleanText.split(/(\[[^\]]+\]\((?:\/[^\s)]+|https:\/\/[^\s)]+)\))/g);
+
+  return parts.map((part, index) => {
+    const link = part.match(/^\[([^\]]+)\]\(((?:\/[^\s)]+|https:\/\/[^\s)]+))\)$/);
+    if (!link) return <span key={`${part}-${index}`}>{part}</span>;
+
+    const isExternal = link[2].startsWith('https://');
+    return (
+      <a
+        key={`${link[2]}-${index}`}
+        href={link[2]}
+        {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900"
+      >
+        {link[1]}
+      </a>
+    );
+  });
+}
+
 export default function FullChatbotPage() {
   const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Bonjour et bienvenue sur l’Assistant IA de l’INPTIC. Je suis connecté à une cascade de 10 modèles de pointe (OpenAI GPT-4o, Llama 3.3 70B, DeepSeek, Claude 3.5 Sonnet, etc.). Comment puis-je vous aider aujourd’hui ?',
+      content: 'Bonjour et bienvenue sur l’Assistant IA de l’INPTIC, propulsé par Google Gemini. Comment puis-je vous aider aujourd’hui ?',
     },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [selectedModelBadge, setSelectedModelBadge] = useState('Cascade 10 Modèles IA');
+  const [speechError, setSpeechError] = useState('');
+  const [speechNotice, setSpeechNotice] = useState('');
+  const [selectedModelBadge, setSelectedModelBadge] = useState('Google Gemini 2.5 Pro');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const speechCancelRef = useRef<(() => void) | null>(null);
 
+  useEffect(() => () => speechCancelRef.current?.(), []);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
@@ -78,39 +105,27 @@ export default function FullChatbotPage() {
     }
   };
 
-  const cleanTextForSpeech = (text: string): string => {
-    return text
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
-      .replace(/#{1,6}\s+/g, '')
-      .replace(/[*_`~>-]/g, '')
-      .replace(/\n+/g, '. ')
-      .trim();
-  };
-
   const speakText = (text: string, id: string) => {
-    if (!('speechSynthesis' in window)) return;
     if (speakingId === id) {
-      window.speechSynthesis.cancel();
+      speechCancelRef.current?.();
+      speechCancelRef.current = null;
       setSpeakingId(null);
       return;
     }
-    window.speechSynthesis.cancel();
-    const cleanText = cleanTextForSpeech(text);
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const frVoice = voices.find((v) => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
-    if (frVoice) {
-      utterance.voice = frVoice;
-    }
-
-    utterance.onend = () => setSpeakingId(null);
-    utterance.onerror = () => setSpeakingId(null);
+    speechCancelRef.current?.();
+    setSpeechError('');
+    setSpeechNotice('');
     setSpeakingId(id);
-    window.speechSynthesis.speak(utterance);
+    speechCancelRef.current = speakFrenchText(text, () => {
+      speechCancelRef.current = null;
+      setSpeakingId(null);
+    }, (error) => {
+      speechCancelRef.current = null;
+      setSpeakingId(null);
+      setSpeechError(error);
+    }, (notice) => {
+      setSpeechNotice(notice);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,7 +234,7 @@ export default function FullChatbotPage() {
                       : 'rounded-bl-sm border border-slate-800 bg-slate-900 text-slate-100'
                   }`}
                 >
-                  <p className="whitespace-pre-line">{m.content}</p>
+                  <p className="whitespace-pre-line">{renderMessage(m.content)}</p>
                 </div>
 
                 {m.role === 'assistant' && (
@@ -240,8 +255,14 @@ export default function FullChatbotPage() {
             {isLoading && (
               <div className="flex items-center gap-2 self-start rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-400 shadow-sm">
                 <Loader size={16} className="animate-spin text-cyan-400" />
-                <span>Interrogation de la cascade de 10 modèles IA…</span>
+                <span>Gemini réfléchit, recherche ou calcule…</span>
               </div>
+            )}
+            {speechError && (
+              <p role="alert" className="text-xs text-red-600">{speechError}</p>
+            )}
+            {speechNotice && (
+              <p role="status" className="text-xs text-amber-300">{speechNotice}</p>
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -283,7 +304,7 @@ export default function FullChatbotPage() {
           </button>
         </form>
         <p className="mt-2 text-center text-[11px] text-slate-500">
-          Assistant INPTIC • Propulsé par une cascade de 10 modèles IA open source et commerciaux.
+          Assistant INPTIC • Gemini 2.5 Pro avec recherche Web et calculs avancés.
         </p>
       </footer>
     </main>

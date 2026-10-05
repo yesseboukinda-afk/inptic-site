@@ -8,15 +8,24 @@
 
 ## Chatbot INPTIC
 
-Le bouton Assistant utilise maintenant une intégration native dans l'application
-principale. Le moteur AI SDK et le provider Gateway sont utilisés par
-`/api/chat`, avec le contexte documentaire et les liens internes de l'INPTIC.
-Le moteur conserve l'historique de la conversation, peut exécuter des outils
-bornés comme la météo, puis rédiger la réponse finale en français.
+Le bouton Assistant et la page `/chatbot` utilisent `/api/chat`, qui appelle
+Google Gemini côté serveur. Configurez `GEMINI_API_KEY` dans `.env.local` pour
+le développement et dans les variables d'environnement du déploiement. La clé
+ne doit jamais être préfixée par `NEXT_PUBLIC_`. Le modèle par défaut est
+`gemini-2.5-pro`; `GEMINI_MODEL` permet de le remplacer. La recherche Google
+groundée et l'exécution Python sont activées pour aider aux recherches récentes
+et aux calculs. Les sources Web renvoyées par Google sont affichées dans les
+réponses. Le modèle Pro et ces outils peuvent répondre plus lentement et entraîner
+des coûts supérieurs à Gemini Flash.
 
-Pour activer le modèle Gateway, renseigner `AI_GATEWAY_API_KEY` dans `.env.local`.
-Sans cette clé, l'assistant conserve son fallback local ; `OPENAI_API_KEY` reste
-également accepté comme solution de compatibilité.
+La lecture vocale est générée côté serveur par Gemini TTS (`GEMINI_TTS_MODEL`,
+par défaut `gemini-3.8-flash-tts`) avec la voix féminine Kore et un style français
+chaleureux et naturel. Elle utilise la même clé serveur `GEMINI_API_KEY` et le
+quota Gemini. Si le serveur ne peut pas joindre Google, l'interface essaie une
+voix française féminine installée dans le navigateur et signale ce mode de secours.
+
+En l'absence de clé Gemini, les anciens fournisseurs restent disponibles en
+repli avec `OPENAI_API_KEY` ou `OPENROUTER_API_KEY`.
 
 Le dossier `chatbot/` conserve le template open source complet comme référence pour
 les futures évolutions (historique, authentification, outils et artefacts), mais il
@@ -120,7 +129,7 @@ Pour activer les inscriptions et envois de newsletter :
 - CMS: Strapi REST (`/formations`, `/actualites`).
 - Auth candidat: Supabase Auth via `/api/candidat/login`.
 - Recherche: route `/api/search?q=` interrogeant Strapi.
-- IA: variable `OPENAI_API_KEY` réservée au serveur pour ajouter INPTIC-Bot/RAG.
+- IA: variable serveur `GEMINI_API_KEY` (ou `GOOGLE_GENERATIVE_AI_API_KEY`).
 - PostgreSQL: à brancher derrière Strapi ou Supabase selon l'architecture retenue.
 
 ## Collections Strapi minimales

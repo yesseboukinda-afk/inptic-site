@@ -64,7 +64,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
       }
 
       setMentions(data.mentions);
-      setComments(Array.isArray(data.comments) ? data.comments.slice(0, 10) : []);
+      setComments(Array.isArray(data.comments) ? data.comments : []);
       setLastScannedAt(new Date());
       const unavailableSources: string[] = [];
       if (data.sources?.facebook === 'unavailable') {
@@ -99,9 +99,18 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
   const score = Math.round((positiveCount / (mentions.length || 1)) * 100);
 
   const filtered = mentions.filter((m) => filter === 'all' || m.sentiment === filter);
-  const filteredComments = comments.filter(
-    (comment) => commentPlatformFilter === 'all' || comment.platform === commentPlatformFilter,
-  );
+  const filteredComments = comments
+    .filter((comment) => commentPlatformFilter === 'all' || comment.platform === commentPlatformFilter)
+    .sort((first, second) => {
+      const firstTime = first.createdAt ? Date.parse(first.createdAt) : Number.NaN;
+      const secondTime = second.createdAt ? Date.parse(second.createdAt) : Number.NaN;
+      if (Number.isNaN(firstTime)) return Number.isNaN(secondTime) ? 0 : 1;
+      if (Number.isNaN(secondTime)) return -1;
+      return secondTime - firstTime;
+    });
+  const facebookCommentsWithoutAuthor = comments.filter(
+    (comment) => comment.platform === 'Facebook' && comment.author === 'Utilisateur Facebook',
+  ).length;
   const negativeAlerts = mentions.filter((m) => m.sentiment === 'negatif');
 
   const handleSendReply = async (id: string) => {
@@ -387,6 +396,13 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
             </select>
           </div>
         </div>
+        {(commentPlatformFilter === 'all' || commentPlatformFilter === 'Facebook') && facebookCommentsWithoutAuthor > 0 && (
+          <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            Meta n’a pas transmis le nom pour {facebookCommentsWithoutAuthor} commentaire{facebookCommentsWithoutAuthor > 1 ? 's' : ''} Facebook.
+            Vérifiez que le jeton de la Page dispose de l’autorisation <code>pages_read_user_content</code>, puis régénérez-le.
+            Si le champ du nom reste absent, l’API Meta ne permet pas de le récupérer pour ce commentaire.
+          </p>
+        )}
         {filteredComments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
             {comments.length === 0

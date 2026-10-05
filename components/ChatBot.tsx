@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import inpticLogo from '@/logoinptic.png';
 import { Bot, History, Loader, Menu, Plus, Send, X, Mic, MicOff, Volume2 } from 'lucide-react';
+import { speakFrenchText } from '@/lib/chatbot-speech';
 import { useTranslation } from 'react-i18next';
 
 type ChatMessage = {
@@ -20,10 +21,10 @@ type Conversation = {
 
 function renderMessage(text: string) {
   const cleanText = text.replace(/^#{1,3}\s+/gm, '');
-  const parts = cleanText.split(/(\[[^\]]+\]\(\/[^\s)]+\))/g);
+  const parts = cleanText.split(/(\[[^\]]+\]\((?:\/[^\s)]+|https:\/\/[^\s)]+)\))/g);
 
   return parts.map((part, index) => {
-    const link = part.match(/^\[([^\]]+)\]\((\/[^\s)]+)\)$/);
+    const link = part.match(/^\[([^\]]+)\]\(((?:\/[^\s)]+|https:\/\/[^\s)]+))\)$/);
 
     if (!link) return <span key={`${part}-${index}`}>{part}</span>;
 
@@ -31,6 +32,7 @@ function renderMessage(text: string) {
       <a
         key={`${link[2]}-${index}`}
         href={link[2]}
+        {...(link[2].startsWith('https://') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900"
       >
         {link[1]}
@@ -51,6 +53,8 @@ export default function ChatBot() {
   const [showHistory, setShowHistory] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [speechError, setSpeechError] = useState('');
+  const [speechNotice, setSpeechNotice] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -61,6 +65,7 @@ export default function ChatBot() {
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const speechCancelRef = useRef<(() => void) | null>(null);
 
   const openChat = () => {
     setIsMounted(true);
@@ -99,6 +104,8 @@ export default function ChatBot() {
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
+
+  useEffect(() => () => speechCancelRef.current?.(), []);
 
   useEffect(() => {
     const storedChatId = window.localStorage.getItem('inptic-chat-id');
@@ -160,50 +167,28 @@ export default function ChatBot() {
     }
   };
 
-  const cleanTextForSpeech = (text: string): string => {
-    return text
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Supprime les URLs Markdown et garde le texte du lien
-      .replace(/#{1,6}\s+/g, '') // Supprime les titres Markdown (#)
-      .replace(/[*_`~>-]/g, '') // Supprime les symboles de mise en forme
-      .replace(/\n+/g, '. ') // Remplace les retours à la ligne par des pauses
-      .trim();
-  };
-
   const speakText = (text: string, messageId: string) => {
-    if (!('speechSynthesis' in window)) {
-      alert('La synthèse vocale n’est pas prise en charge par votre navigateur.');
-      return;
-    }
-
     if (speakingMessageId === messageId) {
-      window.speechSynthesis.cancel();
+      speechCancelRef.current?.();
+      speechCancelRef.current = null;
       setSpeakingMessageId(null);
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const cleanText = cleanTextForSpeech(text);
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const frVoice = voices.find((v) => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
-    if (frVoice) {
-      utterance.voice = frVoice;
-    }
-
-    utterance.onend = () => {
-      setSpeakingMessageId(null);
-    };
-
-    utterance.onerror = () => {
-      setSpeakingMessageId(null);
-    };
-
+    speechCancelRef.current?.();
+    setSpeechError('');
+    setSpeechNotice('');
     setSpeakingMessageId(messageId);
-    window.speechSynthesis.speak(utterance);
+    speechCancelRef.current = speakFrenchText(text, () => {
+      speechCancelRef.current = null;
+      setSpeakingMessageId(null);
+    }, (error) => {
+      speechCancelRef.current = null;
+      setSpeakingMessageId(null);
+      setSpeechError(error);
+    }, (notice) => {
+      setSpeechNotice(notice);
+    });
   };
 
   const sendMessage = async (messageText = inputValue) => {
@@ -250,7 +235,7 @@ export default function ChatBot() {
       setMessages((current) => [...current, {
         id: `${Date.now()}-error`,
         role: 'assistant',
-        content: err?.message || 'Clé API OpenAI (OPENAI_API_KEY) non configurée. Veuillez l’ajouter dans vos variables d’environnement.',
+        content: err?.message || 'Aucune clé IA n’est configurée. Veuillez ajouter GEMINI_API_KEY dans les variables d’environnement du serveur.',
       }]);
     } finally {
       setIsLoading(false);
@@ -405,8 +390,14 @@ export default function ChatBot() {
                 {isLoading && (
                   <div className="flex items-center gap-2 self-start rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
                     <Loader size={16} className="animate-spin text-blue-600" aria-hidden="true" />
-                    L’assistant réfléchit…
+                    Gemini réfléchit, recherche ou vérifie un calcul…
                   </div>
+                )}
+                {speechError && (
+                  <p role="alert" className="text-xs text-red-700">{speechError}</p>
+                )}
+                {speechNotice && (
+                  <p role="status" className="text-xs text-amber-700">{speechNotice}</p>
                 )}
                 <div ref={messagesEndRef} />
               </div>
