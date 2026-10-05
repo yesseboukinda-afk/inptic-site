@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Plus, X, Clock, ThumbsUp, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Clock, ThumbsUp, AlertTriangle } from 'lucide-react';
 
 type MentionItem = {
   id: string;
@@ -34,6 +34,7 @@ function getPlatformIcon(platform: MentionItem['platform']) {
 export default function EReputationDashboard({ accessToken }: { accessToken: string }) {
   const [mentions, setMentions] = useState<MentionItem[]>([]);
   const [comments, setComments] = useState<MentionItem[]>([]);
+  const [commentPlatformFilter, setCommentPlatformFilter] = useState<'all' | 'Facebook' | 'YouTube'>('all');
   const [filter, setFilter] = useState<'all' | 'positif' | 'neutre' | 'negatif'>('all');
   const [replyText, setReplyText] = useState('');
   const [replyingId, setReplyingId] = useState<string | null>(null);
@@ -45,13 +46,6 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
   const [scanWarning, setScanWarning] = useState('');
   const [lastScannedAt, setLastScannedAt] = useState<Date | null>(null);
   const scanInProgress = useRef(false);
-
-  // Modal de capture manuelle / test de commentaire Facebook
-  const [showIngestModal, setShowIngestModal] = useState(false);
-  const [ingestAuthor, setIngestAuthor] = useState('');
-  const [ingestContent, setIngestContent] = useState('');
-  const [ingestPlatform, setIngestPlatform] = useState<'Facebook' | 'YouTube' | 'Twitter/X' | 'Google Avis' | 'LinkedIn'>('Facebook');
-  const [ingestUrl, setIngestUrl] = useState('https://www.facebook.com/people/Inptic-Gabon/61557159190234/');
 
   const loadLiveMentions = async (forceRefresh = false) => {
     if (scanInProgress.current) return;
@@ -99,39 +93,15 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
     return () => clearInterval(interval);
   }, []);
 
-  const handleIngestComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ingestContent.trim()) return;
-
-    try {
-      const res = await fetch('/api/ereputation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          author: ingestAuthor.trim() || 'Auteur Facebook',
-          content: ingestContent.trim(),
-          platform: ingestPlatform,
-          url: ingestUrl.trim(),
-        }),
-      });
-
-      if (res.ok) {
-        setShowIngestModal(false);
-        setIngestAuthor('');
-        setIngestContent('');
-        loadLiveMentions();
-      }
-    } catch {
-      // ignore
-    }
-  };
-
   const positiveCount = mentions.filter((m) => m.sentiment === 'positif').length;
   const neutralCount = mentions.filter((m) => m.sentiment === 'neutre').length;
   const negativeCount = mentions.filter((m) => m.sentiment === 'negatif').length;
   const score = Math.round((positiveCount / (mentions.length || 1)) * 100);
 
   const filtered = mentions.filter((m) => filter === 'all' || m.sentiment === filter);
+  const filteredComments = comments.filter(
+    (comment) => commentPlatformFilter === 'all' || comment.platform === commentPlatformFilter,
+  );
   const negativeAlerts = mentions.filter((m) => m.sentiment === 'negatif');
 
   const handleSendReply = async (id: string) => {
@@ -198,10 +168,10 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
         </div>
       </div>
 
-      {/* Raccourcis Plateformes Officielles & Bouton d'Ingestion Manuel */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
+      {/* Canal officiel INPTIC surveillé */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-bold text-slate-700">Canaux officiels INPTIC surveillés :</span>
+          <span className="font-bold text-slate-700">Canaux surveillés :</span>
           <a
             href="https://www.facebook.com/people/Inptic-Gabon/61557159190234/?mibextid=wwXIfr"
             target="_blank"
@@ -209,26 +179,18 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-blue-400 transition"
           >
             <img src="/partages/facebook.svg" alt="" className="h-4 w-4" />
-            <span>Facebook Officiel</span>
+            <span>Facebook</span>
           </a>
           <a
-            href="https://whatsapp.com/channel/0029VagrNh3KQuJBA9v3Zc3i"
+            href="https://www.youtube.com/@INPTICGabonOfficiel"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-green-400 transition"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-red-400 transition"
           >
-            <img src="/partages/whatsapp.svg" alt="" className="h-4 w-4" />
-            <span>WhatsApp Channel</span>
+            <img src="/partages/youtube.svg" alt="" className="h-4 w-4" />
+            <span>YouTube</span>
           </a>
         </div>
-
-        <button
-          onClick={() => setShowIngestModal(true)}
-          className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 font-bold text-white hover:bg-blue-600 transition"
-        >
-          <Plus size={14} />
-          <span>Saisir un commentaire capté</span>
-        </button>
       </div>
 
 
@@ -243,7 +205,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
               </span>
               <Bell size={18} className="animate-bounce" />
               <h4 className="font-black text-sm uppercase tracking-wide">
-                Alerte E-réputation : {negativeAlerts.length} alerte(s) critique(s) détectée(s) en temps réel
+                Alerte E-réputation : {negativeAlerts.length} alerte(s) critique(s) détectée(s)
               </h4>
             </div>
             <span className="rounded-full bg-red-600 px-3 py-0.5 text-xs font-bold text-white">
@@ -279,7 +241,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
                     className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                   >
                     <ExternalLink size={13} />
-                    <span>Lien direct vers le commentaire d&apos;origine</span>
+                    <span>Lien vers le commentaire d&apos;origine</span>
                   </a>
 
                   {alertItem.platform === 'Facebook' && alertItem.id.startsWith('fb-live-') && (
@@ -309,7 +271,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
                         setReplyError('');
                         setReplySuccess('');
                       }}
-                      placeholder="Rédiger la réponse officielle de l'INPTIC..."
+                      placeholder="Rédiger la réponse de l'INPTIC..."
                       className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-blue-500"
                     />
                     <button
@@ -408,18 +370,32 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
           <div className="flex items-center gap-2">
             <MessageSquare size={16} className="text-blue-600" />
             <h4 id="recent-comments-heading" className="text-sm font-black text-slate-900">
-              10 derniers commentaires Facebook et YouTube
+              Commentaires récents
             </h4>
           </div>
-          <span className="text-xs text-slate-500">{comments.length} commentaire{comments.length > 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{filteredComments.length} commentaire{filteredComments.length > 1 ? 's' : ''}</span>
+            <select
+              aria-label="Filtrer les commentaires par plateforme"
+              value={commentPlatformFilter}
+              onChange={(event) => setCommentPlatformFilter(event.target.value as 'all' | 'Facebook' | 'YouTube')}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+            >
+              <option value="all">Toutes les plateformes</option>
+              <option value="Facebook">Facebook</option>
+              <option value="YouTube">YouTube</option>
+            </select>
+          </div>
         </div>
-        {comments.length === 0 ? (
+        {filteredComments.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
-            Aucun commentaire récent accessible. Vérifiez les accès Facebook et YouTube.
+            {comments.length === 0
+              ? 'Aucun commentaire récent accessible. Vérifiez les accès Facebook et YouTube.'
+              : `Aucun commentaire récent sur ${commentPlatformFilter}.`}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {comments.map((comment) => (
+            {filteredComments.map((comment) => (
               <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2.5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -516,7 +492,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
                     className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
                   >
                     <MessageSquare size={13} />
-                    <span>Répondre officiellement</span>
+                    <span>Répondre</span>
                   </button>
                 )}
               </div>
@@ -556,86 +532,6 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
         )}
       </div>
 
-      {/* ── MODAL SAISIE D'UN COMMENTAIRE CAPTÉ ── */}
-      {showIngestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-900">Saisir un commentaire capté sur les réseaux</h3>
-              <button onClick={() => setShowIngestModal(false)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100">
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleIngestComment} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Auteur du commentaire / Nom de l'utilisateur *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: Jean M. / @TrollGabon241"
-                  value={ingestAuthor}
-                  onChange={(e) => setIngestAuthor(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Plateforme d'origine</label>
-                <select
-                  value={ingestPlatform}
-                  onChange={(e) => setIngestPlatform(e.target.value as any)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
-                >
-                  <option value="Facebook">Facebook</option>
-                  <option value="YouTube">YouTube</option>
-                  <option value="Twitter/X">Twitter/X</option>
-                  <option value="Google Avis">Google Avis</option>
-                  <option value="LinkedIn">LinkedIn</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Lien direct vers la publication / commentaire</label>
-                <input
-                  type="url"
-                  value={ingestUrl}
-                  onChange={(e) => setIngestUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500 font-mono text-[11px]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Texte exact du commentaire *</label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder="Tapez ou collez le commentaire exact déposé sur la page..."
-                  value={ingestContent}
-                  onChange={(e) => setIngestContent(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowIngestModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-blue-600 px-5 py-2 font-bold text-white hover:bg-blue-700"
-                >
-                  Enregistrer &amp; Analyser
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

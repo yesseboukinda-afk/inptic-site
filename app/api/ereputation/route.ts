@@ -77,7 +77,7 @@ function formatCommentDate(value: string | undefined) {
 
 function classifySentiment(content: string): MentionItem['sentiment'] {
   const lower = content.toLocaleLowerCase('fr');
-  if (/nul|incompétent|mauvais|scandale|problème|arnaque|faux|lent|plainte|déçu|décevant/i.test(lower)) {
+  if (/nul|incompétent|mauvais|scandale|problème|arnaque|faux|lent|plainte|déçu|décevant|pas\s+la\s+ligne|ne\s+(?:passes?|gagnes?)\s+pas.{0,60}concours/i.test(lower)) {
     return 'negatif';
   }
   if (/excellent|super|merci|bravo|félicit|succès|top|génial|recommande/i.test(lower)) {
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
   // Read recent comments on the Page's latest posts.
   if (fbAccessToken) {
     try {
-      const fields = 'id,message,created_time,permalink_url,comments.limit(25){id,message,created_time,from,permalink_url}';
+      const fields = 'id,message,created_time,permalink_url,comments.limit(25){id,message,created_time,from{id,name},permalink_url}';
       const fbParams = new URLSearchParams({ fields, limit: '10', access_token: fbAccessToken });
       const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0';
       const fbGraphUrl = `https://graph.facebook.com/${graphVersion}/${facebookPageId}/feed?${fbParams}`;
@@ -117,10 +117,11 @@ export async function GET(request: NextRequest) {
           for (const comment of comments) {
             const messageText = typeof comment.message === 'string' ? comment.message.trim() : '';
             if (!messageText || !comment.created_time) continue;
+            const authorName = typeof comment.from?.name === 'string' ? comment.from.name.trim() : '';
             mentions.push({
               id: `fb-live-${comment.id}`,
               source: 'Page Facebook Officielle INPTIC',
-              author: comment.from?.name || 'Utilisateur Facebook',
+              author: authorName || 'Utilisateur Facebook',
               content: messageText,
               sentiment: classifySentiment(messageText),
               createdAt: comment.created_time,

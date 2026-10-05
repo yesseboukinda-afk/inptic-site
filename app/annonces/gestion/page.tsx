@@ -918,9 +918,9 @@ export default function GestionAnnoncesPage() {
         </header>
 
         <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-          <div className="grid gap-8 lg:grid-cols-[1fr_440px] items-start">
+          <div className="grid items-start gap-8 lg:grid-cols-2">
             {/* Colonne Principale (Gauche) */}
-            <div className="space-y-8">
+            <div className="min-w-0 space-y-8">
               {/* ── Veille Technologique Internationale Carrousel ── */}
               <TechVeilleFeed accessToken={accessToken} />
 
@@ -996,10 +996,10 @@ export default function GestionAnnoncesPage() {
               )}
             </div>
 
-            {/* Sidebar Droite (E-réputation) */}
-            <aside className="lg:sticky lg:top-24 max-h-[88vh] overflow-y-auto pr-1">
+            {/* Veille e-réputation (colonne droite) */}
+            <section className="min-w-0 border-t border-slate-200 pt-8 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
               <EReputationDashboard accessToken={accessToken} />
-            </aside>
+            </section>
           </div>
         </div>
       </main>
