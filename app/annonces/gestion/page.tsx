@@ -9,7 +9,7 @@ import {
   Globe, Loader2, Megaphone, MessageCircle, Paperclip, Pencil, Plus,
   RefreshCw, Tag, Trash2, UploadCloud, X,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import TechVeilleFeed from '@/components/TechVeilleFeed';
 import EReputationDashboard from '@/components/EReputationDashboard';
 
@@ -736,9 +736,6 @@ export default function GestionAnnoncesPage() {
   const [deletingPub, setDeletingPub] = useState<Publication | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // supabase may be null (missing env vars); use ReturnType on the non-null createClient return
-  const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
-
   /* ── Load publications ── */
   const load = useCallback(async (token: string, silent = false) => {
     if (!silent) setIsLoading(true);
@@ -763,29 +760,14 @@ export default function GestionAnnoncesPage() {
   useEffect(() => {
     let active = true;
     const verify = async () => {
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (!active) return;
-        const session = data.session;
-        if (session) {
-          setAccessToken(session.access_token);
-          setAuthorized(true);
-          setCheckingRole(false);
-          void load(session.access_token);
-          return;
-        }
-      }
-
+      const { data } = await authClient.auth.getSession();
       if (!active) return;
-
-      const director = localStorage.getItem('inptic_directeur');
-      const staffRaw = localStorage.getItem('inptic_staff');
-
-      if (director || staffRaw) {
-        setAccessToken('local-admin-token');
+      const session = data.session;
+      if (session) {
+        setAccessToken(session.access_token);
         setAuthorized(true);
         setCheckingRole(false);
-        void load('local-admin-token');
+        void load(session.access_token);
         return;
       }
 

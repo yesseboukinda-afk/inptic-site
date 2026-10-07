@@ -8,7 +8,7 @@ import {
   Pencil, Plus, ShieldCheck, Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import ArticleEngagement from '@/components/ArticleEngagement';
 import {
   Composer,
@@ -454,35 +454,16 @@ export default function AnnoncesPublicPage() {
 
     // Detect admin / staff user
     const checkAdmin = async () => {
-      const staffRaw = typeof window !== 'undefined' ? localStorage.getItem('inptic_staff') : null;
-      const directorRaw = typeof window !== 'undefined' ? localStorage.getItem('inptic_directeur') : null;
-      let staffData: { role?: unknown; email?: string } | null = null;
-      let directorData: { role?: unknown; email?: string } | null = null;
-      try { staffData = staffRaw ? JSON.parse(staffRaw) : null; } catch {}
-      try { directorData = directorRaw ? JSON.parse(directorRaw) : null; } catch {}
+      const { data } = await authClient.auth.getSession();
+      const session = data.session;
+      const sessionToken = session?.access_token || '';
+      const sessionEmail = session?.user?.email || '';
+      const rawRole = session?.user?.app_metadata?.role;
+      const role = typeof rawRole === 'string' ? rawRole : '';
 
-      let sessionToken = '';
-      let sessionEmail = '';
-      let sessionRole = '';
-
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          sessionToken = data.session.access_token || '';
-          sessionEmail = data.session.user?.email || '';
-          sessionRole =
-            data.session.user?.app_metadata?.role ||
-            data.session.user?.user_metadata?.role ||
-            '';
-        }
-      }
-
-      const effectiveEmail = sessionEmail || staffData?.email || directorData?.email || '';
-      const effectiveRole = sessionRole || staffData?.role || (directorData ? 'directeur' : '');
-
-      if (active && isStaffOrAdminUser(effectiveEmail, effectiveRole)) {
+      if (active && session && isStaffOrAdminUser(undefined, role)) {
         setIsAdmin(true);
-        setAdminEmail(effectiveEmail);
+        setAdminEmail(sessionEmail);
         if (sessionToken) setAccessToken(sessionToken);
       }
     };
@@ -490,26 +471,10 @@ export default function AnnoncesPublicPage() {
 
     void fetchAnnonces(false);
 
-    // Supabase Realtime
-    const sb = supabase;
-    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
-    if (sb) {
-      channel = sb
-        .channel('annonces-page-realtime')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'actualites' },
-          () => void fetchAnnonces(true)
-        )
-        .subscribe();
-    }
-
-    // Polling fallback
     pollRef.current = setInterval(() => void fetchAnnonces(true), POLL_MS);
 
     return () => {
       active = false;
-      if (channel && sb) void sb.removeChannel(channel);
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [fetchAnnonces]);

@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  isAdminAccountEmail,
   isAdminRole,
   isCommunicationRole,
-  isDirectorAccountEmail,
   isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
-import { supabaseAdmin } from '@/lib/supabase';
+import { deleteStoredFile, getPublicStorageUrl, saveStoredFile } from '@/lib/localStorage';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
 
 export type StoredAttachment = {
   name: string;
@@ -18,76 +17,33 @@ export type StoredAttachment = {
 };
 
 export async function authorizeStaffRequest(request: NextRequest, forbiddenMessage: string) {
-  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (process.env.NODE_ENV !== 'production' && accessToken === 'local-admin-token') {
-    return { user: { id: 'local-director', email: 'directeur@inptic.ga' } };
-  }
-
-  if (!supabaseAdmin) {
-    return {
-      error: NextResponse.json(
-        { error: 'Configuration serveur Supabase manquante (SUPABASE_SERVICE_ROLE_KEY).' },
-        { status: 500 }
-      ),
-    };
-  }
-
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !data.user) {
-    return { error: NextResponse.json({ error: 'Session expirée ou invalide.' }, { status: 401 }) };
-  }
-
-  const role = normalizeRole(
-    data.user.app_metadata?.role ??
-      data.user.app_metadata?.roles ??
-      data.user.user_metadata?.role ??
-      data.user.user_metadata?.roles
-  );
-  const email = data.user.email || '';
+  const role = normalizeRole(user.role);
 
   const isAuthorized =
     isAdminRole(role) ||
     isDirectorRole(role) ||
     isCommunicationRole(role) ||
     role === 'scolarite' ||
-    role === 'direction_etudes' ||
-    isAdminAccountEmail(email) ||
-    isDirectorAccountEmail(email);
+    role === 'direction_etudes';
 
   if (!isAuthorized) {
     return { error: NextResponse.json({ error: forbiddenMessage }, { status: 403 }) };
   }
 
-  return { user: data.user };
-}
-
-async function ensureBucket(bucket: string) {
-  if (!supabaseAdmin) return;
-  try {
-    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
-    const exists = buckets?.some((b) => b.id === bucket || b.name === bucket);
-    if (!exists) {
-      await supabaseAdmin.storage.createBucket(bucket, {
-        public: true,
-        fileSizeLimit: 15 * 1024 * 1024,
-      });
-    }
-  } catch (e) {
-    console.warn('Bucket ensure notice:', e);
-  }
+  return { user };
 }
 
 export async function uploadStaffFiles(request: NextRequest, bucket: string, folder: string) {
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: 'Supabase admin non configuré.' }, { status: 500 });
+  if (!process.env.DATABASE_URL || !process.env.PRIVATE_STORAGE_DIR) {
+    return NextResponse.json({ error: 'PostgreSQL ou le stockage persistant n’est pas configuré.' }, { status: 503 });
   }
 
   try {
-    await ensureBucket(bucket);
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
 
@@ -99,8 +55,11 @@ export async function uploadStaffFiles(request: NextRequest, bucket: string, fol
 
     for (const file of files) {
       if (!(file instanceof File)) continue;
+      if (file.size > 15 * 1024 * 1024) {
+        return NextResponse.json({ error: `Le fichier ${file.name} dépasse la limite de 15 Mo.` }, { status: 413 });
+      }
 
-      const ext = file.name.split('.').pop() || 'bin';
+      const ext = (file.name.split('.').pop() || 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'bin';
       const cleanBase = file.name
         .substring(0, file.name.lastIndexOf('.') || file.name.length)
         .normalize('NFD')
@@ -112,23 +71,22 @@ export async function uploadStaffFiles(request: NextRequest, bucket: string, fol
 
       const buffer = Buffer.from(await file.arrayBuffer());
 
-      const { data, error } = await supabaseAdmin.storage.from(bucket).upload(filePath, buffer, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: true,
+      const mimeType = file.type || 'application/octet-stream';
+      const saved = await saveStoredFile({
+        bucket,
+        relativePath: filePath,
+        contents: buffer,
+        originalFilename: file.name,
+        mimeType,
+        isPublic: true,
       });
-
-      if (error) {
-        throw new Error(`Erreur lors de l'envoi de ${file.name} : ${error.message}`);
-      }
-
-      const { data: pubData } = supabaseAdmin.storage.from(bucket).getPublicUrl(data.path);
 
       uploaded.push({
         name: file.name,
-        url: pubData.publicUrl,
+        url: saved.url || getPublicStorageUrl(bucket, saved.path),
         size: file.size,
-        type: file.type || ext,
-        path: data.path,
+        type: mimeType,
+        path: saved.path,
       });
     }
 
@@ -142,8 +100,8 @@ export async function uploadStaffFiles(request: NextRequest, bucket: string, fol
 }
 
 export async function deleteStaffFile(request: NextRequest, bucket: string) {
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: 'Supabase admin non configuré.' }, { status: 500 });
+  if (!process.env.DATABASE_URL || !process.env.PRIVATE_STORAGE_DIR) {
+    return NextResponse.json({ error: 'PostgreSQL ou le stockage persistant n’est pas configuré.' }, { status: 503 });
   }
 
   const path = request.nextUrl.searchParams.get('path');
@@ -152,10 +110,8 @@ export async function deleteStaffFile(request: NextRequest, bucket: string) {
   }
 
   try {
-    const { error } = await supabaseAdmin.storage.from(bucket).remove([path]);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const deleted = await deleteStoredFile(bucket, path);
+    if (!deleted) return NextResponse.json({ error: 'Fichier introuvable.' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -47,12 +48,10 @@ import {
   XCircle,
 } from 'lucide-react';
 import { strToU8, zipSync } from 'fflate';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import DeleteButton from '@/components/DeleteButton';
 import {
-  isAdminAccountEmail,
   isAdminRole,
-  isDirectorAccountEmail,
   isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
@@ -246,6 +245,7 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
 `;
 
 export default function AdminRHPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('profils');
 
   // Auth & Session
@@ -301,55 +301,32 @@ export default function AdminRHPage() {
 
   // Vérification de la session
   useEffect(() => {
-    const director = localStorage.getItem('inptic_directeur');
-    const staff = localStorage.getItem('inptic_staff');
-
-    if (director || staff) {
-      setToken('local-admin-token');
-      const dirObj = director ? JSON.parse(director) : null;
-      const staffObj = staff ? JSON.parse(staff) : null;
-      setUserEmail(dirObj?.email || staffObj?.email || 'rh-admin@inptic.ga');
-      setUserRole('rh_admin');
-      setAuthLoading(false);
-      return;
-    }
-
-    if (!supabase) {
-      setToken('local-admin-token');
-      setUserEmail('rh-admin@inptic.ga');
-      setUserRole('rh_admin');
-      setAuthLoading(false);
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
+    authClient.auth.getSession().then(({ data }) => {
       const session = data.session;
       if (session) {
         setToken(session.access_token);
         const email = session.user?.email || null;
         setUserEmail(email);
 
-        const rawRole =
-          session.user?.app_metadata?.role ??
-          session.user?.app_metadata?.roles ??
-          session.user?.user_metadata?.role ??
-          session.user?.user_metadata?.roles;
+        const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
         const normRole = normalizeRole(rawRole);
 
-        if (isAdminRole(normRole) || isDirectorRole(normRole) || isAdminAccountEmail(email) || isDirectorAccountEmail(email) || normRole === 'rh_admin') {
+        if (isAdminRole(normRole) || isDirectorRole(normRole) || normRole === 'rh_admin') {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
         } else {
           setUserRole('rh_consultation');
         }
+      } else {
+        router.replace('/candidat');
       }
       setAuthLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authClient.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setToken(session.access_token);
         setUserEmail(session.user?.email || null);
@@ -405,28 +382,15 @@ export default function AdminRHPage() {
       loadAuditLogs();
     }
 
-    const sb = supabase;
-    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
-    if (sb) {
-      channel = sb
-        .channel('rh-admin-realtime')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'rh_profiles' },
-          () => {
-            if (token) {
-              void loadProfiles();
-              void loadAuditLogs();
-            }
-          }
-        )
-        .subscribe();
-    }
+    const refreshInterval = window.setInterval(() => {
+      if (token) {
+        void loadProfiles();
+        void loadAuditLogs();
+      }
+    }, 30_000);
 
     return () => {
-      if (channel && sb) {
-        void sb.removeChannel(channel);
-      }
+      window.clearInterval(refreshInterval);
     };
   }, [token, showArchived]);
 
@@ -566,11 +530,11 @@ export default function AdminRHPage() {
     setShowCreateModal(true);
   };
 
-  // Sauvegarde Employé (Create / Update sur Supabase)
+  // Sauvegarde de l’employé dans PostgreSQL
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
-      setFormError('Session administrative Supabase requise. Veuillez vous reconnecter.');
+      setFormError('Session administrative requise. Veuillez vous reconnecter.');
       return;
     }
     setFormSaving(true);
@@ -608,13 +572,13 @@ export default function AdminRHPage() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde sur la base de données Supabase');
+      if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde dans PostgreSQL.');
 
       setFormSaveStep(2);
       await Promise.all([loadProfiles(), loadAuditLogs()]);
       setShowCreateModal(false);
     } catch (err: any) {
-      setFormError(err.message || 'Erreur de communication avec la base de données Supabase.');
+      setFormError(err.message || 'Erreur de communication avec PostgreSQL.');
     } finally {
       setFormSaving(false);
     }

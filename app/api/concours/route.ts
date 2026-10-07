@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
-  isAdminAccountEmail,
   isAdminRole,
   isCommunicationRole,
-  isDirectorAccountEmail,
   isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
@@ -133,41 +132,19 @@ const SEED_CONCOURS: ConcoursItem[] = [
 ];
 
 async function authorizeStaff(request: NextRequest) {
-  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!supabaseAdmin) {
-    return {
-      error: NextResponse.json(
-        { error: 'Configuration serveur Supabase manquante (SUPABASE_SERVICE_ROLE_KEY).' },
-        { status: 500 }
-      ),
-    };
-  }
-
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !data.user) {
-    return { error: NextResponse.json({ error: 'Session expirée ou invalide.' }, { status: 401 }) };
-  }
-
-  const role = normalizeRole(
-    data.user.app_metadata?.role ??
-    data.user.app_metadata?.roles ??
-    data.user.user_metadata?.role ??
-    data.user.user_metadata?.roles
-  );
-  const email = data.user.email || '';
+  const role = normalizeRole(user.role);
 
   const isAuthorized =
     isAdminRole(role) ||
     isDirectorRole(role) ||
     isCommunicationRole(role) ||
     role === 'scolarite' ||
-    role === 'direction_etudes' ||
-    isAdminAccountEmail(email) ||
-    isDirectorAccountEmail(email);
+    role === 'direction_etudes';
 
   if (!isAuthorized) {
     return {
@@ -175,7 +152,7 @@ async function authorizeStaff(request: NextRequest) {
     };
   }
 
-  return { user: data.user };
+  return { user };
 }
 
 function normalizeConcoursRow(row: Record<string, unknown>): ConcoursItem {
@@ -205,125 +182,62 @@ export async function GET(request: NextRequest) {
   const statusFilter = searchParams.get('status');
   const yearFilter = searchParams.get('year');
 
-  let items: ConcoursItem[] = [];
-
-  // 1. Tenter lecture depuis table `concours` dans Supabase
-  if (supabaseAdmin || supabase) {
-    const client = supabaseAdmin || supabase;
-    if (client) {
-      try {
-        const query = client
-          .from('concours')
-          .select('*')
-          .order('session_year', { ascending: false })
-          .order('created_at', { ascending: false });
-
-        const { data, error } = await query;
-        if (!error && Array.isArray(data) && data.length > 0) {
-          items = data.map((d) => normalizeConcoursRow(d as Record<string, unknown>));
-        }
-      } catch {
-        // Table pas encore migrée ou non créée
-      }
-    }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
 
-  // 2. Migration automatique des annonces existantes (catégorie 'Concours')
-  if (supabaseAdmin || supabase) {
-    const client = supabaseAdmin || supabase;
-    if (client) {
-      try {
-        const { data: annoncesData, error } = await client
-          .from('actualites')
-          .select('*')
-          .or('category.eq.Concours,title.ilike.%concours%,title.ilike.%résultats%');
+  let items: ConcoursItem[];
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT * FROM public.concours ORDER BY session_year DESC, created_at DESC',
+    );
+    items = rows.length
+      ? rows.map((row) => normalizeConcoursRow(row as Record<string, unknown>))
+      : [...SEED_CONCOURS];
 
-        if (!error && Array.isArray(annoncesData)) {
-          for (const a of annoncesData) {
-            const alreadyExists = items.some((c) => c.slug === a.slug || c.id === String(a.id));
-            if (!alreadyExists) {
-              const titleLower = String(a.title || '').toLowerCase();
-              const hasAttachments = Array.isArray(a.attachments) && a.attachments.length > 0;
-              const isResult = (titleLower.includes('résultat') || titleLower.includes('resultat') || titleLower.includes('admis')) && hasAttachments;
-              const yearMatch = a.title?.match(/202[0-9]/);
-              const sessionYear = yearMatch ? parseInt(yearMatch[0], 10) : new Date(a.created_at || Date.now()).getFullYear();
-              const isPastYear = sessionYear < new Date().getFullYear();
-
-              const migratedConcours: ConcoursItem = {
-                id: `annonce-migrated-${a.id}`,
-                title: a.title,
-                slug: a.slug || `concours-${a.id}`,
-                department: 'Toutes filières',
-                sessionYear,
-                status: isPastYear || isResult ? 'termine' : 'en_cours',
-                description: a.excerpt || '',
-                conditions: [
-                  'Dossier de candidature soumis conformément aux directives de la note d’information.',
-                ],
-                calendar: {
-                  examDate: a.published_at,
-                  resultsDate: isResult ? a.published_at : null,
-                },
-                attachments: Array.isArray(a.attachments) ? a.attachments : [],
-                results: {
-                  published: isResult,
-                  publishedAt: isResult ? a.published_at : null,
-                  pdfUrl: a.attachments?.[0]?.url || null,
-                  admittedList: [],
-                  waitingList: [],
-                  notes: isResult ? a.excerpt : null,
-                },
-                createdAt: a.created_at || new Date().toISOString(),
-                updatedAt: a.updated_at || a.created_at || new Date().toISOString(),
-              };
-
-              items.push(migratedConcours);
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
+    const { rows: newsRows } = await getPostgresPool().query(
+      `SELECT id, title, slug, excerpt, attachments, published_at, created_at, updated_at
+       FROM public.actualites
+       WHERE category = 'Concours'
+          OR title ILIKE '%concours%'
+          OR title ILIKE '%résultats%'`,
+    );
+    for (const article of newsRows) {
+      if (items.some((item) => item.slug === article.slug)) continue;
+      const title = String(article.title || '');
+      const attachments = Array.isArray(article.attachments) ? article.attachments : [];
+      const isResult = /(résultat|resultat|admis)/i.test(title) && attachments.length > 0;
+      const yearMatch = title.match(/202[0-9]/);
+      const sessionYear = yearMatch
+        ? Number.parseInt(yearMatch[0], 10)
+        : new Date(article.created_at || Date.now()).getFullYear();
+      const isPastYear = sessionYear < new Date().getFullYear();
+      items.push({
+        id: `annonce-migrated-${article.id}`,
+        title,
+        slug: String(article.slug || `concours-${article.id}`),
+        department: 'Toutes filières',
+        sessionYear,
+        status: isPastYear || isResult ? 'termine' : 'en_cours',
+        description: String(article.excerpt || ''),
+        conditions: ['Dossier de candidature soumis conformément aux directives de la note d’information.'],
+        calendar: { examDate: article.published_at, resultsDate: isResult ? article.published_at : null },
+        attachments,
+        results: {
+          published: isResult,
+          publishedAt: isResult ? article.published_at : null,
+          pdfUrl: attachments[0]?.url || null,
+          admittedList: [],
+          waitingList: [],
+          notes: isResult ? article.excerpt : null,
+        },
+        createdAt: article.created_at || new Date().toISOString(),
+        updatedAt: article.updated_at || article.created_at || new Date().toISOString(),
+      });
     }
-  }
-
-  // 3. Si aucun élément trouvé, insérer les graines dans la base de données (si supabaseAdmin dispo) sans id string
-  if (items.length === 0) {
-    if (supabaseAdmin) {
-      try {
-        const rowsToInsert = SEED_CONCOURS.map(({ id: _id, ...seed }) => ({
-          title: seed.title,
-          slug: seed.slug,
-          department: seed.department,
-          session_year: seed.sessionYear,
-          status: seed.status,
-          description: seed.description,
-          conditions: seed.conditions,
-          calendar: seed.calendar,
-          attachments: seed.attachments,
-          results: seed.results,
-        }));
-        const { error: upsertError } = await supabaseAdmin
-          .from('concours')
-          .upsert(rowsToInsert, { onConflict: 'slug', ignoreDuplicates: true });
-
-        if (!upsertError) {
-          const { data: refetched } = await supabaseAdmin
-            .from('concours')
-            .select('*')
-            .order('session_year', { ascending: false })
-            .order('created_at', { ascending: false });
-          if (refetched && Array.isArray(refetched)) {
-            items = refetched.map((d) => normalizeConcoursRow(d as Record<string, unknown>));
-          }
-        }
-      } catch {
-        items = [...SEED_CONCOURS];
-      }
-    }
-    if (items.length === 0) {
-      items = [...SEED_CONCOURS];
-    }
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors du chargement des concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de charger les concours.' }, { status: 503 });
   }
 
   // Filtrage
@@ -377,33 +291,27 @@ export async function POST(request: NextRequest) {
     updated_at: new Date().toISOString(),
   };
 
-  if (supabaseAdmin) {
-    try {
-      const { data, error } = await supabaseAdmin.from('concours').insert([row]).select().single();
-      if (!error && data) {
-        return NextResponse.json({ data: normalizeConcoursRow(data as Record<string, unknown>) }, { status: 201 });
-      }
-      if (error && !error.message.includes('relation "concours" does not exist')) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-    } catch {
-      // Table fallback
-    }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
-
-  // Fallback in-memory / response
-  return NextResponse.json(
-    {
-      data: {
-        id: `concours-${Date.now()}`,
-        ...row,
-        sessionYear: row.session_year,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      },
-    },
-    { status: 201 }
-  );
+  try {
+    const { rows } = await getPostgresPool().query(
+      `INSERT INTO public.concours
+         (title, slug, department, session_year, status, description,
+          conditions, calendar, attachments, results)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        row.title, row.slug, row.department, row.session_year, row.status, row.description,
+        JSON.stringify(row.conditions), JSON.stringify(row.calendar),
+        JSON.stringify(row.attachments), JSON.stringify(row.results),
+      ],
+    );
+    return NextResponse.json({ data: normalizeConcoursRow(rows[0] as Record<string, unknown>) }, { status: 201 });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la création d’un concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible d’enregistrer le concours.' }, { status: 503 });
+  }
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -431,35 +339,37 @@ export async function PATCH(request: NextRequest) {
   if (body.attachments !== undefined) updates.attachments = body.attachments;
   if (body.results !== undefined) updates.results = body.results;
 
-  if (supabaseAdmin) {
-    try {
-      let query = supabaseAdmin.from('concours').update(updates);
-      if (UUID_REGEX.test(body.id)) {
-        query = query.eq('id', body.id);
-      } else if (body.slug) {
-        query = query.eq('slug', body.slug);
-      } else {
-        // Si l'id n'est pas un UUID (ex: ancien ID seed), tenter d'insérer ou de faire un upsert
-        const { data, error } = await supabaseAdmin.from('concours').insert([updates]).select().single();
-        if (!error && data) {
-          return NextResponse.json({ data: normalizeConcoursRow(data as Record<string, unknown>) });
-        }
-        return NextResponse.json({ error: 'Identifiant UUID valide requis pour la mise à jour.' }, { status: 400 });
-      }
-
-      const { data, error } = await query.select().single();
-      if (!error && data) {
-        return NextResponse.json({ data: normalizeConcoursRow(data as Record<string, unknown>) });
-      }
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message || 'Erreur mise à jour.' }, { status: 500 });
-    }
+  if (!UUID_REGEX.test(String(body.id)) && typeof body.slug !== 'string') {
+    return NextResponse.json({ error: 'Identifiant UUID ou slug valide requis.' }, { status: 400 });
   }
-
-  return NextResponse.json({ data: { id: body.id, ...updates, sessionYear: updates.session_year } });
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
+  }
+  const columnMap: Record<string, string> = {
+    title: 'title', department: 'department', session_year: 'session_year',
+    status: 'status', description: 'description', conditions: 'conditions',
+    calendar: 'calendar', attachments: 'attachments', results: 'results',
+  };
+  const entries = Object.entries(updates).filter(([key]) => key !== 'updated_at');
+  const values = entries.map(([key, value]) =>
+    ['conditions', 'calendar', 'attachments', 'results'].includes(key) ? JSON.stringify(value) : value,
+  );
+  const assignments = entries.map(([key], index) => `${columnMap[key]} = $${index + 1}`);
+  const identifier = UUID_REGEX.test(String(body.id)) ? String(body.id) : body.slug;
+  values.push(identifier);
+  try {
+    const { rows } = await getPostgresPool().query(
+      `UPDATE public.concours SET ${assignments.join(', ')}, updated_at = NOW()
+       WHERE ${UUID_REGEX.test(String(body.id)) ? 'id::text' : 'slug'} = $${values.length}
+       RETURNING *`,
+      values,
+    );
+    if (!rows[0]) return NextResponse.json({ error: 'Concours introuvable.' }, { status: 404 });
+    return NextResponse.json({ data: normalizeConcoursRow(rows[0] as Record<string, unknown>) });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la mise à jour d’un concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de mettre à jour le concours.' }, { status: 503 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -472,23 +382,18 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Identifiant requis.' }, { status: 400 });
   }
 
-  if (supabaseAdmin) {
-    try {
-      let query = supabaseAdmin.from('concours').delete();
-      if (UUID_REGEX.test(id)) {
-        query = query.eq('id', id);
-      } else {
-        query = query.eq('slug', id);
-      }
-      const { error } = await query;
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message || 'Erreur lors de la suppression.' }, { status: 500 });
-    }
-  } else {
-    return NextResponse.json({ error: 'Configuration serveur Supabase manquante.' }, { status: 500 });
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
+  }
+  try {
+    const { rowCount } = await getPostgresPool().query(
+      `DELETE FROM public.concours WHERE ${UUID_REGEX.test(id) ? 'id::text' : 'slug'} = $1`,
+      [id],
+    );
+    if (!rowCount) return NextResponse.json({ error: 'Concours introuvable.' }, { status: 404 });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la suppression d’un concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de supprimer le concours.' }, { status: 503 });
   }
 
   return NextResponse.json({ success: true, id });

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Code2, Cpu, Database, ExternalLink, Globe2, RefreshCw, Search, SlidersHorizontal, Wifi } from 'lucide-react';
 import ArticleEngagement from '@/components/ArticleEngagement';
-import { supabase } from '@/lib/supabase';
-import { isAdminAccountEmail, isAdminRole } from '@/lib/roles';
+import { authClient } from '@/lib/auth-client';
+import { isAdminRole } from '@/lib/roles';
 
 type NewsItem = {
   id: string;
@@ -66,13 +66,10 @@ export default function PressNewsFeed() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!supabase) return;
-    void supabase.auth.getSession().then(({ data }) => {
+    void authClient.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
       if (!user) return;
-      const email = user.email;
-      const role = (user.user_metadata?.role ?? user.app_metadata?.role) as unknown;
-      setIsAdmin(isAdminAccountEmail(email) || isAdminRole(role));
+      setIsAdmin(isAdminRole(user.app_metadata?.role));
     });
   }, []);
 

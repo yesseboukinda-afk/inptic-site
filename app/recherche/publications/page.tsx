@@ -29,7 +29,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import { isStaffOrAdminUser } from '@/lib/roles';
 import { PublicationAttachment, ResearchPublication } from '@/types/publication';
 import TranslatedText from '@/components/TranslatedText';
@@ -96,30 +96,23 @@ export default function PublicationsPage() {
 
   // Session
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
+    authClient.auth.getSession().then(({ data }) => {
       const session = data.session;
       if (session) {
         setToken(session.access_token);
         setUserEmail(session.user?.email || null);
-        const role =
-          session.user?.app_metadata?.role ||
-          session.user?.user_metadata?.role ||
-          null;
-        setUserRole(role);
+        const role = session.user?.app_metadata?.role;
+        setUserRole(typeof role === 'string' ? role : null);
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authClient.auth.onAuthStateChange((_event, session) => {
       setToken(session?.access_token || null);
       setUserEmail(session?.user?.email || null);
-      const role =
-        session?.user?.app_metadata?.role ||
-        session?.user?.user_metadata?.role ||
-        null;
-      setUserRole(role);
+      const role = session?.user?.app_metadata?.role;
+      setUserRole(typeof role === 'string' ? role : null);
     });
 
     return () => subscription.unsubscribe();

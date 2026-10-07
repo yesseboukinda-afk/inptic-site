@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
 
 function escapeHtml(value: string) {
   return value
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Adresse e-mail invalide.' }, { status: 400 });
   }
 
-  if (!supabaseAdmin) {
+  if (!process.env.DATABASE_URL) {
     return NextResponse.json(
       { error: 'Le service d’inscription à la newsletter est indisponible.' },
       { status: 503 },
@@ -47,14 +47,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { data: existingSubscriber, error: lookupError } = await supabaseAdmin
-    .from('subscribers')
-    .select('is_active, subscribed_at, confirmation_sent_at')
-    .eq('email', email)
-    .maybeSingle();
-
-  if (lookupError) {
-    console.error('Erreur de vérification d’une inscription newsletter:', lookupError.code);
+  let existingSubscriber;
+  try {
+    const { rows } = await getPostgresPool().query(
+      `SELECT is_active, subscribed_at, confirmation_sent_at
+       FROM public.subscribers WHERE email = $1`,
+      [email],
+    );
+    existingSubscriber = rows[0];
+  } catch (error) {
+    console.error('Erreur de vérification d’une inscription newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json(
       { error: 'Impossible de vérifier votre inscription pour le moment. Veuillez réessayer plus tard.' },
       { status: 503 },
@@ -71,15 +73,18 @@ export async function POST(req: NextRequest) {
   const subscribedAt = existingSubscriber?.is_active
     ? existingSubscriber.subscribed_at
     : new Date().toISOString();
-  const { error: saveError } = await supabaseAdmin
-    .from('subscribers')
-    .upsert(
-      { email, subscribed_at: subscribedAt, is_active: true, confirmation_sent_at: null },
-      { onConflict: 'email' },
+  try {
+    await getPostgresPool().query(
+      `INSERT INTO public.subscribers (email, subscribed_at, is_active, confirmation_sent_at)
+       VALUES ($1, $2, TRUE, NULL)
+       ON CONFLICT (email) DO UPDATE
+       SET subscribed_at = EXCLUDED.subscribed_at,
+           is_active = TRUE,
+           confirmation_sent_at = NULL`,
+      [email, subscribedAt],
     );
-
-  if (saveError) {
-    console.error('Erreur d’enregistrement d’une inscription newsletter:', saveError.code);
+  } catch (error) {
+    console.error('Erreur d’enregistrement d’une inscription newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json(
       { error: 'Impossible d’enregistrer votre inscription pour le moment. Veuillez réessayer plus tard.' },
       { status: 503 },
@@ -151,13 +156,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { error: confirmationUpdateError } = await supabaseAdmin
-    .from('subscribers')
-    .update({ confirmation_sent_at: new Date().toISOString() })
-    .eq('email', email);
-
-  if (confirmationUpdateError) {
-    console.error('Erreur de sauvegarde de la confirmation newsletter:', confirmationUpdateError.code);
+  try {
+    await getPostgresPool().query(
+      'UPDATE public.subscribers SET confirmation_sent_at = $1 WHERE email = $2',
+      [new Date().toISOString(), email],
+    );
+  } catch (error) {
+    console.error('Erreur de sauvegarde de la confirmation newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
   }
 
   return NextResponse.json({

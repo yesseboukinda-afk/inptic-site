@@ -789,7 +789,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
               {selectedStudent.documents?.length ? (
                 <div className="mt-2 space-y-2">
                   {selectedStudent.documents.map((doc, i) => {
-                    const source = doc.url || doc.data || (doc.path && process.env.NEXT_PUBLIC_SUPABASE_URL ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dossier_documents/${doc.path}` : '');
+                    const source = doc.url || doc.data || '';
                     return (
                       <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 text-xs font-medium text-slate-700">
                         <div className="flex items-center gap-2 truncate">

@@ -34,7 +34,7 @@ export default function Alumni() {
 
   const [submitted, setSubmitted] = useState(false);
 
-  // Charger les alumni persistés au montage (localStorage + API Supabase)
+  // Charger les anciens étudiants persistés au montage (localStorage + API PostgreSQL)
   useEffect(() => {
     try {
       const cached = localStorage.getItem('inptic_alumni');
@@ -160,7 +160,7 @@ export default function Alumni() {
       });
     }, 100);
 
-    // 2. Sauvegarde asynchrone sur Supabase via /api/alumni
+    // 2. Sauvegarde asynchrone dans PostgreSQL via /api/alumni
     try {
       const res = await fetch('/api/alumni', {
         method: 'POST',

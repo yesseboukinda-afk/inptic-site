@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Download, ExternalLink, FileText, Loader2, PlayCircle, Plus, Trash2, Upload, Video } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { isDirectorRole, isStaffOrAdminUser } from '@/lib/roles';
+import { authClient } from '@/lib/auth-client';
+import { isStaffOrAdminUser } from '@/lib/roles';
 
 type TrainingResource = {
   id: string;
@@ -47,15 +47,6 @@ function getDownloadUrl(resource: TrainingResource) {
   }
 }
 
-function hasLocalDirectorSession() {
-  try {
-    const director = JSON.parse(localStorage.getItem('inptic_directeur') || 'null') as { role?: unknown } | null;
-    return Boolean(director && isDirectorRole(director.role));
-  } catch {
-    return false;
-  }
-}
-
 export default function TrainingCatalog() {
   const [resources, setResources] = useState<TrainingResource[]>([]);
   const [token, setToken] = useState<string | null>(null);
@@ -71,37 +62,16 @@ export default function TrainingCatalog() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const useLocalDirector = process.env.NODE_ENV !== 'production' && hasLocalDirectorSession();
-    if (!supabase) {
-      if (useLocalDirector) {
-        setToken('local-admin-token');
-        setCanManage(true);
-      }
-      setLoading(false);
-      return;
-    }
-    supabase.auth.getSession().then(({ data }) => {
+    authClient.auth.getSession().then(({ data }) => {
       const session = data.session;
-      if (!session) {
-        if (useLocalDirector) {
-          setToken('local-admin-token');
-          setCanManage(true);
-        }
-        return;
-      }
-      const role = session.user?.app_metadata?.role ?? session.user?.user_metadata?.role ?? null;
-      setToken(session.access_token);
-      setCanManage(isStaffOrAdminUser(session.user?.email, role));
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session && useLocalDirector) {
-        setToken('local-admin-token');
-        setCanManage(true);
-        return;
-      }
-      const role = session?.user?.app_metadata?.role ?? session?.user?.user_metadata?.role ?? null;
+      const role = session?.user?.app_metadata?.role ?? null;
       setToken(session?.access_token || null);
-      setCanManage(Boolean(session && isStaffOrAdminUser(session.user?.email, role)));
+      setCanManage(Boolean(session && isStaffOrAdminUser(undefined, role)));
+    });
+    const { data: { subscription } } = authClient.auth.onAuthStateChange((_event, session) => {
+      const role = session?.user?.app_metadata?.role ?? null;
+      setToken(session?.access_token || null);
+      setCanManage(Boolean(session && isStaffOrAdminUser(undefined, role)));
     });
     return () => subscription.unsubscribe();
   }, []);

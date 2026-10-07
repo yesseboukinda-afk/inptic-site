@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
 
 function unsubscribePage(token: string, message: string) {
   return new NextResponse(
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!supabaseAdmin) {
+  if (!process.env.DATABASE_URL) {
     return unsubscribePage('', 'Le service est temporairement indisponible. Veuillez réessayer plus tard.');
   }
 
@@ -28,18 +28,17 @@ export async function POST(request: NextRequest) {
     return unsubscribePage('', 'Le lien de désabonnement est invalide ou incomplet.');
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('subscribers')
-    .update({ is_active: false })
-    .eq('unsubscribe_token', token)
-    .eq('is_active', true)
-    .select('email')
-    .maybeSingle();
-
-  if (error) {
-    console.error('Erreur de désabonnement newsletter:', error.code);
+  try {
+    const { rows } = await getPostgresPool().query(
+      `UPDATE public.subscribers
+       SET is_active = FALSE
+       WHERE unsubscribe_token = $1 AND is_active = TRUE
+       RETURNING email`,
+      [token],
+    );
+    return unsubscribePage('', rows.length ? 'Votre adresse a été désabonnée de la newsletter.' : 'Cette adresse est déjà désabonnée ou le lien n’est plus valide.');
+  } catch (error) {
+    console.error('Erreur de désabonnement newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return unsubscribePage('', 'Le service est temporairement indisponible. Veuillez réessayer plus tard.');
   }
-
-  return unsubscribePage('', data ? 'Votre adresse a été désabonnée de la newsletter.' : 'Cette adresse est déjà désabonnée ou le lien n’est plus valide.');
 }

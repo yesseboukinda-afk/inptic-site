@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
-  isAdminAccountEmail,
   isAdminRole,
   isCommunicationRole,
-  isDirectorAccountEmail,
   normalizeRole,
 } from '@/lib/roles';
 
@@ -23,33 +21,15 @@ type MentionItem = {
 type SourceStatus = 'available' | 'unavailable' | 'not_configured';
 
 async function authorizeFacebookReply(request: NextRequest) {
-  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
     return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
   }
 
-  if (!supabaseAdmin) {
-    return NextResponse.json(
-      { error: 'La vérification de la session serveur n’est pas configurée.' },
-      { status: 500 },
-    );
-  }
-
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !data.user) {
-    return NextResponse.json({ error: 'Session expirée ou invalide.' }, { status: 401 });
-  }
-
-  const role = normalizeRole(
-    data.user.app_metadata?.role ??
-    data.user.app_metadata?.roles,
-  );
-  const email = data.user.email || '';
+  const role = normalizeRole(user.role);
   const isAuthorized =
     isAdminRole(role) ||
-    isCommunicationRole(role) ||
-    isAdminAccountEmail(email) ||
-    isDirectorAccountEmail(email);
+    isCommunicationRole(role);
 
   if (!isAuthorized) {
     return NextResponse.json(

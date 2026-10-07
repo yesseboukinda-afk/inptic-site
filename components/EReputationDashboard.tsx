@@ -116,8 +116,8 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
   const handleSendReply = async (id: string) => {
     const message = replyText.trim();
     if (!message || isReplying) return;
-    if (!accessToken || accessToken === 'local-admin-token') {
-      setReplyError('Connectez-vous avec un compte INPTIC autorisé via Supabase pour publier une réponse.');
+    if (!accessToken) {
+      setReplyError('Connectez-vous avec un compte INPTIC autorisé pour publier une réponse.');
       setReplySuccess('');
       return;
     }

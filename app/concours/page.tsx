@@ -33,7 +33,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import { isStaffOrAdminUser } from '@/lib/roles';
 import { ConcoursAttachment, ConcoursItem, ConcoursStatus } from '@/types/concours';
 import DeleteButton from '@/components/DeleteButton';
@@ -103,30 +103,23 @@ export default function ConcoursPage() {
 
   // Vérification de session
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
+    authClient.auth.getSession().then(({ data }) => {
       const session = data.session;
       if (session) {
         setToken(session.access_token);
         setUserEmail(session.user?.email || null);
-        const role =
-          session.user?.app_metadata?.role ||
-          session.user?.user_metadata?.role ||
-          null;
-        setUserRole(role);
+        const role = session.user?.app_metadata?.role;
+        setUserRole(typeof role === 'string' ? role : null);
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authClient.auth.onAuthStateChange((_event, session) => {
       setToken(session?.access_token || null);
       setUserEmail(session?.user?.email || null);
-      const role =
-        session?.user?.app_metadata?.role ||
-        session?.user?.user_metadata?.role ||
-        null;
-      setUserRole(role);
+      const role = session?.user?.app_metadata?.role;
+      setUserRole(typeof role === 'string' ? role : null);
     });
 
     return () => subscription.unsubscribe();
@@ -161,10 +154,7 @@ export default function ConcoursPage() {
     setPreRegistrationError('');
     setPreRegistrationMessage('');
     try {
-      if (!supabase) {
-        throw new Error('La connexion en ligne n’est pas configurée pour ce compte. Connectez-vous avec un compte candidat vérifié.');
-      }
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await authClient.auth.getSession();
       if (error) throw error;
       const accessToken = data.session?.access_token;
       if (!accessToken) {
@@ -263,26 +253,10 @@ export default function ConcoursPage() {
 
   useEffect(() => {
     fetchConcours();
-
-    const sb = supabase;
-    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
-    if (sb) {
-      channel = sb
-        .channel('concours-page-realtime')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'concours' },
-          () => {
-            void fetchConcours();
-          }
-        )
-        .subscribe();
-    }
+    const refreshInterval = window.setInterval(() => void fetchConcours(), 30_000);
 
     return () => {
-      if (channel && sb) {
-        void sb.removeChannel(channel);
-      }
+      window.clearInterval(refreshInterval);
     };
   }, []);
 

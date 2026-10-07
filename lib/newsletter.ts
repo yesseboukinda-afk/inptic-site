@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
 
 type NewsletterPublication = {
   id: string;
@@ -78,40 +78,22 @@ function getEmailErrorCode(value: unknown) {
 }
 
 async function claimDelivery(publicationId: string, email: string): Promise<'claimed' | 'already_claimed' | 'failed'> {
-  if (!supabaseAdmin) return 'failed';
-
-  const { error: insertError } = await supabaseAdmin
-    .from('newsletter_deliveries')
-    .insert({ publication_id: publicationId, subscriber_email: email, status: 'sending' });
-
-  if (!insertError) return 'claimed';
-  if (insertError.code !== '23505') {
-    console.error('Erreur de réservation d’un envoi newsletter:', insertError.code);
+  try {
+    const { rows } = await getPostgresPool().query(
+      `INSERT INTO public.newsletter_deliveries
+         (publication_id, subscriber_email, status)
+       VALUES ($1, $2, 'sending')
+       ON CONFLICT (publication_id, subscriber_email) DO UPDATE
+       SET status = 'sending', error_code = NULL, updated_at = NOW()
+       WHERE public.newsletter_deliveries.status = 'failed'
+       RETURNING publication_id`,
+      [publicationId, email],
+    );
+    return rows.length ? 'claimed' : 'already_claimed';
+  } catch (error) {
+    console.error('Erreur de réservation d’un envoi newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return 'failed';
   }
-
-  const { data: existing, error: selectError } = await supabaseAdmin
-    .from('newsletter_deliveries')
-    .select('status')
-    .eq('publication_id', publicationId)
-    .eq('subscriber_email', email)
-    .maybeSingle();
-  if (selectError) {
-    console.error('Erreur de lecture d’un envoi newsletter:', selectError.code);
-    return 'failed';
-  }
-  if (existing?.status !== 'failed') return 'already_claimed';
-
-  const { data: claimed, error: updateError } = await supabaseAdmin
-    .from('newsletter_deliveries')
-    .update({ status: 'sending', error_code: null, updated_at: new Date().toISOString() })
-    .eq('publication_id', publicationId)
-    .eq('subscriber_email', email)
-    .eq('status', 'failed')
-    .select('publication_id')
-    .maybeSingle();
-  if (updateError) console.error('Erreur de nouvelle tentative newsletter:', updateError.code);
-  return updateError ? 'failed' : claimed ? 'claimed' : 'already_claimed';
 }
 
 async function dispatchPublicationNewsletter(
@@ -123,16 +105,18 @@ async function dispatchPublicationNewsletter(
 
   const resendKey = process.env.RESEND_API_KEY;
   const from = process.env.NEWSLETTER_FROM_EMAIL;
-  if (!resendKey || !from || !supabaseAdmin) {
+  if (!resendKey || !from || !process.env.DATABASE_URL) {
     return { status: 'not_configured', sent: 0, failed: 0 };
   }
 
-  const { data: subscribers, error: subscribersError } = await supabaseAdmin
-    .from('subscribers')
-    .select('email, unsubscribe_token')
-    .eq('is_active', true);
-  if (subscribersError) {
-    console.error('Erreur de lecture des abonnés newsletter:', subscribersError.code);
+  let subscribers;
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT email, unsubscribe_token FROM public.subscribers WHERE is_active = TRUE',
+    );
+    subscribers = rows;
+  } catch (error) {
+    console.error('Erreur de lecture des abonnés newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return { status: 'failed', sent: 0, failed: 0 };
   }
   if (!subscribers?.length) return { status: 'no_subscribers', sent: 0, failed: 0 };
@@ -203,34 +187,37 @@ async function dispatchPublicationNewsletter(
       if (!response.ok || typeof result?.id !== 'string') {
         failed += 1;
         const errorCode = getEmailErrorCode(result);
-        await supabaseAdmin
-          .from('newsletter_deliveries')
-          .update({ status: 'failed', error_code: errorCode || `HTTP_${response.status}`, updated_at: new Date().toISOString() })
-          .eq('publication_id', publication.id)
-          .eq('subscriber_email', email);
+        await getPostgresPool().query(
+          `UPDATE public.newsletter_deliveries
+           SET status = 'failed', error_code = $3, updated_at = NOW()
+           WHERE publication_id = $1 AND subscriber_email = $2`,
+          [publication.id, email, errorCode || `HTTP_${response.status}`],
+        );
         continue;
       }
 
-      const { error: updateError } = await supabaseAdmin
-        .from('newsletter_deliveries')
-        .update({ status: 'sent', resend_email_id: result.id, error_code: null, updated_at: new Date().toISOString() })
-        .eq('publication_id', publication.id)
-        .eq('subscriber_email', email);
-      if (updateError) {
-        console.error('Erreur de confirmation d’un envoi newsletter:', updateError.code);
-        failed += 1;
-      } else {
+      try {
+        await getPostgresPool().query(
+          `UPDATE public.newsletter_deliveries
+           SET status = 'sent', resend_email_id = $3, error_code = NULL, updated_at = NOW()
+           WHERE publication_id = $1 AND subscriber_email = $2`,
+          [publication.id, email, result.id],
+        );
         sent += 1;
+      } catch (error) {
+        console.error('Erreur de confirmation d’un envoi newsletter:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+        failed += 1;
       }
     } catch (error) {
       failed += 1;
       const errorCode = error instanceof Error ? error.name : 'NETWORK_ERROR';
       console.error('Erreur réseau Resend pour la newsletter:', errorCode);
-      await supabaseAdmin
-        .from('newsletter_deliveries')
-        .update({ status: 'failed', error_code: errorCode, updated_at: new Date().toISOString() })
-        .eq('publication_id', publication.id)
-        .eq('subscriber_email', email);
+      await getPostgresPool().query(
+        `UPDATE public.newsletter_deliveries
+         SET status = 'failed', error_code = $3, updated_at = NOW()
+         WHERE publication_id = $1 AND subscriber_email = $2`,
+        [publication.id, email, errorCode],
+      );
     }
   }
 

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  isAdminAccountEmail,
   isAdminRole,
   isCommunicationRole,
-  isDirectorAccountEmail,
   isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
 import { strapi } from '@/lib/strapi';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { sendPublicationNewsletter } from '@/lib/newsletter';
 
 const STRAPI_BASE = (process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api').replace(/\/$/, '');
@@ -21,34 +20,16 @@ function normalizePublicationTargets(value: unknown): PublicationTarget[] {
 }
 
 async function authorizeCommunication(request: NextRequest) {
-  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
-
-  if (accessToken === 'local-admin-token' || !supabaseAdmin) {
-    return { user: { id: 'dev-admin', email: 'directeur@inptic.ga' } };
-  }
-
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !data.user) {
-    return { error: NextResponse.json({ error: 'Session expirée ou invalide. Reconnectez-vous.' }, { status: 401 }) };
-  }
-
-  const role = normalizeRole(
-    data.user.app_metadata?.role ??
-    data.user.app_metadata?.roles ??
-    data.user.user_metadata?.role ??
-    data.user.user_metadata?.roles
-  );
-  const userEmail = data.user.email || '';
+  const role = normalizeRole(user.role);
 
   const isAuthorized =
     isCommunicationRole(role) ||
     isDirectorRole(role) ||
-    isAdminRole(role) ||
-    isAdminAccountEmail(userEmail) ||
-    isDirectorAccountEmail(userEmail);
+    isAdminRole(role);
 
   if (!isAuthorized) {
     return {
@@ -59,7 +40,7 @@ async function authorizeCommunication(request: NextRequest) {
     };
   }
 
-  return { user: data.user };
+  return { user };
 }
 
 async function strapiManagementRequest(path: string, init: RequestInit = {}) {
@@ -181,28 +162,18 @@ export async function GET(request: NextRequest) {
     const authorization = await authorizeCommunication(request);
     if (authorization.error) return authorization.error;
 
-    // 1. Supabase requis pour la gestion (SUPABASE_SERVICE_ROLE_KEY)
-    if (!supabaseAdmin) {
+    if (!process.env.DATABASE_URL) {
       return NextResponse.json(
-        { error: 'Service de publication indisponible. La variable SUPABASE_SERVICE_ROLE_KEY doit être configurée dans Vercel.' },
+        { error: 'Service de publication indisponible. Configurez PostgreSQL.' },
         { status: 503 }
       );
     }
 
     try {
-      const { data, error } = await supabaseAdmin
-        .from('actualites')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        return NextResponse.json(
-          { error: `Erreur base de données : ${error.message}` },
-          { status: 500 }
-        );
-      }
-
-      const entries = (data ?? []).map((item) => ({
+      const { rows } = await getPostgresPool().query(
+        'SELECT * FROM public.actualites ORDER BY created_at DESC',
+      );
+      const entries = rows.map((item) => ({
         id: String(item.id),
         title: item.title,
         slug: item.slug,
@@ -218,14 +189,18 @@ export async function GET(request: NextRequest) {
         publishedAt: item.published_at || null,
         createdAt: item.created_at || null,
       }));
-      return NextResponse.json({ data: entries, source: 'supabase' });
+      return NextResponse.json({ data: entries, source: 'postgres' });
     } catch (err) {
+      console.error('Erreur PostgreSQL lors du chargement des actualités:', err instanceof Error ? err.message : 'UNKNOWN_ERROR');
       return NextResponse.json(
-        { error: `Erreur inattendue : ${err instanceof Error ? err.message : 'inconnue'}` },
-        { status: 500 }
+        { error: 'Impossible de charger les actualités depuis PostgreSQL.' },
+        { status: 503 }
       );
     }
   }
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
+    }
     const requestedTarget = request.nextUrl.searchParams.get('target');
     if (requestedTarget && requestedTarget !== 'actualites' && requestedTarget !== 'annonces') {
       return NextResponse.json({ error: 'Page cible invalide.' }, { status: 400 });
@@ -234,19 +209,14 @@ export async function GET(request: NextRequest) {
 
 
 
-  // Requête publique (pour PressNewsFeed, /actualites, accueil)
-  if (supabaseAdmin || supabase) {
+  if (process.env.DATABASE_URL) {
     try {
-      const client = supabaseAdmin || supabase;
-      if (client) {
-        const { data, error } = await client
-          .from('actualites')
-          .select('*')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false });
-
-        if (!error && Array.isArray(data)) {
-          const entries = data.map((item) => ({
+      const { rows } = await getPostgresPool().query(
+        `SELECT * FROM public.actualites
+         WHERE status = 'published'
+         ORDER BY published_at DESC NULLS LAST`,
+      );
+      const entries = rows.map((item) => ({
             id: String(item.id),
             title: item.title,
             slug: item.slug,
@@ -262,20 +232,13 @@ export async function GET(request: NextRequest) {
             publishedAt: item.published_at,
             createdAt: item.created_at,
           }));
-          return NextResponse.json({
-            data: targetPage ? entries.filter((item) => belongsToPublicTarget(item, targetPage)) : entries,
-            source: 'supabase',
-          });
-        }
-        if (error?.message.includes('target_pages')) {
-          return NextResponse.json(
-            { error: 'La migration scripts/04_add_actualites_target_pages.sql doit être appliquée avant les publications ciblées.' },
-            { status: 503 }
-          );
-        }
-      }
-    } catch {
-      // continuer vers Strapi
+      return NextResponse.json({
+        data: targetPage ? entries.filter((item) => belongsToPublicTarget(item, targetPage)) : entries,
+        source: 'postgres',
+      });
+    } catch (error) {
+      console.error('Erreur PostgreSQL lors du chargement public des actualités:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json({ error: 'API actualités indisponible.' }, { status: 503 });
     }
   }
 
@@ -296,6 +259,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
+  }
 
   const publication = validatePublication(await request.json().catch(() => null));
   if (!publication) {
@@ -304,8 +270,7 @@ export async function POST(request: NextRequest) {
 
   const { status, ...publicationData } = publication;
 
-  // 1. Enregistrement direct dans Supabase
-  if (supabaseAdmin) {
+  if (process.env.DATABASE_URL) {
     const row = {
       title: publicationData.title,
       slug: publicationData.slug,
@@ -316,35 +281,22 @@ export async function POST(request: NextRequest) {
       target_pages: publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS,
       status,
       published_at: status === 'published' ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
     };
 
-    let { data, error } = await supabaseAdmin
-      .from('actualites')
-      .insert([row])
-      .select()
-      .single();
-
-    if (error?.message.includes('target_pages')) {
-      return NextResponse.json(
-        { error: 'La migration scripts/04_add_actualites_target_pages.sql doit être appliquée avant les publications ciblées.' },
-        { status: 503 }
+    try {
+      const { rows } = await getPostgresPool().query(
+        `INSERT INTO public.actualites
+           (title, slug, excerpt, category, attachments, social_links,
+            target_pages, status, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          row.title, row.slug, row.excerpt, row.category,
+          JSON.stringify(row.attachments), JSON.stringify(row.social_links),
+          row.target_pages, row.status, row.published_at,
+        ],
       );
-    }
-
-    // Fallback si la migration des colonnes attachments/social_links n'a pas encore été jouée
-    if (error && (error.message.includes('column "attachments"') || error.message.includes('column "social_links"'))) {
-      const { attachments, social_links, ...legacyRow } = row;
-      const retry = await supabaseAdmin
-        .from('actualites')
-        .insert([legacyRow])
-        .select()
-        .single();
-      data = retry.data;
-      error = retry.error;
-    }
-
-    if (!error && data) {
+      const data = rows[0];
       const newsletter = status === 'published'
         ? await sendPublicationNewsletter({
             id: String(data.id),
@@ -377,12 +329,11 @@ export async function POST(request: NextRequest) {
         },
         { status: 201 }
       );
-    }
-
-    if (error) {
+    } catch (error) {
+      console.error('Erreur PostgreSQL lors de la création d’une actualité:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
       return NextResponse.json(
-        { error: `Erreur d’enregistrement dans Supabase : ${error.message}` },
-        { status: 500 }
+        { error: 'Impossible d’enregistrer l’actualité dans PostgreSQL.' },
+        { status: 503 }
       );
     }
   }
@@ -418,6 +369,9 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
+  }
 
   const body = (await request.json().catch(() => null)) as { id?: unknown; publication?: unknown } | null;
   if (!body || (typeof body.id !== 'string' && typeof body.id !== 'number')) {
@@ -430,59 +384,33 @@ export async function PATCH(request: NextRequest) {
 
   const { status, ...publicationData } = publication;
 
-  // 1. Mise à jour Supabase
-  if (supabaseAdmin) {
-    const { data: existing, error: existingError } = await supabaseAdmin
-      .from('actualites')
-      .select('published_at, slug')
-      .eq('id', body.id)
-      .maybeSingle();
-    if (existingError) {
-      return NextResponse.json(
-        { error: `Impossible de vérifier le statut de publication : ${existingError.message}` },
-        { status: 500 },
+  if (process.env.DATABASE_URL) {
+    try {
+      const pool = getPostgresPool();
+      const { rows: existingRows } = await pool.query(
+        'SELECT published_at, slug FROM public.actualites WHERE id::text = $1',
+        [String(body.id)],
       );
-    }
-
-    const publishedAt = status === 'published'
-      ? (existing?.published_at || new Date().toISOString())
-      : null;
-    const finalSlug = existing?.slug || publicationData.slug;
-
-    const updates = {
-      title: publicationData.title,
-      slug: finalSlug,
-      excerpt: publicationData.excerpt,
-      category: publicationData.category,
-      attachments: publicationData.attachments,
-      social_links: publicationData.socialLinks,
-      ...(publicationData.targetPages ? { target_pages: publicationData.targetPages } : {}),
-      status,
-      published_at: publishedAt,
-      updated_at: new Date().toISOString(),
-    };
-
-    let { data, error } = await supabaseAdmin
-      .from('actualites')
-      .update(updates)
-      .eq('id', body.id)
-      .select()
-      .single();
-
-    // Fallback si la migration des colonnes attachments/social_links n'a pas encore été jouée
-    if (error && (error.message.includes('column "attachments"') || error.message.includes('column "social_links"'))) {
-      const { attachments, social_links, ...legacyUpdates } = updates;
-      const retry = await supabaseAdmin
-        .from('actualites')
-        .update(legacyUpdates)
-        .eq('id', body.id)
-        .select()
-        .single();
-      data = retry.data;
-      error = retry.error;
-    }
-
-    if (!error && data) {
+      const existing = existingRows[0];
+      if (!existing) return NextResponse.json({ error: 'Actualité introuvable.' }, { status: 404 });
+      const publishedAt = status === 'published'
+        ? (existing.published_at || new Date().toISOString())
+        : null;
+      const finalSlug = existing.slug || publicationData.slug;
+      const { rows } = await pool.query(
+        `UPDATE public.actualites
+         SET title = $1, slug = $2, excerpt = $3, category = $4,
+             attachments = $5, social_links = $6, target_pages = $7,
+             status = $8, published_at = $9, updated_at = NOW()
+         WHERE id::text = $10 RETURNING *`,
+        [
+          publicationData.title, finalSlug, publicationData.excerpt, publicationData.category,
+          JSON.stringify(publicationData.attachments), JSON.stringify(publicationData.socialLinks),
+          publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS,
+          status, publishedAt, String(body.id),
+        ],
+      );
+      const data = rows[0];
       const newsletter = status === 'published' && !existing?.published_at
         ? await sendPublicationNewsletter({
             id: String(data.id),
@@ -512,13 +440,9 @@ export async function PATCH(request: NextRequest) {
           createdAt: data.created_at,
         },
       });
-    }
-
-    if (error) {
-      return NextResponse.json(
-        { error: `Erreur de mise à jour dans Supabase : ${error.message}` },
-        { status: 500 }
-      );
+    } catch (error) {
+      console.error('Erreur PostgreSQL lors de la mise à jour d’une actualité:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json({ error: 'Impossible de mettre à jour l’actualité.' }, { status: 503 });
     }
   }
 
@@ -569,18 +493,27 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
+  }
 
   const id = request.nextUrl.searchParams.get('id');
   if (!id) {
     return NextResponse.json({ error: 'Identifiant de publication requis.' }, { status: 400 });
   }
 
-  if (supabaseAdmin) {
-    const { error } = await supabaseAdmin.from('actualites').delete().eq('id', id);
-    if (error) {
-      return NextResponse.json({ error: `Erreur de suppression : ${error.message}` }, { status: 500 });
+  if (process.env.DATABASE_URL) {
+    try {
+      const { rowCount } = await getPostgresPool().query(
+        'DELETE FROM public.actualites WHERE id::text = $1',
+        [id],
+      );
+      if (!rowCount) return NextResponse.json({ error: 'Actualité introuvable.' }, { status: 404 });
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error('Erreur PostgreSQL lors de la suppression d’une actualité:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json({ error: 'Impossible de supprimer l’actualité.' }, { status: 503 });
     }
-    return NextResponse.json({ success: true });
   }
 
   if (process.env.STRAPI_API_TOKEN) {

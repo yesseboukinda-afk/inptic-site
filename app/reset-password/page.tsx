@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
 import { useTranslation } from 'react-i18next';
 
@@ -17,95 +17,18 @@ export default function ResetPasswordPage() {
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetToken, setResetToken] = useState('');
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) {
-      setMessage(t('pages.supabaseRequired'));
-      return;
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token') || '';
+    setResetToken(token);
+    setIsReady(/^[a-f0-9]{64}$/i.test(token));
+    if (token) window.history.replaceState({}, document.title, url.pathname);
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      setMessage('Ce lien de réinitialisation est invalide ou a expiré. Demandez-en un nouveau.');
     }
-
-    const { data } = client.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsReady(true);
-        setMessage('');
-      }
-    });
-
-    let active = true;
-    const prepareRecovery = async () => {
-      const url = new URL(window.location.href);
-      const errorDescription = url.searchParams.get('error_description');
-      const errorCode = url.searchParams.get('error_code');
-      if (errorDescription || errorCode) {
-        setMessage('Ce lien de réinitialisation est invalide ou a expiré. Demandez un nouveau lien.');
-        return;
-      }
-
-      try {
-        const code = url.searchParams.get('code');
-        const tokenHash = url.searchParams.get('token_hash');
-        const type = url.searchParams.get('type');
-        let hasRecoverySession = false;
-
-        if (code) {
-          const { data: sessionData, error } = await client.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          hasRecoverySession = Boolean(sessionData.session);
-        } else if (tokenHash && type === 'recovery') {
-          const { data: sessionData, error } = await client.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'recovery',
-          });
-          if (error) throw error;
-          hasRecoverySession = Boolean(sessionData.session);
-        } else {
-          const fragment = new URLSearchParams(url.hash.slice(1));
-          const accessToken = fragment.get('access_token');
-          const refreshToken = fragment.get('refresh_token');
-          if (accessToken && refreshToken && fragment.get('type') === 'recovery') {
-            const { data: sessionData, error } = await client.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (error) throw error;
-            hasRecoverySession = Boolean(sessionData.session);
-          }
-        }
-
-        const { data: sessionData, error } = await client.auth.getSession();
-        if (error) throw error;
-        if (active) {
-          setIsReady(hasRecoverySession || Boolean(sessionData.session));
-          if (!hasRecoverySession && !sessionData.session) {
-            setMessage('Le lien n’a pas ouvert une session de récupération. Demandez un nouveau lien et ouvrez-le depuis le même navigateur.');
-          }
-          if (code || tokenHash || url.hash) {
-            window.history.replaceState({}, document.title, url.pathname);
-          }
-        }
-      } catch (error) {
-        if (active) {
-          const { data: sessionData } = await client.auth.getSession();
-          if (sessionData.session) {
-            setIsReady(true);
-            setMessage('');
-          } else {
-            setMessage(error instanceof Error
-              ? `Impossible de valider le lien : ${translateAuthError(error.message, t)}`
-              : 'Impossible de valider le lien de réinitialisation. Demandez-en un nouveau.');
-          }
-        }
-      }
-    };
-
-    void prepareRecovery();
-
-    return () => {
-      active = false;
-      data.subscription.unsubscribe();
-    };
-  }, [t]);
+  }, []);
 
   async function updatePassword(event: React.FormEvent) {
     event.preventDefault();
@@ -120,21 +43,22 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (!supabase || !isReady) {
+    if (!isReady || !resetToken) {
       setMessage(t('pages.invalidRecovery'));
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        setMessage(translateAuthError(error.message, t));
-        return;
-      }
-
+      const response = await fetch('/api/auth/password/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, password }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'La mise à jour du mot de passe a échoué.');
       setMessage(t('pages.passwordUpdated'));
-      await supabase.auth.signOut();
+      await authClient.auth.signOut();
       setTimeout(() => router.replace('/candidat'), 800);
     } catch (error) {
       setMessage(error instanceof Error

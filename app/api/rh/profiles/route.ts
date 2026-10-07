@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
-  isAdminAccountEmail,
   isAdminRole,
-  isDirectorAccountEmail,
   isDirectorRole,
-  isRHAccountEmail,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -198,52 +196,26 @@ const SEED_PROFILES: RHProfile[] = [
   },
 ];
 
-// In-Memory store pour continuité sans Supabase
-let inMemoryProfiles = [...SEED_PROFILES];
-let inMemoryAuditLogs: RHAuditLog[] = [];
-
 function generateSecureToken(): string {
   const rand = crypto.randomBytes(16).toString('hex');
   return `inptic_agent_${rand}`;
 }
 
 async function verifyRHAuthorization(request: NextRequest, requireWrite = false) {
-  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!supabaseAdmin || accessToken === 'local-admin-token') {
-    // Mode local dev ou fallback staff storage si Supabase absent / token local
-    return {
-      user: {
-        id: 'dev-rh-user',
-        email: 'rh-admin@inptic.ga',
-        role: 'rh_admin',
-      },
-    };
-  }
+  const role = normalizeRole(user.role);
 
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !data.user) {
-    return { error: NextResponse.json({ error: 'Session expirée ou invalide.' }, { status: 401 }) };
-  }
-
-  const rawRole =
-    data.user.app_metadata?.role ??
-    data.user.app_metadata?.roles ??
-    data.user.user_metadata?.role ??
-    data.user.user_metadata?.roles;
-  const role = normalizeRole(rawRole);
-  const email = data.user.email || '';
-
-  const isDirecteur = isDirectorRole(role) || isDirectorAccountEmail(email);
-  const isAdmin = isAdminRole(role) || isAdminAccountEmail(email) || isRHAccountEmail(email);
-  const isRHAdmin = role === 'rh_admin' || role === 'rh' || role === 'drh' || isRHAccountEmail(email);
+  const isDirecteur = isDirectorRole(role);
+  const isAdmin = isAdminRole(role);
+  const isRHAdmin = role === 'rh_admin' || role === 'rh' || role === 'drh';
   const isRHGestionnaire = role === 'rh_gestionnaire';
   const isRHConsultation = role === 'rh_consultation';
 
-  const hasAccess = isDirecteur || isAdmin || isRHAdmin || isRHGestionnaire || isRHConsultation || isRHAccountEmail(email);
+  const hasAccess = isDirecteur || isAdmin || isRHAdmin || isRHGestionnaire || isRHConsultation;
 
   if (!hasAccess) {
     return {
@@ -265,8 +237,8 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
 
   return {
     user: {
-      id: data.user.id,
-      email: data.user.email || 'rh@inptic.ga',
+      id: user.id,
+      email: user.email,
       role: isDirecteur || isAdmin || isRHAdmin ? 'rh_admin' : isRHGestionnaire ? 'rh_gestionnaire' : 'rh_consultation',
     },
   };
@@ -293,25 +265,47 @@ async function logAuditAction(
     ipAddress,
   };
 
-  inMemoryAuditLogs.unshift(log);
+  await getPostgresPool().query(
+    `INSERT INTO public.rh_audit_logs
+       (user_id, user_email, action, target_id, target_name, details, ip_address)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [userId, userEmail, action, targetId ?? null, targetName ?? null, details ?? null, ipAddress ?? null],
+  );
+}
 
-  if (supabaseAdmin) {
-    try {
-      await supabaseAdmin.from('rh_audit_logs').insert([
-        {
-          user_id: userId,
-          user_email: userEmail,
-          action,
-          target_id: targetId,
-          target_name: targetName,
-          details,
-          ip_address: ipAddress,
-        },
-      ]);
-    } catch {
-      // ignore
-    }
-  }
+function mapRHProfile(d: any): RHProfile {
+  return {
+    id: String(d.id),
+    matricule: d.matricule,
+    firstName: d.first_name,
+    lastName: d.last_name,
+    gender: d.gender,
+    birthDate: d.birth_date,
+    birthPlace: d.birth_place || '',
+    phone: d.phone || '',
+    email: d.email || '',
+    photoUrl: d.photo_url || '',
+    department: d.department,
+    position: d.position,
+    status: d.status,
+    contractType: d.contract_type,
+    hireDate: d.hire_date,
+    seniorityYears: Math.floor(
+      (Date.now() - new Date(d.hire_date).getTime()) / (365.25 * 24 * 3600 * 1000)
+    ),
+    jobDescription: d.job_description || '',
+    isArchived: Boolean(d.is_archived),
+    archivedAt: d.archived_at,
+    archiveReason: d.archive_reason,
+    qrToken: d.qr_token,
+    qrStatus: d.qr_status,
+    qrGeneratedAt: d.qr_generated_at,
+    qrRevokedAt: d.qr_revoked_at,
+    publicWhitelist: d.public_whitelist || DEFAULT_PUBLIC_WHITELIST,
+    history: Array.isArray(d.history) ? d.history : [],
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -323,87 +317,46 @@ export async function GET(request: NextRequest) {
   const department = searchParams.get('department');
   const query = searchParams.get('q');
   const getAuditLogs = searchParams.get('logs') === '1';
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
+  }
 
   // Consultation du journal d'audit
   if (getAuditLogs) {
-    if (supabaseAdmin) {
-      try {
-        const { data, error } = await supabaseAdmin
-          .from('rh_audit_logs')
-          .select('*')
-          .order('timestamp', { ascending: false })
-          .limit(100);
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-          return NextResponse.json({
-            logs: data.map((d) => ({
-              id: String(d.id),
-              timestamp: d.timestamp,
-              userId: d.user_id,
-              userEmail: d.user_email,
-              action: d.action,
-              targetId: d.target_id,
-              targetName: d.target_name,
-              details: d.details,
-              ipAddress: d.ip_address,
-            })),
-          });
-        }
-      } catch {
-        // fallback in memory
-      }
+    try {
+      const { rows } = await getPostgresPool().query(
+        'SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100',
+      );
+      return NextResponse.json({
+        logs: rows.map((row) => ({
+          id: String(row.id),
+          timestamp: row.timestamp,
+          userId: row.user_id,
+          userEmail: row.user_email,
+          action: row.action,
+          targetId: row.target_id,
+          targetName: row.target_name,
+          details: row.details,
+          ipAddress: row.ip_address,
+        })),
+      });
+    } catch (error) {
+      console.error('Erreur PostgreSQL de lecture du journal RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json({ error: 'Journal RH indisponible.' }, { status: 503 });
     }
-    return NextResponse.json({ logs: inMemoryAuditLogs });
   }
 
   // Lecture des profils
   let profiles: RHProfile[] = [];
 
-  if (supabaseAdmin) {
-    try {
-      const q = supabaseAdmin.from('rh_profiles').select('*').order('created_at', { ascending: false });
-      const { data, error } = await q;
-      if (!error && Array.isArray(data) && data.length > 0) {
-        profiles = data.map((d: any) => ({
-          id: String(d.id),
-          matricule: d.matricule,
-          firstName: d.first_name,
-          lastName: d.last_name,
-          gender: d.gender,
-          birthDate: d.birth_date,
-          birthPlace: d.birth_place || '',
-          phone: d.phone || '',
-          email: d.email || '',
-          photoUrl: d.photo_url || '',
-          department: d.department,
-          position: d.position,
-          status: d.status,
-          contractType: d.contract_type,
-          hireDate: d.hire_date,
-          seniorityYears: Math.floor(
-            (Date.now() - new Date(d.hire_date).getTime()) / (365.25 * 24 * 3600 * 1000)
-          ),
-          jobDescription: d.job_description || '',
-          isArchived: Boolean(d.is_archived),
-          archivedAt: d.archived_at,
-          archiveReason: d.archive_reason,
-          qrToken: d.qr_token,
-          qrStatus: d.qr_status,
-          qrGeneratedAt: d.qr_generated_at,
-          qrRevokedAt: d.qr_revoked_at,
-          publicWhitelist: d.public_whitelist || DEFAULT_PUBLIC_WHITELIST,
-          history: Array.isArray(d.history) ? d.history : [],
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
-        }));
-      }
-    } catch {
-      // Table fallback
-    }
-  }
-
-  if (profiles.length === 0) {
-    profiles = inMemoryProfiles;
+  try {
+      const { rows } = await getPostgresPool().query(
+        'SELECT * FROM public.rh_profiles ORDER BY created_at DESC',
+      );
+      profiles = rows.map(mapRHProfile);
+  } catch (error) {
+    console.error('Erreur PostgreSQL de lecture des profils RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Profils RH indisponibles.' }, { status: 503 });
   }
 
   // Filtrage
@@ -480,49 +433,30 @@ export async function POST(request: NextRequest) {
     updatedAt: now,
   };
 
-  if (supabaseAdmin) {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('rh_profiles')
-        .insert([
-          {
-            matricule: newProfile.matricule,
-            first_name: newProfile.firstName,
-            last_name: newProfile.lastName,
-            gender: newProfile.gender,
-            birth_date: newProfile.birthDate,
-            birth_place: newProfile.birthPlace,
-            phone: newProfile.phone,
-            email: newProfile.email,
-            photo_url: newProfile.photoUrl,
-            department: newProfile.department,
-            position: newProfile.position,
-            status: newProfile.status,
-            contract_type: newProfile.contractType,
-            hire_date: newProfile.hireDate,
-            job_description: newProfile.jobDescription,
-            is_archived: false,
-            qr_token: newProfile.qrToken,
-            qr_status: 'actif',
-            qr_generated_at: now,
-            public_whitelist: newProfile.publicWhitelist,
-            history: newProfile.history,
-            created_at: now,
-            updated_at: now,
-          },
-        ])
-        .select()
-        .single();
-
-      if (!error && data) {
-        newProfile.id = String(data.id);
-      }
-    } catch {
-      // fallback
-    }
+  try {
+    const { rows } = await getPostgresPool().query(
+      `INSERT INTO public.rh_profiles
+         (matricule, first_name, last_name, gender, birth_date, birth_place, phone,
+          email, photo_url, department, position, status, contract_type, hire_date,
+          job_description, is_archived, qr_token, qr_status, qr_generated_at,
+          public_whitelist, history)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+               $15, FALSE, $16, 'actif', $17, $18, $19)
+       RETURNING id`,
+      [
+        newProfile.matricule, newProfile.firstName, newProfile.lastName, newProfile.gender,
+        newProfile.birthDate, newProfile.birthPlace, newProfile.phone, newProfile.email,
+        newProfile.photoUrl, newProfile.department, newProfile.position, newProfile.status,
+        newProfile.contractType, newProfile.hireDate, newProfile.jobDescription,
+        newProfile.qrToken, now, JSON.stringify(newProfile.publicWhitelist),
+        JSON.stringify(newProfile.history),
+      ],
+    );
+    newProfile.id = String(rows[0].id);
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la création du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de créer le profil RH.' }, { status: 503 });
   }
-
-  inMemoryProfiles.unshift(newProfile);
 
   await logAuditAction(
     auth.user!.id,
@@ -548,8 +482,18 @@ export async function PATCH(request: NextRequest) {
   const now = new Date().toISOString();
   const profileId = String(body.id);
 
-  // Recherche profil
-  let profile = inMemoryProfiles.find((p) => p.id === profileId);
+  let profile: RHProfile;
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT * FROM public.rh_profiles WHERE id::text = $1 LIMIT 1',
+      [profileId],
+    );
+    if (!rows[0]) return NextResponse.json({ error: 'Profil RH introuvable.' }, { status: 404 });
+    profile = mapRHProfile(rows[0]);
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors du chargement du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de charger le profil RH.' }, { status: 503 });
+  }
 
   // Gestion des actions spéciales : REGENERATE_QR, REVOKE_QR, ARCHIVE, RESTORE
   const actionType = body.actionType; // 'regenerate_qr' | 'revoke_qr' | 'archive' | 'restore' | 'update'
@@ -632,44 +576,56 @@ export async function PATCH(request: NextRequest) {
     if (body.publicWhitelist) updates.publicWhitelist = body.publicWhitelist;
   }
 
-  // Supabase update
-  if (supabaseAdmin) {
-    try {
-      const dbUpdates: Record<string, any> = {
-        updated_at: now,
-      };
-      if (updates.firstName) dbUpdates.first_name = updates.firstName;
-      if (updates.lastName) dbUpdates.last_name = updates.lastName;
-      if (updates.gender) dbUpdates.gender = updates.gender;
-      if (updates.birthDate) dbUpdates.birth_date = updates.birthDate;
-      if (updates.birthPlace !== undefined) dbUpdates.birth_place = updates.birthPlace;
-      if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
-      if (updates.email !== undefined) dbUpdates.email = updates.email;
-      if (updates.photoUrl !== undefined) dbUpdates.photo_url = updates.photoUrl;
-      if (updates.department) dbUpdates.department = updates.department;
-      if (updates.position) dbUpdates.position = updates.position;
-      if (updates.status) dbUpdates.status = updates.status;
-      if (updates.contractType) dbUpdates.contract_type = updates.contractType;
-      if (updates.hireDate) dbUpdates.hire_date = updates.hireDate;
-      if (updates.jobDescription !== undefined) dbUpdates.job_description = updates.jobDescription;
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
-      if (updates.archivedAt !== undefined) dbUpdates.archived_at = updates.archivedAt;
-      if (updates.archiveReason !== undefined) dbUpdates.archive_reason = updates.archiveReason;
-      if (updates.qrToken) dbUpdates.qr_token = updates.qrToken;
-      if (updates.qrStatus) dbUpdates.qr_status = updates.qrStatus;
-      if (updates.qrGeneratedAt) dbUpdates.qr_generated_at = updates.qrGeneratedAt;
-      if (updates.qrRevokedAt !== undefined) dbUpdates.qr_revoked_at = updates.qrRevokedAt;
-      if (updates.publicWhitelist) dbUpdates.public_whitelist = updates.publicWhitelist;
-
-      await supabaseAdmin.from('rh_profiles').update(dbUpdates).eq('id', profileId);
-    } catch {
-      // fallback
-    }
+  const columns: Record<string, string> = {
+    firstName: 'first_name',
+    lastName: 'last_name',
+    gender: 'gender',
+    birthDate: 'birth_date',
+    birthPlace: 'birth_place',
+    phone: 'phone',
+    email: 'email',
+    photoUrl: 'photo_url',
+    department: 'department',
+    position: 'position',
+    status: 'status',
+    contractType: 'contract_type',
+    hireDate: 'hire_date',
+    jobDescription: 'job_description',
+    isArchived: 'is_archived',
+    archivedAt: 'archived_at',
+    archiveReason: 'archive_reason',
+    qrToken: 'qr_token',
+    qrStatus: 'qr_status',
+    qrGeneratedAt: 'qr_generated_at',
+    qrRevokedAt: 'qr_revoked_at',
+    publicWhitelist: 'public_whitelist',
+  };
+  const assignments = ['updated_at = NOW()'];
+  const values: unknown[] = [];
+  for (const [field, value] of Object.entries(updates)) {
+    const column = columns[field];
+    if (!column) continue;
+    values.push(field === 'publicWhitelist' ? JSON.stringify(value) : value);
+    assignments.push(`${column} = $${values.length}${field === 'publicWhitelist' ? '::jsonb' : ''}`);
   }
+  values.push(JSON.stringify(historyEntry));
+  assignments.push(`history = COALESCE(history, '[]'::jsonb) || $${values.length}::jsonb`);
+  values.push(profileId);
 
-  if (profile) {
-    Object.assign(profile, updates);
-    profile.history.unshift(historyEntry);
+  let updatedProfile: RHProfile;
+  try {
+    const { rows } = await getPostgresPool().query(
+      `UPDATE public.rh_profiles
+       SET ${assignments.join(', ')}
+       WHERE id::text = $${values.length}
+       RETURNING *`,
+      values,
+    );
+    if (!rows[0]) return NextResponse.json({ error: 'Profil RH introuvable.' }, { status: 404 });
+    updatedProfile = mapRHProfile(rows[0]);
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la mise à jour du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de mettre à jour le profil RH.' }, { status: 503 });
   }
 
   await logAuditAction(
@@ -677,9 +633,9 @@ export async function PATCH(request: NextRequest) {
     auth.user!.email,
     actionType ? actionType.toUpperCase() : 'UPDATE_PROFILE',
     profileId,
-    profile ? `${profile.firstName} ${profile.lastName}` : profileId,
+    `${updatedProfile.firstName} ${updatedProfile.lastName}`,
     historyEntry.details
   );
 
-  return NextResponse.json({ data: profile || updates });
+  return NextResponse.json({ data: updatedProfile });
 }

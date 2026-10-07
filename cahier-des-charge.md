@@ -54,8 +54,8 @@ consulter les pages et utiliser les fonctions de partage disponibles.
 
 ### 4.2 Comptes et admissions
 
-- Inscription et connexion des candidats, avec authentification Supabase en
-  production.
+- Inscription et connexion des candidats et du personnel, avec
+  authentification PostgreSQL sur l'hébergement LWS.
 - Parcours de préinscription et dépôt du dossier officiel.
 - Téléversement des pièces obligatoires selon les formats et limites présentés
   par le formulaire.
@@ -147,10 +147,10 @@ lock déterminent les versions résolues lors de l'installation.
 | Icônes et animations | Lucide React / Lottie React | `lucide-react ^0.468.0` pour les icônes et `lottie-react ^3.1.2` pour les animations Lottie. |
 | Traductions | i18next / react-i18next | `i18next ^26.4.2` et `react-i18next ^17.0.13`. |
 | Visualisation 3D | Three.js / React Three Fiber / Drei | `three ^0.186.1`, `@react-three/fiber ^9.8.1`, `@react-three/drei ^10.7.9`; utilisés pour la visite 3D. |
-| Authentification et accès aux données | Supabase JS | `@supabase/supabase-js ^2.112.4`; Auth et accès aux services Supabase utilisés par l'application. |
+| Authentification et accès aux données | PostgreSQL | Connexion serveur `pg`, sessions et comptes applicatifs stockés dans PostgreSQL; aucun SDK Supabase au runtime. |
 | CMS | Strapi | Strapi `5.55.1` et plugin Users & Permissions `5.55.1`; API REST pour les contenus reliés au CMS. |
 | Base du CMS | SQLite par défaut | `better-sqlite3 12.8.0`; la configuration Strapi permet aussi PostgreSQL ou MySQL selon `DATABASE_CLIENT`. |
-| Services de données | Supabase / PostgreSQL | Authentification, tables et migrations SQL utilisées par les parcours applicatifs. Le schéma dépend des migrations activées. |
+| Services de données | PostgreSQL LWS | Comptes, données métier, profils, newsletter et métadonnées des fichiers; migrations SQL sous `scripts/`. |
 | IA conversationnelle | AI SDK | `ai ^7.0.15`, utilisé par `/api/chat` avec AI Gateway; clé OpenAI acceptée en compatibilité selon la configuration. |
 | Flux XML | fast-xml-parser | `^5.11.2`, pour les flux structurés consommés par les fonctions de veille. |
 | QR codes | qrcode | `^1.5.4` (et types `@types/qrcode ^1.5.6`), notamment pour les cartes professionnelles. |
@@ -166,19 +166,16 @@ la compilation TypeScript, mais ne remplace pas une suite de tests fonctionnels.
 
 #### Type d'architecture
 
-La plateforme suit une **architecture web client-serveur hybride, organisée
-autour d'un monolithe modulaire full-stack Next.js**. L'interface, le rendu des
-pages et les routes HTTP métier sont regroupés dans l'application Next.js et
-déployés comme un même produit. Cette application s'appuie toutefois sur des
-services séparés : **Strapi en CMS headless**, **Supabase en backend managé
-(BaaS)** et des fournisseurs tiers pour certaines fonctions.
+La plateforme suit une **architecture web client-serveur organisée autour d'un
+monolithe modulaire full-stack Next.js**. L'interface, le rendu des pages et les
+routes HTTP métier sont regroupés dans l'application Next.js. PostgreSQL et le
+stockage privé sur disque de LWS sont la source de vérité des données applicatives.
+Strapi reste un CMS distinct uniquement pour les contenus qui y sont encore gérés.
 
-Il ne s'agit donc ni d'un monolithe autonome contenant toutes les données et
-fonctions, ni d'une architecture microservices : Strapi, Supabase et les
-fournisseurs externes sont des dépendances autonomes, tandis que les modules
-du site restent dans le même projet Next.js. Le mode de communication principal
-entre les composants séparés est HTTPS/API (REST pour Strapi et les routes HTTP
-du site).
+Le site utilise un déploiement applicatif LWS, PostgreSQL pour les données et
+fichiers persistants sur disque privé; le CMS et les fournisseurs externes restent
+des services distincts. Les échanges avec le CMS et les fournisseurs externes
+passent par les routes serveur ou leurs API REST.
 
 #### Schéma d'architecture
 
@@ -190,20 +187,21 @@ flowchart LR
         Pages["Pages et composants<br/>App Router"]
         Routes["Routes serveur<br/>app/api"]
     end
-    Supabase["Supabase managé<br/>Auth + données PostgreSQL"]
+    PostgreSQL["PostgreSQL LWS<br/>Comptes + données métier"]
+    Storage["Stockage privé LWS<br/>Documents + fichiers"]
     Strapi["CMS headless Strapi<br/>API REST"]
     CMSDB["Base Strapi<br/>SQLite en défaut<br/>PostgreSQL ou MySQL possibles"]
     AI["AI Gateway / modèle IA"]
     Mail["Resend"]
     Social["Facebook Graph API<br/>YouTube Data API"]
     Payment["Prestataire Mobile Money<br/>(si configuré)"]
-    Deploy["Hébergement Next.js<br/>Vercel documenté"]
+    Deploy["Hébergement Next.js<br/>Node.js LWS"]
 
     Visitor --> Browser
     Browser --> Pages
     Pages --> Routes
-    Browser <-->|"Auth et accès via Supabase JS"| Supabase
-    Routes <-->|"API / SDK et opérations serveur"| Supabase
+    Routes <-->|"SQL via pg"| PostgreSQL
+    Routes <-->|"Fichiers privés et publics"| Storage
     Routes <-->|"HTTPS / REST"| Strapi
     Strapi --> CMSDB
     Routes -.->|"API, si configurée"| AI
@@ -214,26 +212,26 @@ flowchart LR
 ```
 
 Les flèches en pointillés désignent des intégrations externes facultatives ou
-conditionnées par leur configuration. Le schéma distingue les accès du
-navigateur à Supabase de ceux effectués par les routes serveur; les secrets
-privilégiés doivent rester exclusivement côté serveur. L'hébergement Strapi et
-sa base sont séparés du déploiement Next.js.
+conditionnées par leur configuration. Les navigateurs n'accèdent jamais
+directement à PostgreSQL ou au stockage privé; les routes serveur contrôlent les
+droits et servent les fichiers. L'hébergement Strapi et sa base restent séparés
+du déploiement Next.js.
 
 - **Frontend et backend web** : application Next.js avec App Router; les pages
   sont dans `app/`, les composants partagés dans `components/` et les routes
   HTTP applicatives dans `app/api/`. Les interfaces et routes sont écrites en
   TypeScript/TSX.
-- **Authentification** : Supabase Auth en production. Le stockage local indiqué
-  par le projet est un mode de développement/local et ne partage pas les
-  comptes entre navigateurs ou appareils.
-- **Données métier** : Supabase pour les comptes et les données gérées par les
-  tables/migrations SQL du projet. Le CMS Strapi expose les contenus éditoriaux
-  reliés à ses collections via REST. Ces deux stockages ont des rôles distincts.
+- **Authentification et données métier** : comptes, sessions et tables
+  applicatives dans PostgreSQL LWS; les mots de passe sont hachés et le cookie
+  de session est HttpOnly. Les rôles sont contrôlés côté serveur.
+- **Fichiers** : documents privés et fichiers publics dans le stockage persistant
+  LWS, avec métadonnées PostgreSQL; les liens des documents candidats sont
+  protégés par la session et les droits du profil.
 - **CMS** : Strapi 5 avec API REST, interface d'administration, rôles et
   permissions. Sa base de développement est SQLite par défaut; pour la
   production, choisir et configurer un stockage persistant approprié.
-- **Courriels** : Resend pour les envois de newsletter activés. Supabase Auth
-  envoie les courriels de compte/réinitialisation selon sa propre configuration.
+- **Courriels** : Resend pour les confirmations d'adresse, réinitialisations
+  de mot de passe et envois de newsletter.
 - **Assistant** : route `/api/chat`, AI SDK et Gateway; le fonctionnement avec
   modèle distant dépend des clés serveur. Sans la clé Gateway, le fallback
   local documenté dans le README est utilisé.
@@ -245,10 +243,9 @@ sa base sont séparés du déploiement Next.js.
   l'application. Le prestataire, les identifiants et les URL de retour doivent
   être confirmés et configurés pour l'environnement cible; un statut en attente
   ne doit pas être traité comme un paiement confirmé.
-- **Hébergement** : le déploiement documenté cible Vercel pour Next.js; Strapi
-  est un service distinct qui doit être hébergé et rendu joignable séparément.
-  Les URL publiques du site et du CMS doivent être configurées dans leurs
-  environnements respectifs.
+- **Hébergement** : l'application Next.js et PostgreSQL sont hébergés sur LWS;
+  Strapi est un service distinct qui doit être joignable pour les pages qui en
+  dépendent. Les URL publiques du site et du CMS sont configurées séparément.
 - **Template chatbot** : le dossier `chatbot/` est conservé comme référence;
   l'assistant utilisé par le site est intégré à l'application principale et
   n'exige pas de lancer cette seconde application.
@@ -260,7 +257,7 @@ commise avec les secrets. Les principales familles de configuration comprennent 
 
 | Service | Paramètres indicatifs documentés |
 | --- | --- |
-| Site et Supabase | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. |
+| Site et base applicative | `DATABASE_URL`, `PRIVATE_STORAGE_DIR`, `AUTH_SITE_URL`. |
 | Strapi | `NEXT_PUBLIC_STRAPI_URL`, `STRAPI_API_TOKEN`; côté CMS, clés d'application et variables de connexion à sa base. |
 | Assistant IA | `AI_GATEWAY_API_KEY`; `OPENAI_API_KEY` comme compatibilité. |
 | Newsletter | `RESEND_API_KEY`, `NEWSLETTER_FROM_EMAIL`, `NEWSLETTER_SITE_URL`. |
@@ -285,9 +282,10 @@ Commandes npm du dépôt :
 | `npm run start` / `npm run start:strapi` | Démarrer séparément le site ou le CMS en mode production. |
 
 Les migrations SQL `scripts/*.sql` correspondent à des fonctions distinctes.
-Seules les migrations requises par les modules activés doivent être appliquées
-au projet Supabase cible, après examen et dans l'ordre compatible avec leurs
-dépendances.
+Créer la base dans le panneau LWS puis exécuter
+`scripts/00_lws_complete_schema.sql` avant le démarrage. Ce script regroupe le
+schéma applicatif, l'authentification, les profils, les fichiers et la newsletter;
+il ne copie aucune donnée ancienne.
 
 Une défaillance ou une absence de configuration d'un fournisseur tiers peut
 désactiver uniquement les fonctions dépendantes de ce fournisseur; l'interface
@@ -304,9 +302,9 @@ déposés doivent être accessibles uniquement selon les permissions prévues.
 
 Les champs détaillés, formats et limites de téléversement sont définis par les
 formulaires et collections actuellement implémentés. Le contenu éditorial
-public est administré dans Strapi lorsqu'il s'agit d'une collection reliée au
-CMS; les opérations liées aux comptes ou aux dossiers dépendent de Supabase et
-des routes serveur dédiées.
+public est administré dans PostgreSQL, sauf le catalogue de formation qui reste
+relié au CMS Strapi. Les comptes et dossiers passent par les routes serveur
+connectées à PostgreSQL et au stockage LWS.
 
 ## 8. Mise en service
 
@@ -314,11 +312,10 @@ Avant une mise en production, l'exploitant doit :
 
 1. fournir les variables publiques et secrètes attendues par l'environnement,
    en conservant les secrets uniquement côté serveur;
-2. créer ou inviter les comptes dans Supabase et vérifier les autorisations de
-   rôle nécessaires;
+2. appliquer les scripts de schéma PostgreSQL LWS; les comptes et données sont
+   créés sur cette nouvelle base, sans import historique;
 3. appliquer les migrations SQL requises par les parcours activés;
-4. configurer les URL autorisées pour l'authentification et la réinitialisation
-   du mot de passe;
+4. configurer les URL OAuth, les courriels et la réinitialisation du mot de passe;
 5. configurer Strapi, ses permissions de lecture publique et les jetons
    d'écriture nécessaires;
 6. activer et vérifier chaque fournisseur externe utilisé (paiement, courriel,

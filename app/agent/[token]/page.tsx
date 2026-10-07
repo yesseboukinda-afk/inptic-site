@@ -14,7 +14,7 @@ import {
   Award,
   Sparkles,
 } from 'lucide-react';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
 import { DEFAULT_PUBLIC_WHITELIST, RHPublicWhitelist } from '@/types/rh';
 
 export const metadata: Metadata = {
@@ -31,122 +31,11 @@ type AgentPageProps = {
 };
 
 async function getAgentData(token: string) {
-  let profileData: any = null;
-
-  if (supabaseAdmin) {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('rh_profiles')
-        .select('*')
-        .eq('qr_token', token)
-        .single();
-
-      if (!error && data) {
-        profileData = {
-          matricule: data.matricule,
-          first_name: data.first_name || data.firstName,
-          last_name: data.last_name || data.lastName,
-          gender: data.gender,
-          birth_date: data.birth_date || data.birthDate,
-          birth_place: data.birth_place || data.birthPlace,
-          phone: data.phone,
-          email: data.email,
-          photo_url: data.photo_url || data.photoUrl,
-          department: data.department,
-          position: data.position,
-          status: data.status,
-          is_archived: data.is_archived || data.isArchived,
-          qr_status: data.qr_status || data.qrStatus,
-          public_whitelist: data.public_whitelist || data.publicWhitelist || DEFAULT_PUBLIC_WHITELIST,
-        };
-      }
-    } catch {
-      // fallback
-    }
-  }
-
-  if (!profileData) {
-    const seeds = [
-      {
-        matricule: 'INPTIC-2018-001',
-        first_name: 'Arsène',
-        last_name: 'BEKALE',
-        gender: 'M',
-        birth_date: '1974-05-12',
-        birth_place: 'Libreville',
-        phone: '+241 77 12 34 56',
-        email: 'arsene.bekale@inptic.ga',
-        photo_url: '/banniere/DG.webp',
-        department: 'Direction Générale (DG)',
-        position: 'Directeur Général',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: 'inptic_agent_7f8a9b2c3d4e5f60718293a4b5c6d7e8',
-        qr_status: 'actif',
-        public_whitelist: { ...DEFAULT_PUBLIC_WHITELIST, email: true },
-      },
-      {
-        matricule: 'INPTIC-2019-014',
-        first_name: 'Pauline',
-        last_name: 'NDONG MVE',
-        gender: 'F',
-        birth_date: '1981-11-23',
-        birth_place: 'Oyem',
-        phone: '+241 66 98 76 54',
-        email: 'pauline.ndong@inptic.ga',
-        photo_url: '/banniere/DGA.webp',
-        department: 'Direction Générale Adjointe (DGA)',
-        position: 'Directrice Générale Adjointe',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: 'inptic_agent_1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d',
-        qr_status: 'actif',
-        public_whitelist: { ...DEFAULT_PUBLIC_WHITELIST, email: true },
-      },
-      {
-        matricule: 'INPTIC-2021-032',
-        first_name: 'Marc',
-        last_name: 'ESSONO OBIANG',
-        gender: 'M',
-        birth_date: '1985-08-19',
-        birth_place: 'Port-Gentil',
-        phone: '+241 74 55 44 33',
-        email: 'marc.essono@inptic.ga',
-        photo_url: '',
-        department: 'Direction des Ressources Techniques et de l’Innovation (DRTI)',
-        position: 'Directeur des Ressources Techniques et de l’Innovation',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: 'inptic_agent_9f8e7d6c5b4a39281706f5e4d3c2b1a0',
-        qr_status: 'actif',
-        public_whitelist: { ...DEFAULT_PUBLIC_WHITELIST, email: true },
-      },
-    ];
-
-    const found = seeds.find((s) => s.qr_token === token);
-    if (found) {
-      profileData = found;
-    } else if (token.length >= 6) {
-      profileData = {
-        matricule: `INPTIC-2026-${token.slice(-4).toUpperCase()}`,
-        first_name: 'Agent Certifié',
-        last_name: 'INPTIC',
-        gender: 'M',
-        birth_date: '1988-06-15',
-        birth_place: 'Libreville',
-        phone: '+241 77 00 00 00',
-        email: 'agent@inptic.ga',
-        photo_url: '',
-        department: 'Direction & Administration INPTIC',
-        position: 'Personnel Certifié INPTIC',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: token,
-        qr_status: 'actif',
-        public_whitelist: { photo: true, lastName: true, firstName: true, position: true, department: true, status: true, gender: false, birthDate: false, birthPlace: false, phone: true, email: true },
-      };
-    }
-  }
+  const { rows } = await getPostgresPool().query(
+    'SELECT * FROM public.rh_profiles WHERE qr_token = $1 LIMIT 1',
+    [token],
+  );
+  const profileData = rows[0];
 
   if (!profileData) {
     return { status: 'inconnu', message: 'Ce QR Code ne correspond à aucun profil enregistré auprès de l’INPTIC Gabon.' };

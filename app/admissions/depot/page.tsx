@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LogIn, CheckCircle2, ArrowRight, ShieldCheck, Upload, FileText } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import { useTranslation } from 'react-i18next';
 import FormulaireCandidatureLicence, { CandidatureValues } from '@/app/scolarite/formulaire/Formulairecandidature';
 import {
@@ -33,15 +33,14 @@ export default function DepotPage() {
         }
       }
 
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user) {
-          setCurrentUser((prev: any) => ({
-            ...prev,
-            email: data.session?.user.email || prev?.email,
-            name: data.session?.user.user_metadata?.full_name || prev?.name || 'Candidat',
-          }));
-        }
+      const { data } = await authClient.auth.getSession();
+      const authenticatedUser = data.session?.user;
+      if (authenticatedUser) {
+        setCurrentUser((prev: any) => ({
+          ...prev,
+          email: authenticatedUser.email || prev?.email,
+          name: authenticatedUser.user_metadata?.full_name || prev?.name || 'Candidat',
+        }));
       }
       setLoading(false);
     };

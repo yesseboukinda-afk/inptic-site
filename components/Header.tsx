@@ -7,8 +7,8 @@ import { usePathname } from 'next/navigation';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
-import { isRHAccountEmail, isDirectorAccountEmail, isAdminAccountEmail, isScolariteAccountEmail } from '@/lib/roles';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
+import { isDirectorRole, isRHRole, normalizeRole } from '@/lib/roles';
 
 interface MenuItem {
   id: string;
@@ -93,44 +93,17 @@ export default function Header() {
     currentLanguage === 'ar' ? '🇸🇦' : '🇫🇷';
 
   const syncAuthState = async () => {
-    const director = localStorage.getItem('inptic_directeur');
-    const student = localStorage.getItem('inptic_user');
-    const staffRaw = localStorage.getItem('inptic_staff');
-    const staff = staffRaw ? JSON.parse(staffRaw) : null;
-    const dirObj = director ? JSON.parse(director) : null;
-
-    let isDir = Boolean(director) || isDirectorAccountEmail(staff?.email) || isDirectorAccountEmail(dirObj?.email);
-    let rhUser = Boolean(
-      (staff && (staff.role === 'admin' || isRHAccountEmail(staff?.email) || isAdminAccountEmail(staff?.email))) ||
-      (dirObj && (isRHAccountEmail(dirObj?.email) || isAdminAccountEmail(dirObj?.email))) ||
-      isRHAccountEmail(staff?.email) ||
-      isAdminAccountEmail(staff?.email)
-    );
-    let scolUser = Boolean(
-      (staff && (staff.role === 'scolarite' || isScolariteAccountEmail(staff?.email))) ||
-      (dirObj && isScolariteAccountEmail(dirObj?.email)) ||
-      isScolariteAccountEmail(staff?.email)
-    );
-
-    if (supabase) {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const user = data.session?.user;
-        if (user?.email) {
-          if (isDirectorAccountEmail(user.email)) isDir = true;
-          if (isRHAccountEmail(user.email) || isAdminAccountEmail(user.email)) rhUser = true;
-          if (isScolariteAccountEmail(user.email)) scolUser = true;
-        }
-      } catch {
-        // ignore
-      }
-    }
-
+    const { data } = await authClient.auth.getSession();
+    const role = normalizeRole(data.session?.user?.app_metadata?.role);
+    const isDir = isDirectorRole(role);
+    const rhUser = isRHRole(role) || role === 'admin';
+    const scolUser = role === 'scolarite';
     setIsDirector(isDir);
     setIsRH(rhUser);
     setIsScolarite(scolUser);
-    setIsStudent(Boolean(student));
-    setStaffRole(['scolarite', 'direction_etudes', 'communication', 'admin'].includes(staff?.role) ? staff.role : (rhUser ? 'admin' : (scolUser ? 'scolarite' : null)));
+    setIsStudent(role === 'etudiant');
+    const allowedStaffRoles = ['scolarite', 'direction_etudes', 'communication', 'admin'] as const;
+    setStaffRole(allowedStaffRoles.find((staffRole) => staffRole === role) ?? (rhUser ? 'admin' : scolUser ? 'scolarite' : null));
   };
 
   const changeLanguage = (lang: 'fr' | 'en' | 'zh' | 'ar') => {
@@ -220,16 +193,10 @@ export default function Header() {
   };
 
   const handleLogout = async () => {
-    localStorage.setItem('inptic_logout_guard', String(Date.now()));
-    if (typeof window !== 'undefined') {
-      const { supabase } = await import('@/lib/supabase');
-      if (supabase) {
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // Ignored: fallback to local cleanup below.
-        }
-      }
+    const { error } = await authClient.auth.signOut();
+    if (error) {
+      window.alert(error.message);
+      return;
     }
 
     localStorage.removeItem('inptic_directeur');

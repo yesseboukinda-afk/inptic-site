@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
+import { getPostgresPool } from '@/lib/postgres';
 import {
-  isAdminAccountEmail,
   isAdminRole,
   isCommunicationRole,
-  isDirectorAccountEmail,
   isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
@@ -107,40 +106,18 @@ const SEED_PUBLICATIONS: ResearchPublication[] = [
 ];
 
 async function authorizeStaff(request: NextRequest) {
-  const accessToken = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!accessToken) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!supabaseAdmin) {
-    return {
-      error: NextResponse.json(
-        { error: 'Configuration serveur Supabase manquante (SUPABASE_SERVICE_ROLE_KEY).' },
-        { status: 500 }
-      ),
-    };
-  }
-
-  const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !data.user) {
-    return { error: NextResponse.json({ error: 'Session expirée ou invalide.' }, { status: 401 }) };
-  }
-
-  const role = normalizeRole(
-    data.user.app_metadata?.role ??
-    data.user.app_metadata?.roles ??
-    data.user.user_metadata?.role ??
-    data.user.user_metadata?.roles
-  );
-  const email = data.user.email || '';
+  const role = normalizeRole(user.role);
 
   const isAuthorized =
     isAdminRole(role) ||
     isDirectorRole(role) ||
     isCommunicationRole(role) ||
-    role === 'direction_etudes' ||
-    isAdminAccountEmail(email) ||
-    isDirectorAccountEmail(email);
+    role === 'direction_etudes';
 
   if (!isAuthorized) {
     return {
@@ -151,7 +128,7 @@ async function authorizeStaff(request: NextRequest) {
     };
   }
 
-  return { user: data.user };
+  return { user };
 }
 
 function normalizeRow(row: Record<string, unknown>): ResearchPublication {
@@ -187,23 +164,17 @@ export async function GET(request: NextRequest) {
 
   let items: ResearchPublication[] = [];
 
-  if (supabaseAdmin || supabase) {
-    const client = supabaseAdmin || supabase;
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from('publications')
-          .select('*')
-          .order('year', { ascending: false })
-          .order('publication_date', { ascending: false });
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-          items = data.map((d) => normalizeRow(d as Record<string, unknown>));
-        }
-      } catch {
-        // Table pas encore initialisée
-      }
-    }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
+  }
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT * FROM public.publications ORDER BY year DESC, publication_date DESC',
+    );
+    if (rows.length) items = rows.map((row) => normalizeRow(row as Record<string, unknown>));
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors du chargement des publications:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Catalogue des publications indisponible.' }, { status: 503 });
   }
 
   // Compléter avec les graines si la table est vide
@@ -276,41 +247,27 @@ export async function POST(request: NextRequest) {
     updated_at: new Date().toISOString(),
   };
 
-  if (supabaseAdmin) {
-    try {
-      const { data, error } = await supabaseAdmin.from('publications').insert([row]).select().single();
-      if (!error && data) {
-        return NextResponse.json({ data: normalizeRow(data as Record<string, unknown>) }, { status: 201 });
-      }
-      if (error && /attachments/i.test(error.message || '')) {
-        const { attachments: _attachments, ...rowWithoutAttachments } = row;
-        const retry = await supabaseAdmin.from('publications').insert([rowWithoutAttachments]).select().single();
-        if (!retry.error && retry.data) {
-          return NextResponse.json({ data: normalizeRow(retry.data as Record<string, unknown>) }, { status: 201 });
-        }
-      }
-      if (error && !error.message.includes('relation "publications" does not exist')) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-    } catch {
-      // Table fallback
-    }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
-
-  return NextResponse.json(
-    {
-      data: {
-        id: `pub-${Date.now()}`,
-        ...row,
-        publicationDate: row.publication_date,
-        journalOrConference: row.journal_or_conference,
-        doiOrUrl: row.doi_or_url,
-        pdfUrl: row.pdf_url,
-        attachments: row.attachments,
-      },
-    },
-    { status: 201 }
-  );
+  try {
+    const { rows } = await getPostgresPool().query(
+      `INSERT INTO public.publications
+         (title, slug, authors, publication_date, year, domain, abstract, keywords,
+          journal_or_conference, doi_or_url, pdf_url, attachments)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [
+        row.title, row.slug, JSON.stringify(row.authors), row.publication_date,
+        row.year, row.domain, row.abstract, JSON.stringify(row.keywords),
+        row.journal_or_conference, row.doi_or_url, row.pdf_url, JSON.stringify(row.attachments),
+      ],
+    );
+    return NextResponse.json({ data: normalizeRow(rows[0] as Record<string, unknown>) }, { status: 201 });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la création d’une publication:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible d’enregistrer la publication.' }, { status: 503 });
+  }
 }
 
 export async function PATCH(request: NextRequest) {
@@ -338,36 +295,40 @@ export async function PATCH(request: NextRequest) {
   if (body.pdfUrl !== undefined) updates.pdf_url = body.pdfUrl;
   if (body.attachments !== undefined) updates.attachments = body.attachments;
 
-  if (supabaseAdmin) {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('publications')
-        .update(updates)
-        .eq('id', body.id)
-        .select()
-        .single();
-
-      if (!error && data) {
-        return NextResponse.json({ data: normalizeRow(data as Record<string, unknown>) });
-      }
-      if (error && /attachments/i.test(error.message || '')) {
-        const { attachments: _attachments, ...updatesWithoutAttachments } = updates;
-        const retry = await supabaseAdmin
-          .from('publications')
-          .update(updatesWithoutAttachments)
-          .eq('id', body.id)
-          .select()
-          .single();
-        if (!retry.error && retry.data) {
-          return NextResponse.json({ data: normalizeRow(retry.data as Record<string, unknown>) });
-        }
-      }
-    } catch {
-      // fallback
-    }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
-
-  return NextResponse.json({ data: { id: body.id, ...updates } });
+  const columnMap: Record<string, string> = {
+    title: 'title',
+    authors: 'authors',
+    publication_date: 'publication_date',
+    year: 'year',
+    domain: 'domain',
+    abstract: 'abstract',
+    keywords: 'keywords',
+    journal_or_conference: 'journal_or_conference',
+    doi_or_url: 'doi_or_url',
+    pdf_url: 'pdf_url',
+    attachments: 'attachments',
+  };
+  const entries = Object.entries(updates).filter(([key]) => key !== 'updated_at');
+  const values = entries.map(([key, value]) =>
+    ['authors', 'keywords', 'attachments'].includes(key) ? JSON.stringify(value) : value,
+  );
+  const assignments = entries.map(([key], index) => `${columnMap[key]} = $${index + 1}`);
+  values.push(body.id);
+  try {
+    const { rows } = await getPostgresPool().query(
+      `UPDATE public.publications SET ${assignments.join(', ')}, updated_at = NOW()
+       WHERE id::text = $${values.length} RETURNING *`,
+      values,
+    );
+    if (!rows[0]) return NextResponse.json({ error: 'Publication introuvable.' }, { status: 404 });
+    return NextResponse.json({ data: normalizeRow(rows[0] as Record<string, unknown>) });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la mise à jour d’une publication:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de mettre à jour la publication.' }, { status: 503 });
+  }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -380,13 +341,18 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Identifiant requis.' }, { status: 400 });
   }
 
-  if (supabaseAdmin) {
-    try {
-      await supabaseAdmin.from('publications').delete().eq('id', id);
-    } catch {
-      // ignore
-    }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
-
-  return NextResponse.json({ success: true, id });
+  try {
+    const { rowCount } = await getPostgresPool().query(
+      'DELETE FROM public.publications WHERE id::text = $1',
+      [id],
+    );
+    if (!rowCount) return NextResponse.json({ error: 'Publication introuvable.' }, { status: 404 });
+    return NextResponse.json({ success: true, id });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la suppression d’une publication:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de supprimer la publication.' }, { status: 503 });
+  }
 }

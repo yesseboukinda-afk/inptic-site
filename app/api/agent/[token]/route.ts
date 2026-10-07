@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getPostgresPool } from '@/lib/postgres';
 import { DEFAULT_PUBLIC_WHITELIST, RHPublicWhitelist } from '@/types/rh';
 
 // Rate limiting simple en mémoire par IP (max 30 requêtes par minute)
@@ -54,85 +54,16 @@ export async function GET(
     );
   }
 
-  let profileData: any = null;
-
-  if (supabaseAdmin) {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('rh_profiles')
-        .select('*')
-        .eq('qr_token', token)
-        .single();
-
-      if (!error && data) {
-        profileData = data;
-      }
-    } catch {
-      // fallback
-    }
-  }
-
-  // Fallback dev / in-memory si Supabase absent
-  if (!profileData) {
-    // Vérifier les graines de démonstration
-    const seeds = [
-      {
-        matricule: 'INPTIC-2018-001',
-        first_name: 'Arsène',
-        last_name: 'BEKALE',
-        gender: 'M',
-        birth_date: '1974-05-12',
-        birth_place: 'Libreville',
-        phone: '+241 77 12 34 56',
-        email: 'arsene.bekale@inptic.ga',
-        photo_url: '/banniere/DG.webp',
-        department: 'Direction Générale (DG)',
-        position: 'Directeur Général',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: 'inptic_agent_7f8a9b2c3d4e5f60718293a4b5c6d7e8',
-        qr_status: 'actif',
-        public_whitelist: { ...DEFAULT_PUBLIC_WHITELIST, email: true },
-      },
-      {
-        matricule: 'INPTIC-2019-014',
-        first_name: 'Pauline',
-        last_name: 'NDONG MVE',
-        gender: 'F',
-        birth_date: '1981-11-23',
-        birth_place: 'Oyem',
-        phone: '+241 66 98 76 54',
-        email: 'pauline.ndong@inptic.ga',
-        photo_url: '/banniere/DGA.webp',
-        department: 'Direction Générale Adjointe (DGA)',
-        position: 'Directrice Générale Adjointe',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: 'inptic_agent_1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d',
-        qr_status: 'actif',
-        public_whitelist: { ...DEFAULT_PUBLIC_WHITELIST, email: true },
-      },
-      {
-        matricule: 'INPTIC-2021-032',
-        first_name: 'Marc',
-        last_name: 'ESSONO OBIANG',
-        gender: 'M',
-        birth_date: '1985-08-19',
-        birth_place: 'Port-Gentil',
-        phone: '+241 74 55 44 33',
-        email: 'marc.essono@inptic.ga',
-        photo_url: '',
-        department: 'Direction des Ressources Techniques et de l’Innovation (DRTI)',
-        position: 'Directeur des Ressources Techniques et de l’Innovation',
-        status: 'titulaire',
-        is_archived: false,
-        qr_token: 'inptic_agent_9f8e7d6c5b4a39281706f5e4d3c2b1a0',
-        qr_status: 'actif',
-        public_whitelist: { ...DEFAULT_PUBLIC_WHITELIST, email: true },
-      },
-    ];
-
-    profileData = seeds.find((s) => s.qr_token === token);
+  let profileData: any;
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT * FROM public.rh_profiles WHERE qr_token = $1 LIMIT 1',
+      [token],
+    );
+    profileData = rows[0];
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la vérification du badge RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Service de vérification temporairement indisponible.' }, { status: 503 });
   }
 
   // Profil introuvable

@@ -7,8 +7,8 @@ import {
   ExternalLink, FileText, Facebook, Share2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
-import { isAdminAccountEmail, isAdminRole } from '@/lib/roles';
+import { authClient } from '@/lib/auth-client';
+import { isAdminRole } from '@/lib/roles';
 import TranslatedText from '@/components/TranslatedText';
 
 type Attachment = {
@@ -429,40 +429,14 @@ export default function AnnoncesPubliques() {
     void loadAnnonces(false);
 
     // Check admin status
-    const sb = supabase;
-    if (sb) {
-      void sb.auth.getSession().then(({ data }) => {
-        const user = data.session?.user;
-        if (!user) return;
-        const email = user.email;
-        const role = (user.user_metadata?.role ?? user.app_metadata?.role) as unknown;
-        setIsAdmin(isAdminAccountEmail(email) || isAdminRole(role));
-      });
-    }
-
-    let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
-    if (sb) {
-      channel = sb
-        .channel('actualites-public')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'actualites',
-            filter: 'status=eq.published',
-          },
-          () => {
-            void loadAnnonces(true);
-          }
-        )
-        .subscribe();
-    }
+    void authClient.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      if (user) setIsAdmin(isAdminRole(user.app_metadata?.role));
+    });
 
     pollRef.current = setInterval(() => void loadAnnonces(true), POLL_INTERVAL_MS);
 
     return () => {
-      if (channel && sb) void sb.removeChannel(channel);
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [loadAnnonces]);

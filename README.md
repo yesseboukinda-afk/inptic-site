@@ -36,57 +36,94 @@ Les artefacts éditables (documents, code et tableurs), les votes et l'historiqu
 persistant restent des fonctionnalités séparées du template source : ils nécessitent
 une base de données et un espace d'édition dédiés.
 
-## Déploiement et comptes
+## Authentification PostgreSQL/LWS
 
-Les comptes ne sont pas partagés par le navigateur : en local, un compte créé sans
-Supabase est enregistré dans `localStorage`, alors qu'en production les identifiants
-sont vérifiés par Supabase Auth. Pour la production :
+Les inscriptions, connexions, sessions et réinitialisations de mot de passe
+utilisent PostgreSQL. Les sessions sont des jetons aléatoires hachés en base et
+transmis au navigateur uniquement dans un cookie `HttpOnly`, `Secure` en
+production et `SameSite=Lax`. Les mots de passe sont hachés avec scrypt. Les
+nouveaux comptes doivent confirmer leur adresse e-mail avant de se connecter.
 
-1. Ajouter `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` et
-	`SUPABASE_SERVICE_ROLE_KEY` dans les variables d'environnement du fournisseur de
-	déploiement, pour l'environnement **Production**, avant le build.
-2. Créer ou inviter les comptes dans le projet Supabase de production, dans
-	**Authentication > Users**. Les comptes créés uniquement en local ne peuvent pas
-	fonctionner en production.
-3. Vérifier que l'URL de production est autorisée dans **Authentication > URL
-	Configuration** de Supabase, notamment `https://votre-domaine.tld/reset-password`
-	dans les **Redirect URLs** (et `http://localhost:3000/reset-password` en local).
-4. Le formulaire demande à Supabase de revenir sur `/reset-password` du domaine
-	actuellement ouvert. Configurer l'URL du site Supabase avec la racine du domaine
-	public, par exemple `https://votre-domaine.tld`.
-5. Relancer un déploiement après toute modification des variables d'environnement.
+Avant d'activer le parcours :
 
-Depuis `/candidat`, le lien **Mot de passe oublié** envoie un email Supabase. Le
-lien ouvre `/reset-password`, où l'utilisateur définit et confirme son nouveau mot
-de passe.
+1. Créer une base PostgreSQL dans le panneau LWS, puis exécuter une seule fois
+   `scripts/00_lws_complete_schema.sql` dans cette base.
+2. Configurer côté serveur `DATABASE_URL`, `AUTH_SITE_URL` (origine HTTPS du site),
+   `RESEND_API_KEY` et `AUTH_FROM_EMAIL`. L'expéditeur doit être vérifié dans
+   Resend. Ces secrets ne doivent pas avoir le préfixe `NEXT_PUBLIC_`.
+3. Dans Google/Facebook Developer Console, ajouter comme URI de callback
+   `https://votre-domaine.tld/api/auth/oauth/callback`, puis configurer les
+   identifiants serveur `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+   `FACEBOOK_APP_ID` et `FACEBOOK_APP_SECRET` selon les fournisseurs activés.
+   L'authentification sociale est facultative.
+4. Construire et redémarrer l'application Node.js LWS après la configuration.
 
-La clé `SUPABASE_SERVICE_ROLE_KEY` est utilisée uniquement par les routes serveur et
-ne doit jamais être préfixée par `NEXT_PUBLIC_`.
+Les comptes de l'ancien hébergement ne sont pas repris : les utilisateurs
+s'inscriront à nouveau sur le site. Après la première inscription du compte
+administrateur, attribuer les rôles du personnel directement dans PostgreSQL à
+partir d'informations vérifiées. L'inscription publique ne peut créer que des
+comptes étudiants.
+
+## Migration PostgreSQL vers LWS
+
+`DATABASE_URL` et le module `lib/postgres.ts` fournissent la connexion serveur.
+Le script unique `scripts/00_lws_complete_schema.sql` crée toutes les tables et
+index PostgreSQL nécessaires à l'application. Il cible PostgreSQL 13 ou plus
+récent. Pour ce déploiement neuf, aucune donnée de l'ancien hébergement n'est
+importée.
+
+Pour créer automatiquement la base puis son schéma, le script
+`scripts/create-lws-database.sh` requiert `psql` et un compte PostgreSQL ayant le
+droit `CREATEDB` :
+
+```sh
+export LWS_ADMIN_DATABASE_URL='postgresql://ADMIN:***@HOTE:5432/postgres'
+export LWS_DATABASE_URL='postgresql://UTILISATEUR:***@HOTE:5432/NOM_BASE'
+export LWS_DATABASE_NAME='NOM_BASE'
+# Facultatif : propriétaire de la base (le compte de connexion sinon).
+export LWS_DATABASE_OWNER='UTILISATEUR'
+bash scripts/create-lws-database.sh
+```
+
+Le script crée la base si elle n'existe pas, vérifie que `LWS_DATABASE_URL`
+pointe vers le nom demandé, puis applique le schéma complet. Il ne supprime pas
+une base existante. Sur une offre LWS qui interdit `CREATEDB` ou la création
+d'une base par connexion distante, créer la base dans le panneau LWS puis exécuter
+le même script : il ne fera que vérifier la base et installer ses tables. Le
+script SQL est PostgreSQL : ne pas le coller dans phpMyAdmin, qui administre
+MySQL/MariaDB et ne comprend ni `UUID`, ni `JSONB`, ni `TIMESTAMPTZ`. Utiliser
+un outil connecté au serveur PostgreSQL LWS. Les URL et mots de passe ci-dessus
+sont des exemples ; ne les commitez pas et ne les envoyez pas dans une conversation.
+
+Les routes métier, l'authentification, les profils candidats, les profils RH et la
+newsletter utilisent PostgreSQL. Les fichiers publics et les dossiers candidats
+sont stockés sur le disque persistant défini par `PRIVATE_STORAGE_DIR`; leurs
+métadonnées sont dans `private_files`. Les dossiers candidats restent privés et
+sont servis par une route qui vérifie la session et l'appartenance du document.
+Les fichiers publics sont servis par `/api/storage/...`.
+
+Configurer les variables serveur et démarrer l'application. Les profils, pièces jointes,
+actualités et autres tables applicatives commenceront vides et seront alimentés
+par l'utilisation du nouveau site.
+
+`DATABASE_URL`, `PRIVATE_STORAGE_DIR`, les clés de messagerie et les secrets OAuth
+sont des variables serveur ; ne préfixez jamais un secret par `NEXT_PUBLIC_`.
 
 ## Publications des annonces
 
 La page `/annonces` est l’espace de gestion du directeur général et du responsable
-communication. Le compte DG reconnu par le site est `directeur@inptic.ga`; les
-autres comptes doivent avoir le rôle `communication` ou un rôle DG dans les
-`app_metadata` Supabase. Le rôle `user_metadata` n’est pas accepté pour autoriser
-les écritures. Dans Strapi, la collection `actualites` est définie sous
-`strapi/src/api/actualite` avec les champs `title`, `slug`, `excerpt`, `category`
-et Draft & Publish. Installer les dépendances depuis `strapi/` avec `npm install`,
-puis démarrer le CMS avec `npm run strapi:dev` depuis la racine. Au premier
-démarrage, créer le compte administrateur Strapi dans l’interface.
+communication. Les comptes autorisés doivent porter un rôle adéquat dans
+`public.app_users.role` ; une adresse e-mail seule ne donne aucun droit privilégié.
+Les actualités et annonces sont stockées dans `public.actualites` sur PostgreSQL
+LWS. Le script `13_lws_application_schema.sql` crée cette table.
 
-Dans Strapi, créer un API Token personnalisé avec accès `find`, `findOne`,
-`create` et `update` pour `Actualite`. Pour la lecture publique, ouvrir **Settings
-> Users & Permissions Plugin > Roles > Public** et autoriser `Actualite: find` et
-`findOne`. Renseigner `NEXT_PUBLIC_STRAPI_URL` et `STRAPI_API_TOKEN` dans `.env`
-local et dans les variables serveur de production. La valeur locale de l’URL est
-`http://localhost:1337/api`; le déploiement doit utiliser l’URL publique de
-l’instance Strapi. Ne jamais préfixer le jeton par `NEXT_PUBLIC_`.
-
-La publication crée ou modifie le contenu dans Strapi. Les boutons de partage
+La publication crée ou modifie le contenu dans PostgreSQL. Les boutons de partage
 ouvrent WhatsApp, Facebook, LinkedIn ou X avec le lien de l’annonce; ils ne publient
 pas automatiquement sur les comptes officiels. La publication automatique exige
 des applications développeur et autorisations OAuth propres à chaque plateforme.
+
+Strapi reste utilisé par les pages de formation. Configurer son URL et son jeton
+serveur uniquement si ces pages nécessitent l'accès à l'instance Strapi.
 
 ## Veille Facebook et newsletter
 
@@ -101,43 +138,26 @@ automatique n'est pas intégrée.
 
 Pour activer les inscriptions et envois de newsletter :
 
-1. Exécuter `scripts/11_create_newsletter_subscribers.sql` dans le SQL Editor du
-   projet Supabase de production. Ce script crée uniquement le schéma ; il
-   n'insère aucun abonné.
+1. Exécuter `scripts/11_create_newsletter_subscribers.sql` sur la base
+   PostgreSQL LWS. Le schéma applicatif (script 13) crée également ces tables.
 2. Configurer `RESEND_API_KEY`, `NEWSLETTER_FROM_EMAIL` avec une adresse d'un
-   domaine vérifié dans Resend,
-   `NEWSLETTER_SITE_URL=https://inptic-site.vercel.app`,
-   `NEXT_PUBLIC_SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` dans
-   **Vercel > Project Settings > Environment Variables**, pour **Production**.
-   Les valeurs secrètes restent côté serveur. Ne jamais les préfixer par
-   `NEXT_PUBLIC_`.
-3. Vérifier que le domaine `inptic-site.vercel.app` est bien rattaché au projet
-   Vercel qui exécute les routes Next.js. La configuration actuelle doit servir notamment
-   `/api/ereputation` et `/api/newsletter` sur ce domaine ; un 404 sur ces
-   routes signifie que le domaine pointe vers un hébergement qui ne sert pas
-   l'application Next.js.
-4. Relancer un déploiement Production après l'ajout des variables. Pour les
-   installations existantes, réexécuter le script SQL afin d'ajouter la colonne
-   `confirmation_sent_at`. Après une inscription enregistrée, Resend envoie un
-   courriel de confirmation ; en cas d'échec, le formulaire affiche une erreur
-   et permet de réessayer. Une nouvelle actualité publiée et ciblée sur `actualites`
-   déclenche son envoi aux abonnés actifs ; les modifications d'une actualité
-   déjà publiée ne relancent pas un envoi. Chaque courriel contient le logo,
-   l'image si elle est fournie dans l'annonce, un résumé, le lien et un
-   désabonnement avec confirmation.
+   domaine vérifié dans Resend, et `NEWSLETTER_SITE_URL` avec l'origine HTTPS
+   publique. Ces variables doivent être définies dans l'environnement Node.js LWS.
+3. Après une inscription, Resend envoie un courriel de confirmation ; une nouvelle
+   actualité publiée pour `actualites` déclenche l'envoi aux abonnés actifs.
+   Chaque message comprend un lien de désabonnement confirmé.
 
 ## Connexions prévues
-- Frontend: Next.js 15 / React 19 / Tailwind v4.
-- CMS: Strapi REST (`/formations`, `/actualites`).
-- Auth candidat: Supabase Auth via `/api/candidat/login`.
+- Frontend: Next.js 16 / React 19 / Tailwind v4.
+- CMS: Strapi REST pour les contenus de formation qui y sont encore hébergés.
+- Authentification candidats et personnel : PostgreSQL/LWS via `/api/auth/*`
+  (le point d'entrée historique `/api/candidat/login` délègue à cette API).
 - Recherche: route `/api/search?q=` interrogeant Strapi.
 - IA: variable serveur `GEMINI_API_KEY` (ou `GOOGLE_GENERATIVE_AI_API_KEY`).
-- PostgreSQL: à brancher derrière Strapi ou Supabase selon l'architecture retenue.
+- Données métier, actualités, profils et authentification: PostgreSQL/LWS via
+  `DATABASE_URL`. Aucun client Supabase n'est nécessaire au fonctionnement normal.
 
 ## Collections Strapi minimales
 `formations`: title, slug, description, level, category, image
-`actualites`: title, slug, excerpt, image, category, publishedAt
-`evenements`: title, date, location, description
-`offres`: title, company, type, location, description
 
 Les clés et URL réelles ne sont pas incluses : elles doivent être fournies dans `.env.local`.

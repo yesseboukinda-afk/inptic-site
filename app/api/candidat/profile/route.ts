@@ -1,96 +1,107 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { deleteStoredFile, saveStoredFile } from '@/lib/localStorage';
 import { getProfileDocumentPrefix } from '@/lib/documentStorage';
+import { getPostgresPool } from '@/lib/postgres';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
+import { isAdminRole, isCommunicationRole, isDirectorRole, normalizeRole } from '@/lib/roles';
 
-const toBase64Data = (value: string) => {
-  if (!value || typeof value !== 'string') return null;
-  const dataUriMatch = value.match(/^data:([^;]+);base64,(.+)$/i);
-  return dataUriMatch ? dataUriMatch[2] : value;
+const DOCUMENT_BUCKET = 'candidate-documents';
+const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
+const ALLOWED_DOCUMENT_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+type ProfileDocument = {
+  name: string;
+  type: string;
+  category: string;
+  path: string;
+  url?: string;
 };
 
-const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'document';
-const DOCUMENT_BUCKET = 'dossier_documents';
-const SIGNED_URL_TTL_SECONDS = 60 * 60;
-
-async function ensureDocumentBucket() {
-  if (!supabaseAdmin) {
-    throw new Error('La clé SUPABASE_SERVICE_ROLE_KEY est requise pour créer le stockage privé des justificatifs.');
-  }
-
-  const storage = supabaseAdmin.storage;
-  const { error: bucketError } = await storage.getBucket(DOCUMENT_BUCKET);
-
-  if (bucketError && /not found|does not exist|no such bucket/i.test(bucketError.message)) {
-    const { error: createError } = await storage.createBucket(DOCUMENT_BUCKET, {
-      public: false,
-      fileSizeLimit: '10MB',
-      allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
-    });
-
-    if (createError && !/already exists|duplicate/i.test(createError.message)) {
-      throw new Error(`Impossible de créer le stockage ${DOCUMENT_BUCKET} : ${createError.message}`);
-    }
-  } else if (bucketError) {
-    throw new Error(`Impossible de vérifier le stockage Supabase : ${bucketError.message}`);
-  }
-
-  return storage.from(DOCUMENT_BUCKET);
+function canManageCandidateProfiles(role: string) {
+  const normalizedRole = normalizeRole(role);
+  return isAdminRole(normalizedRole) ||
+    isDirectorRole(normalizedRole) ||
+    isCommunicationRole(normalizedRole) ||
+    ['scolarite', 'direction_etudes', 'rh_admin', 'rh_gestionnaire'].includes(normalizedRole);
 }
 
-async function addSignedDocumentUrls(documents: Array<Record<string, any>>) {
-  if (!supabaseAdmin) return documents;
-
-  const bucket = supabaseAdmin.storage.from(DOCUMENT_BUCKET);
-  return Promise.all(documents.map(async (document) => {
-    if (!document.path) return document;
-
-    const { data, error } = await bucket.createSignedUrl(document.path, SIGNED_URL_TTL_SECONDS);
-    return {
-      ...document,
-      url: error ? '' : data.signedUrl,
-    };
-  }));
+function documentUrl(email: string, path: string) {
+  const params = new URLSearchParams({ email, path });
+  return `/api/candidat/profile/document-url?${params.toString()}`;
 }
 
-export async function GET() {
-  if (!supabaseAdmin) {
-    return NextResponse.json({ profiles: [], source: 'local' });
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('*')
-    .order('updated_at', { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
-  const profiles = await Promise.all((data || []).map(async (profile) => ({
+function withDocumentUrls(profile: Record<string, any>) {
+  const documents: ProfileDocument[] = Array.isArray(profile.documents) ? profile.documents : [];
+  return {
     ...profile,
     name: profile.full_name || '',
     dossierNumero: profile.dossier_numero || '',
     dossierValide: Boolean(profile.dossier_valide),
     status: profile.dossier_status || 'en_attente',
-    documents: await addSignedDocumentUrls(Array.isArray(profile.documents) ? profile.documents : []),
+    documents: documents.map((document) => ({
+      ...document,
+      url: document.path ? documentUrl(profile.email, document.path) : '',
+    })),
     admissionWorkflow: profile.admission_workflow || {},
     candidatureData: profile.candidature_data || null,
     departement: profile.departement || '',
     emploiDuTemps: Array.isArray(profile.emploi_du_temps) ? profile.emploi_du_temps : [],
-  })));
-
-  return NextResponse.json({ profiles, source: 'supabase' });
+  };
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    let payload: Record<string, any>;
-    let incomingFile: File | null = null;
-    let incomingCategory = '';
+function decodeBase64Document(value: string) {
+  const match = value.match(/^data:[^;]+;base64,(.+)$/i);
+  const encoded = match ? match[1] : value;
+  if (!encoded || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) return null;
+  return Buffer.from(encoded, 'base64');
+}
 
-    if (req.headers.get('content-type')?.includes('multipart/form-data')) {
-      const formData = await req.formData();
+export async function GET(request: NextRequest) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
+  }
+
+  try {
+    const pool = getPostgresPool();
+    const result = canManageCandidateProfiles(user.role)
+      ? await pool.query(
+          'SELECT * FROM public.profiles ORDER BY updated_at DESC',
+        )
+      : await pool.query(
+          'SELECT * FROM public.profiles WHERE email = $1 ORDER BY updated_at DESC',
+          [user.email],
+        );
+    return NextResponse.json({
+      profiles: result.rows.map(withDocumentUrls),
+      source: 'postgres',
+    });
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors du chargement des profils candidats:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de charger les profils candidats.' }, { status: 503 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
+  }
+
+  const canManageProfiles = canManageCandidateProfiles(user.role);
+  let payload: Record<string, any>;
+  let incomingFile: File | null = null;
+  let incomingCategory = '';
+
+  try {
+    if (request.headers.get('content-type')?.includes('multipart/form-data')) {
+      const formData = await request.formData();
       const serializedProfile = formData.get('profile');
       if (typeof serializedProfile !== 'string') {
         return NextResponse.json({ error: 'Profil absent du formulaire de téléversement.' }, { status: 400 });
@@ -105,155 +116,216 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Fichier manquant dans le formulaire de téléversement.' }, { status: 400 });
       }
     } else {
-      payload = await req.json();
+      payload = await request.json();
     }
+  } catch {
+    return NextResponse.json({ error: 'Corps de requête invalide.' }, { status: 400 });
+  }
 
-    if (!payload || !payload.email) {
-      return NextResponse.json({ error: 'Email requis.' }, { status: 400 });
-    }
+  const email = typeof payload?.email === 'string' ? payload.email.trim().toLowerCase() : '';
+  if (!email) {
+    return NextResponse.json({ error: 'Email requis.' }, { status: 400 });
+  }
+  if (!canManageProfiles && email !== user.email) {
+    return NextResponse.json({ error: 'Vous ne pouvez modifier que votre propre profil.' }, { status: 403 });
+  }
 
-    const db = supabaseAdmin || supabase;
+  const pool = getPostgresPool();
+  const savedFiles: string[] = [];
+  try {
+    const existingResult = await pool.query(
+      `SELECT id, documents, admission_workflow, candidature_data, role,
+              dossier_status, dossier_valide, dossier_numero
+       FROM public.profiles WHERE email = $1 LIMIT 1`,
+      [email],
+    );
+    const existingProfile = existingResult.rows[0];
+    const oldDocuments: ProfileDocument[] = Array.isArray(existingProfile?.documents)
+      ? existingProfile.documents
+      : [];
+    const oldPaths = new Set(oldDocuments.map((document) => document.path).filter(Boolean));
+    const rawDocuments: Array<Record<string, any>> = Array.isArray(payload.documents)
+      ? payload.documents.slice(0, 5)
+      : [];
 
-    if (!db) {
-      return NextResponse.json(
-        { error: 'Supabase non configuré. Les données ont été enregistrées localement.', source: 'local' },
-        { status: 200 }
-      );
-    }
-
-    const rawDocuments = Array.isArray(payload.documents) ? payload.documents.slice(0, 5) : [];
-    const existingDocuments = rawDocuments
-      .filter((document: any) => !document?.data && document?.path)
-      .map((document: any) => ({
+    const reusablePaths = rawDocuments
+      .filter((document) => !document?.data && typeof document?.path === 'string' && oldPaths.has(document.path))
+      .map((document) => document.path as string);
+    const knownFiles = reusablePaths.length
+      ? await pool.query(
+          `SELECT path FROM public.private_files
+           WHERE bucket = $1 AND path = ANY($2::text[])`,
+          [DOCUMENT_BUCKET, reusablePaths],
+        )
+      : { rows: [] as Array<{ path: string }> };
+    const knownPathSet = new Set(knownFiles.rows.map((row) => row.path));
+    const retainedDocuments: ProfileDocument[] = rawDocuments
+      .filter((document) => typeof document?.path === 'string' && knownPathSet.has(document.path))
+      .map((document) => ({
         name: typeof document.name === 'string' ? document.name : 'document',
         type: typeof document.type === 'string' ? document.type : 'application/octet-stream',
         category: typeof document.category === 'string' ? document.category : '',
-        path: document.path as string,
+        path: document.path,
       }));
-    const documentsToUpload = rawDocuments.filter((document: any) => document?.data);
+    const uploads = rawDocuments.filter((document) => document?.data);
     if (incomingFile) {
-      documentsToUpload.push({
+      uploads.push({
         name: incomingFile.name,
         type: incomingFile.type || 'application/octet-stream',
         category: incomingCategory,
         file: incomingFile,
       });
     }
-    const storedDocuments: Array<Record<string, string>> = [];
+    if (retainedDocuments.length + uploads.length > 5) {
+      return NextResponse.json({ error: 'Un dossier peut contenir au maximum 5 documents.' }, { status: 400 });
+    }
 
-    if (documentsToUpload.length) {
-      const bucket = await ensureDocumentBucket();
+    const preparedUploads: Array<{
+      name: string;
+      type: string;
+      category: string;
+      contents: Buffer;
+    }> = [];
+    for (const document of uploads) {
+      const name = typeof document.name === 'string' && document.name ? document.name : 'document';
+      const type = typeof document.type === 'string' ? document.type : 'application/octet-stream';
+      const file = document.file instanceof File ? document.file : null;
+      if (!ALLOWED_DOCUMENT_TYPES.has(type)) {
+        return NextResponse.json({ error: `Le format du document ${name} n’est pas accepté.` }, { status: 415 });
+      }
+      const contents = file
+        ? Buffer.from(await file.arrayBuffer())
+        : decodeBase64Document(typeof document.data === 'string' ? document.data : '');
+      if (!contents?.byteLength) {
+        return NextResponse.json({ error: `Le document ${name} est vide ou invalide.` }, { status: 400 });
+      }
+      if (contents.byteLength > MAX_DOCUMENT_SIZE) {
+        return NextResponse.json({ error: `Le document ${name} dépasse la limite de 10 Mo.` }, { status: 413 });
+      }
 
-      for (const doc of documentsToUpload) {
-        const name = typeof doc?.name === 'string' && doc.name ? doc.name : 'document';
-        const type = typeof doc?.type === 'string' && doc.type ? doc.type : 'application/octet-stream';
-        const file = doc.file instanceof File ? doc.file as File : null;
-        const base64Data = file ? null : toBase64Data(doc?.data || '');
-        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+      preparedUploads.push({
+        name,
+        type,
+        category: typeof document.category === 'string' ? document.category : '',
+        contents,
+      });
+    }
 
-        if (file && file.size > 10 * 1024 * 1024) {
-          return NextResponse.json({ error: `Le document ${name} dépasse la limite de 10 Mo.` }, { status: 413 });
-        }
-        if (!allowedTypes.includes(type)) {
-          return NextResponse.json({ error: `Le format du document ${name} n’est pas accepté.` }, { status: 415 });
-        }
-        if (!file && !base64Data) {
-          return NextResponse.json(
-            { error: `Le document ${name} est vide ou invalide.`, source: 'supabase' },
-            { status: 400 }
-          );
-        }
+    const uploadedDocuments: ProfileDocument[] = [];
+    for (const document of preparedUploads) {
+      const { name, type, category, contents } = document;
+      const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'document';
+      const path = `${getProfileDocumentPrefix(email)}${randomUUID()}-${safeName}`;
+      await saveStoredFile({
+        bucket: DOCUMENT_BUCKET,
+        relativePath: path,
+        contents,
+        originalFilename: name,
+        mimeType: type,
+        isPublic: false,
+        ownerUserId: user.id,
+      });
+      savedFiles.push(path);
+      uploadedDocuments.push({
+        name,
+        type,
+        category,
+        path,
+      });
+    }
 
-        const fileBuffer = file
-          ? Buffer.from(await file.arrayBuffer())
-          : Buffer.from(base64Data as string, 'base64');
-        const targetPath = `${getProfileDocumentPrefix(String(payload.email))}${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${slugify(name)}`;
-        const { error: uploadError } = await bucket.upload(targetPath, fileBuffer, {
-          contentType: type,
-          upsert: true,
-        });
+    const documents = [...retainedDocuments, ...uploadedDocuments];
+    const role = canManageProfiles
+      ? (typeof payload.role === 'string' ? payload.role : existingProfile?.role || 'etudiant')
+      : existingProfile?.role || 'etudiant';
+    const dossierStatus = canManageProfiles && typeof payload.status === 'string'
+      ? payload.status
+      : existingProfile?.dossier_status || 'en_attente';
+    const dossierValide = canManageProfiles && typeof payload.dossierValide === 'boolean'
+      ? payload.dossierValide
+      : Boolean(existingProfile?.dossier_valide);
+    const dossierNumero = canManageProfiles && typeof payload.dossierNumero === 'string'
+      ? payload.dossierNumero
+      : existingProfile?.dossier_numero ?? null;
 
-        if (uploadError) {
-          return NextResponse.json({ error: `Échec de l’upload du document ${name}: ${uploadError.message}` }, { status: 400 });
-        }
+    const result = await pool.query(
+      `INSERT INTO public.profiles
+         (email, full_name, phone, niveau, parcours, promotion, etablissement, annee,
+          specialite, bio, diplome, photo, departement, documents, admission_workflow,
+          candidature_data, role, dossier_status, dossier_valide, dossier_numero, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+               $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, $19, $20, NOW())
+       ON CONFLICT (email) DO UPDATE SET
+         full_name = EXCLUDED.full_name,
+         phone = EXCLUDED.phone,
+         niveau = EXCLUDED.niveau,
+         parcours = EXCLUDED.parcours,
+         promotion = EXCLUDED.promotion,
+         etablissement = EXCLUDED.etablissement,
+         annee = EXCLUDED.annee,
+         specialite = EXCLUDED.specialite,
+         bio = EXCLUDED.bio,
+         diplome = EXCLUDED.diplome,
+         photo = EXCLUDED.photo,
+         departement = EXCLUDED.departement,
+         documents = EXCLUDED.documents,
+         admission_workflow = EXCLUDED.admission_workflow,
+         candidature_data = EXCLUDED.candidature_data,
+         role = EXCLUDED.role,
+         dossier_status = EXCLUDED.dossier_status,
+         dossier_valide = EXCLUDED.dossier_valide,
+         dossier_numero = EXCLUDED.dossier_numero,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        email,
+        typeof payload.name === 'string' ? payload.name : '',
+        typeof payload.phone === 'string' ? payload.phone : '',
+        payload.niveau || '',
+        payload.parcours || '',
+        payload.promotion || '',
+        payload.etablissement || '',
+        payload.annee || '',
+        payload.specialite || '',
+        payload.bio || '',
+        payload.diplome || '',
+        payload.photo || '',
+        payload.departement || '',
+        JSON.stringify(documents),
+        JSON.stringify(payload.admissionWorkflow ?? existingProfile?.admission_workflow ?? {}),
+        JSON.stringify(payload.candidatureData ?? existingProfile?.candidature_data ?? null),
+        role,
+        dossierStatus,
+        dossierValide,
+        dossierNumero,
+      ],
+    );
 
-        storedDocuments.push({
-          name,
-          type,
-          category: typeof doc?.category === 'string' ? doc.category : '',
-          path: targetPath,
-        });
+    const retainedPathSet = new Set(documents.map((document) => document.path));
+    const removedPaths = oldDocuments
+      .map((document) => document.path)
+      .filter((path): path is string => Boolean(path) && !retainedPathSet.has(path));
+    for (const path of removedPaths) {
+      try {
+        await deleteStoredFile(DOCUMENT_BUCKET, path);
+      } catch (error) {
+        console.error('Échec du nettoyage d’un ancien document candidat:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
       }
     }
 
-    const profileDocuments = [...existingDocuments, ...storedDocuments];
-
-    const { data: existingProfile, error: profileLookupError } = await db
-      .from('profiles')
-      .select('id, documents, admission_workflow, candidature_data')
-      .eq('email', payload.email)
-      .maybeSingle();
-
-    if (profileLookupError) {
-      return NextResponse.json({ error: profileLookupError.message }, { status: 400 });
-    }
-
-    const profileData = {
-      id: existingProfile?.id || randomUUID(),
-      email: payload.email,
-      full_name: payload.name || '',
-      phone: payload.phone || '',
-      niveau: payload.niveau || '',
-      parcours: payload.parcours || '',
-      promotion: payload.promotion || '',
-      etablissement: payload.etablissement || '',
-      annee: payload.annee || '',
-      specialite: payload.specialite || '',
-      bio: payload.bio || '',
-      diplome: payload.diplome || '',
-      photo: payload.photo || '',
-      departement: payload.departement || '',
-      documents: profileDocuments,
-      admission_workflow: payload.admissionWorkflow ?? existingProfile?.admission_workflow ?? {},
-      candidature_data: payload.candidatureData ?? existingProfile?.candidature_data ?? null,
-      role: payload.role || 'etudiant',
-      dossier_status: payload.status || (payload.dossierValide ? 'valide' : 'en_attente'),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await db
-      .from('profiles')
-      .upsert(profileData, { onConflict: 'email' })
-      .select();
-
-    if (error) {
-      if (storedDocuments.length && supabaseAdmin) {
-        await supabaseAdmin.storage.from(DOCUMENT_BUCKET).remove(storedDocuments.map((document) => document.path));
-      }
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    const retainedPaths = new Set(profileDocuments.map((document) => document.path));
-    const removedPaths = (Array.isArray(existingProfile?.documents) ? existingProfile.documents : [])
-      .map((document: { path?: string }) => document?.path)
-      .filter((path: unknown): path is string => typeof path === 'string' && !retainedPaths.has(path));
-    if (removedPaths.length && supabaseAdmin) {
-      const { error: cleanupError } = await supabaseAdmin.storage.from(DOCUMENT_BUCKET).remove(removedPaths);
-      if (cleanupError) console.error('Supabase document cleanup error:', cleanupError.message);
-    }
-
-    const savedProfile = data?.[0] || profileData;
     return NextResponse.json({
-      profile: {
-        ...savedProfile,
-        documents: await addSignedDocumentUrls(Array.isArray(savedProfile.documents) ? savedProfile.documents : []),
-      },
-      source: 'supabase',
+      profile: withDocumentUrls(result.rows[0]),
+      source: 'postgres',
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur lors de la sauvegarde du profil.' },
-      { status: 500 }
-    );
+    for (const path of savedFiles) {
+      try {
+        await deleteStoredFile(DOCUMENT_BUCKET, path);
+      } catch (cleanupError) {
+        console.error('Échec du nettoyage d’un document candidat:', cleanupError instanceof Error ? cleanupError.message : 'UNKNOWN_ERROR');
+      }
+    }
+    console.error('Erreur PostgreSQL lors de la sauvegarde du profil candidat:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de sauvegarder le profil candidat.' }, { status: 503 });
   }
 }
