@@ -10,7 +10,6 @@ import {
   Phone,
   ShieldAlert,
   ShieldCheck,
-  User,
   XCircle,
   Award,
   Sparkles,
@@ -271,6 +270,18 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
     hour: '2-digit',
     minute: '2-digit',
   });
+  const birthDate = agent.birthDate ? new Date(`${agent.birthDate}T00:00:00`) : null;
+  const birthDateFormatted = birthDate && !Number.isNaN(birthDate.getTime())
+    ? birthDate.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
+  const fullName = [agent.firstName, agent.lastName].filter(Boolean).join(' ');
+  const hasPublicIdentity = Boolean(
+    agent.photoUrl || fullName || agent.position || agent.department
+  );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-12 text-white flex flex-col items-center justify-center">
@@ -286,30 +297,38 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
         </div>
 
         {/* Identité Agent */}
-        <div className="flex flex-col items-center text-center space-y-3">
-          <div className="relative h-32 w-32 overflow-hidden rounded-3xl border-2 border-[#D4AF37] bg-slate-900 shadow-2xl ring-4 ring-[#D4AF37]/20">
-            {agent.photoUrl ? (
-              <img src={agent.photoUrl} alt={`${agent.firstName} ${agent.lastName}`} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-blue-950 text-blue-300">
-                <User size={48} />
+        {hasPublicIdentity && (
+          <div className="flex flex-col items-center text-center space-y-3">
+            {agent.photoUrl && (
+              <div className="relative h-32 w-32 overflow-hidden rounded-3xl border-2 border-[#D4AF37] bg-slate-900 shadow-2xl ring-4 ring-[#D4AF37]/20">
+                <img
+                  src={agent.photoUrl}
+                  alt={fullName ? `Photo de ${fullName}` : 'Photo de l’agent'}
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-slate-950" title="Actif" />
               </div>
             )}
-            <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-slate-950" title="Actif" />
-          </div>
 
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              {agent.firstName} {agent.lastName}
-            </h1>
-            <p className="mt-1 text-sm font-black uppercase tracking-wider text-[#D4AF37]">
-              {agent.position || 'Agent Certifié INPTIC'}
-            </p>
-            <p className="text-xs text-slate-300 mt-0.5 font-medium">
-              {agent.department || 'Administration Générale'}
-            </p>
+            <div>
+              {fullName && (
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  {fullName}
+                </h1>
+              )}
+              {agent.position && (
+                <p className="mt-1 text-sm font-black uppercase tracking-wider text-[#D4AF37]">
+                  {agent.position}
+                </p>
+              )}
+              {agent.department && (
+                <p className="text-xs text-slate-300 mt-0.5 font-medium">
+                  {agent.department}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Détails du badge */}
         <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 space-y-2.5 text-xs">
@@ -317,6 +336,36 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
             <span className="text-slate-400">Matricule professionnel :</span>
             <span className="font-mono font-black text-cyan-300 text-sm">{agent.matricule}</span>
           </div>
+
+          {agent.agentStatus && (
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-slate-400">Statut professionnel :</span>
+              <span className="font-medium capitalize text-slate-200">{agent.agentStatus}</span>
+            </div>
+          )}
+
+          {agent.gender && (
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-slate-400">Genre :</span>
+              <span className="font-medium text-slate-200">
+                {agent.gender === 'F' ? 'Féminin' : agent.gender === 'M' ? 'Masculin' : agent.gender}
+              </span>
+            </div>
+          )}
+
+          {birthDateFormatted && (
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-slate-400">Date de naissance :</span>
+              <span className="font-medium text-slate-200">{birthDateFormatted}</span>
+            </div>
+          )}
+
+          {agent.birthPlace && (
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-slate-400">Lieu de naissance :</span>
+              <span className="font-medium text-right text-slate-200">{agent.birthPlace}</span>
+            </div>
+          )}
 
           {agent.email && (
             <div className="flex items-center justify-between border-b border-white/5 pb-2">

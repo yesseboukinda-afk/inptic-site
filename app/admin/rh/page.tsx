@@ -495,57 +495,36 @@ export default function AdminRHPage() {
             }
             .top-header {
               width: 100%;
-              background: #090d16;
-              color: white;
-              padding: 5mm 2mm 10mm;
+              background: #1e3a8a;
+              padding: 2mm;
               position: relative;
               box-sizing: border-box;
             }
-            .top-header::after {
-              content: "";
-              position: absolute;
-              bottom: -6mm;
-              right: 0;
-              width: 0;
-              height: 0;
-              border-style: solid;
-              border-width: 0 0 6mm 53.98mm;
-              border-color: transparent transparent #ffffff transparent;
-            }
-            .slot {
-              width: 8mm;
-              height: 2mm;
-              background: #1e293b;
+            .company-logo {
+              display: block;
+              width: 30mm;
+              height: auto;
+              margin: 0 auto;
+              padding: 0.5mm;
+              box-sizing: content-box;
+              background: #ffffff;
               border-radius: 1mm;
-              margin: 0 auto 2mm;
-            }
-            .company-name {
-              font-size: 8pt;
-              font-weight: 900;
-              color: #38bdf8;
-              letter-spacing: 0.8px;
-            }
-            .company-tagline {
-              font-size: 5pt;
-              font-weight: 600;
-              color: #94a3b8;
-              margin-top: 0.5mm;
             }
             .photo-wrapper {
-              margin-top: -10mm;
+              margin-top: 2mm;
               position: relative;
               z-index: 10;
             }
             .photo {
-              width: 24mm;
-              height: 24mm;
+              width: 22mm;
+              height: 22mm;
               border-radius: 50%;
               border: 2mm solid #0ea5e9;
               object-fit: cover;
               background: #0f172a;
             }
             .body {
-              padding: 2mm 4mm 4mm;
+              padding: 1.5mm 3mm 2mm;
               display: flex;
               flex-direction: column;
               align-items: center;
@@ -575,13 +554,13 @@ export default function AdminRHPage() {
               margin-top: 0.5mm;
             }
             .qr-box {
-              width: 22mm;
-              height: 22mm;
+              width: 20mm;
+              height: 20mm;
               background: #ffffff;
               padding: 0.5mm;
               border: 1px solid #e2e8f0;
               border-radius: 1.5mm;
-              margin-top: 1mm;
+              margin-top: 0.5mm;
             }
             .qr-box svg {
               width: 100%;
@@ -609,9 +588,7 @@ export default function AdminRHPage() {
         <body>
           <div class="card">
             <div class="top-header">
-              <div class="slot"></div>
-              <div class="company-name">INPTIC GABON</div>
-              <div class="company-tagline">INSTITUT NATIONAL DU NUMÉRIQUE</div>
+              <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
             </div>
             <div class="photo-wrapper">
               ${p.photoUrl ? `<img src="${p.photoUrl}" class="photo" />` : '<div class="photo" style="display:flex;align-items:center;justify-content:center;color:white;font-size:7pt;font-weight:bold;">PHOTO</div>'}
@@ -1301,16 +1278,20 @@ export default function AdminRHPage() {
                       className="relative mx-auto w-full max-w-[270px] overflow-hidden rounded-3xl border border-slate-300 bg-white text-slate-900 shadow-2xl flex flex-col items-center text-center"
                       style={{ aspectRatio: '53.98/85.6' }}
                     >
-                      {/* Top Header Sombre */}
-                      <div className="w-full bg-[#090d16] text-white p-4 pb-12 relative">
-                        <div className="mx-auto h-1.5 w-10 rounded-full bg-slate-800 mb-3" />
-                        <h4 className="text-xs font-black tracking-wider text-cyan-400">INPTIC GABON</h4>
-                        <p className="text-[7px] text-slate-400 uppercase tracking-widest mt-0.5">Institut National du Numérique</p>
+                      {/* En-tête avec le logo officiel */}
+                      <div className="w-full bg-blue-900 px-2 py-2 relative">
+                        <Image
+                          src="/logoinptic.png"
+                          alt="Logo INPTIC"
+                          width={1698}
+                          height={962}
+                          className="mx-auto h-auto w-[56%] max-w-full rounded-md bg-white p-1 object-contain"
+                        />
                       </div>
 
                       {/* Photo circulaire avec anneau cyan */}
-                      <div className="-mt-10 relative z-10">
-                        <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-cyan-500 bg-slate-900 shadow-lg">
+                      <div className="mt-2 relative z-10">
+                        <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-cyan-500 bg-slate-900 shadow-lg">
                           {selectedForCard.photoUrl ? (
                             <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
@@ -1322,7 +1303,7 @@ export default function AdminRHPage() {
                       </div>
 
                       {/* Corps de la carte : Nom, Poste, Matricule & QR Code centré en bas */}
-                      <div className="p-4 pt-2 flex flex-col items-center justify-between flex-1 w-full">
+                      <div className="p-3 pt-1 pb-2 flex flex-col items-center justify-between flex-1 w-full">
                         <div>
                           <h4 className="text-sm font-black text-slate-900 uppercase leading-snug">
                             {selectedForCard.firstName} {selectedForCard.lastName}
@@ -1337,7 +1318,7 @@ export default function AdminRHPage() {
 
                         {/* QR Code centré */}
                         <div
-                          className="my-2 h-20 w-20 rounded-xl bg-white p-1 border border-slate-200 shadow-sm flex items-center justify-center"
+                          className="my-1 h-24 w-24 rounded-xl bg-white p-1 border border-slate-200 shadow-sm flex items-center justify-center"
                           dangerouslySetInnerHTML={{
                             __html: generateQRCodeSVG(
                               `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga'}/agent/${selectedForCard.qrToken}`,
@@ -1850,8 +1831,14 @@ export default function AdminRHPage() {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={formWhitelist.lastName}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, lastName: e.target.checked })}
+                      checked={formWhitelist.lastName && formWhitelist.firstName}
+                      onChange={(e) =>
+                        setFormWhitelist({
+                          ...formWhitelist,
+                          lastName: e.target.checked,
+                          firstName: e.target.checked,
+                        })
+                      }
                       className="rounded text-blue-600"
                     />
                     <span>Nom / Prénom</span>
@@ -1899,7 +1886,16 @@ export default function AdminRHPage() {
                       onChange={(e) => setFormWhitelist({ ...formWhitelist, birthDate: e.target.checked })}
                       className="rounded text-blue-600"
                     />
-                    <span>Naissance</span>
+                    <span>Date de naissance</span>
+                  </label>
+                  <label className="flex items-center gap-2 font-semibold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.birthPlace}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, birthPlace: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Lieu de naissance</span>
                   </label>
                   <label className="flex items-center gap-2 font-semibold text-amber-900">
                     <input
