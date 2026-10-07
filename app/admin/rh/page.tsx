@@ -46,6 +46,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { strToU8, zipSync } from 'fflate';
 import { supabase } from '@/lib/supabase';
 import DeleteButton from '@/components/DeleteButton';
 import {
@@ -69,6 +70,180 @@ import {
 import { generateQRCodeSVG } from '@/lib/qrcode';
 
 type TabType = 'profils' | 'qrcodes' | 'stats' | 'audit';
+
+const escapeHtml = (value: string | null | undefined) =>
+  (value ?? '').replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character];
+  });
+
+const getProfileFileName = (profile: RHProfile) =>
+  [profile.firstName, profile.lastName]
+    .filter(Boolean)
+    .join('_')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '') || `profil_${profile.id}`;
+
+const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
+  const qrSvg = generateQRCodeSVG(`${origin}/agent/${profile.qrToken || profile.id}`, {
+    size: 140,
+    margin: 1,
+  });
+  const photo = profile.photoUrl
+    ? `<img src="${escapeHtml(profile.photoUrl)}" class="photo" alt="Photo de ${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}" />`
+    : '<div class="photo photo-placeholder">PHOTO</div>';
+
+  return `
+    <div class="card">
+      <div class="top-header">
+        <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
+      </div>
+      <div class="photo-wrapper">${photo}</div>
+      <div class="body">
+        <div>
+          <div class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</div>
+          <div class="position">${escapeHtml(profile.position)}</div>
+          <div class="matr">MATR: ${escapeHtml(profile.matricule)}</div>
+        </div>
+        <div class="qr-box">${qrSvg}</div>
+        <div class="footer">CARTE PROFESSIONNELLE OFFICIELLE</div>
+      </div>
+    </div>
+  `;
+};
+
+const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Cartes professionnelles INPTIC</title>
+      <style>
+        @page { size: 53.98mm 85.6mm; margin: 0; }
+        html, body {
+          width: 53.98mm;
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .card {
+          width: 53.98mm;
+          height: 85.6mm;
+          margin: 0 auto;
+          background: #ffffff;
+          border-radius: 4mm;
+          overflow: hidden;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          border: 1px solid #cbd5e1;
+          break-after: page;
+          page-break-after: always;
+        }
+        .card:last-child { break-after: auto; page-break-after: auto; }
+        .top-header {
+          width: 100%;
+          background: #1e3a8a;
+          padding: 2mm;
+          box-sizing: border-box;
+        }
+        .company-logo {
+          display: block;
+          width: 30mm;
+          height: auto;
+          margin: 0 auto;
+          padding: 0.5mm;
+          box-sizing: content-box;
+          background: #ffffff;
+          border-radius: 1mm;
+        }
+        .photo-wrapper { margin-top: 2mm; position: relative; z-index: 1; }
+        .photo {
+          width: 22mm;
+          height: 22mm;
+          border-radius: 50%;
+          border: 2mm solid #0ea5e9;
+          object-fit: cover;
+          background: #0f172a;
+        }
+        .photo-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 7pt;
+          font-weight: bold;
+        }
+        .body {
+          padding: 1.5mm 3mm 2mm;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          flex: 1;
+          justify-content: space-between;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .name {
+          font-size: 9pt;
+          font-weight: 900;
+          color: #0f172a;
+          line-height: 1.1;
+          text-transform: uppercase;
+        }
+        .position {
+          font-size: 6.5pt;
+          font-weight: 700;
+          color: #0284c7;
+          margin-top: 0.5mm;
+        }
+        .matr {
+          font-size: 5.5pt;
+          font-family: monospace;
+          color: #d4af37;
+          font-weight: 800;
+          margin-top: 0.5mm;
+        }
+        .qr-box {
+          width: 20mm;
+          height: 20mm;
+          background: #ffffff;
+          padding: 0.5mm;
+          border: 1px solid #e2e8f0;
+          border-radius: 1.5mm;
+          margin-top: 0.5mm;
+        }
+        .qr-box svg { width: 100%; height: 100%; }
+        .footer { font-size: 4.5pt; color: #64748b; font-weight: 600; }
+        @media screen {
+          body { background: #e2e8f0; }
+          .card { margin-bottom: 12px; }
+        }
+      </style>
+    </head>
+    <body>
+      ${profiles.map((profile) => getPrintableCardMarkup(profile, origin)).join('')}
+      <script>
+        window.onload = () => {
+          setTimeout(() => window.print(), 250);
+        };
+      </script>
+    </body>
+  </html>
+`;
 
 export default function AdminRHPage() {
   const [activeTab, setActiveTab] = useState<TabType>('profils');
@@ -282,6 +457,11 @@ export default function AdminRHPage() {
 
     return list;
   }, [profiles, selectedDept, selectedStatus, searchQuery]);
+
+  const exportableProfiles = useMemo(
+    () => filteredProfiles.filter((profile) => !profile.isArchived && profile.qrStatus === 'actif' && profile.qrToken),
+    [filteredProfiles]
+  );
 
   // Statistiques calculées
   const stats = useMemo(() => {
@@ -655,9 +835,70 @@ export default function AdminRHPage() {
     const svgString = generateQRCodeSVG(qrUrl, { size: 400 });
     const blob = new Blob([svgString], { type: 'image/svg+xml' });
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `qrcode_${p.matricule}_${p.lastName}.svg`;
+    const objectUrl = URL.createObjectURL(blob);
+    link.href = objectUrl;
+    link.download = `qrcode_${getProfileFileName(p)}.svg`;
     link.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  };
+
+  const handleDownloadAllQRCodes = () => {
+    if (exportableProfiles.length === 0) {
+      window.alert('Aucun profil actif avec un QR Code à télécharger.');
+      return;
+    }
+
+    try {
+      const siteUrl = window.location.origin;
+      const files: Record<string, Uint8Array> = {};
+      const usedFileNames = new Set<string>();
+      for (const profile of exportableProfiles) {
+        const name = getProfileFileName(profile);
+        let fileName = name;
+        if (usedFileNames.has(fileName.toLowerCase())) {
+          fileName = `${name}_${profile.matricule}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+        if (usedFileNames.has(fileName.toLowerCase())) {
+          fileName = `${fileName}_${profile.id}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+        usedFileNames.add(fileName.toLowerCase());
+        const qrSvg = generateQRCodeSVG(`${siteUrl}/agent/${profile.qrToken}`, { size: 400 });
+        files[`qrcodes/${fileName}.svg`] = strToU8(qrSvg);
+      }
+
+      const archive = zipSync(files, { level: 6 });
+      const archiveBlob = new Blob(
+        [archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer],
+        { type: 'application/zip' }
+      );
+      const objectUrl = URL.createObjectURL(archiveBlob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'qrcodes_inptic.zip';
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error('Erreur export QR Codes:', error);
+      window.alert('Le téléchargement groupé des QR Codes a échoué. Réessayez.');
+    }
+  };
+
+  const handlePrintAllCards = () => {
+    if (exportableProfiles.length === 0) {
+      window.alert('Aucun profil actif avec un QR Code pour générer les cartes.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      window.alert('Autorisez les fenêtres contextuelles pour générer les cartes.');
+      return;
+    }
+
+    printWindow.document.write(
+      getPrintableCardsDocument(exportableProfiles, window.location.origin)
+    );
+    printWindow.document.close();
   };
 
   // Export CSV
@@ -1167,6 +1408,31 @@ export default function AdminRHPage() {
                 Le QR Code encode uniquement l&apos;URL publique non-devinable{' '}
                 <code className="rounded bg-slate-100 px-1 py-0.5 text-blue-700">/agent/[token]</code>.
                 Régénérer le token annule immédiatement l&apos;ancien QR.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadAllQRCodes}
+                  disabled={exportableProfiles.length === 0}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download size={15} />
+                  Télécharger tous les QR Codes ({exportableProfiles.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintAllCards}
+                  disabled={exportableProfiles.length === 0}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Printer size={15} />
+                  Exporter toutes les cartes en PDF ({exportableProfiles.length})
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                Les exports groupés suivent les filtres de la liste et incluent les profils actifs uniquement.
+                Les cartes s&apos;ouvrent dans la fenêtre d&apos;impression : choisissez « Enregistrer au format PDF » pour les télécharger ensemble.
               </p>
 
               <div className="mt-4 divide-y divide-slate-100">
