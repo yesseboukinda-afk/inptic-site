@@ -102,7 +102,7 @@ export default function Admissions() {
               <p className="text-sm uppercase tracking-[0.2em] text-blue-200">{t('public.stayInformed')}</p>
               <h3 className="mt-2 text-3xl font-bold">{t('public.applyToday')}</h3>
             </div>
-            <Link href="/admissions/depot" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500">
+            <Link href="/concours" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500">
               {t('public.submitMine')}
             </Link>
           </div>

@@ -1,4 +1,4 @@
-export type StaffRole = 'scolarite' | 'chef_departement' | 'direction_etudes';
+export type StaffRole = 'scolarite' | 'direction_etudes' | 'communication' | 'admin';
 export type AppRole = StaffRole | 'directeur' | 'etudiant';
 
 export function normalizeRole(value: unknown): string {
@@ -9,7 +9,26 @@ export function normalizeRole(value: unknown): string {
     .filter(Boolean);
 
   const knownRole = normalized.find((role) =>
-    ['dg', 'directeur', 'director', 'directeur_general', 'scolarite', 'chef_departement', 'direction_etudes'].includes(role),
+    [
+      'admin',
+      'administrateur',
+      'administrator',
+      'superadmin',
+      'dg',
+      'directeur',
+      'director',
+      'directeur_general',
+      'scolarite',
+      'direction_etudes',
+      'communication',
+      'responsable_communication',
+      'responsable_de_communication',
+      'rh',
+      'drh',
+      'rh_admin',
+      'rh_gestionnaire',
+      'rh_consultation',
+    ].includes(role),
   );
 
   return knownRole || normalized[0] || '';
@@ -17,7 +36,10 @@ export function normalizeRole(value: unknown): string {
 
 export function getStaffRole(value: unknown): StaffRole | '' {
   const role = normalizeRole(value);
-  return role === 'scolarite' || role === 'chef_departement' || role === 'direction_etudes' ? role : '';
+  if (role === 'admin' || role === 'administrateur' || role === 'administrator' || role === 'superadmin') return 'admin';
+  if (role === 'scolarite' || role === 'direction_etudes') return role;
+  if (role === 'communication' || role === 'responsable_communication' || role === 'responsable_de_communication') return 'communication';
+  return '';
 }
 
 export function isDirectorRole(value: unknown): boolean {
@@ -25,10 +47,111 @@ export function isDirectorRole(value: unknown): boolean {
   return role === 'dg' || role === 'directeur' || role === 'director' || role === 'directeur_general';
 }
 
-export function getRolePath(role: string): string {
-  if (role === 'scolarite') return '/scolarite';
+export function isAdminRole(value: unknown): boolean {
+  const role = normalizeRole(value);
+  return (
+    role === 'admin' ||
+    role === 'administrateur' ||
+    role === 'administrator' ||
+    role === 'superadmin' ||
+    isDirectorRole(role)
+  );
+}
+
+export function isCommunicationRole(value: unknown): boolean {
+  const role = normalizeRole(value);
+  return (
+    role === 'communication' ||
+    role === 'responsable_communication' ||
+    role === 'responsable_de_communication'
+  );
+}
+
+export function isAdminAccountEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase().replace(/,/g, '.');
+  const configured = (
+    process.env.ADMIN_EMAILS ||
+    process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
+    ''
+  )
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  return (
+    normalized === 'admin@inptic.ga' ||
+    normalized.startsWith('admin@') ||
+    normalized === 'rh@inptic.ga' ||
+    normalized === 'drh@inptic.ga' ||
+    normalized === 'yesseboukinda@gmail.com' ||
+    normalized === 'yessemabicka@gmail.com' ||
+    configured.includes(normalized)
+  );
+}
+
+export function isDirectorAccountEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase().replace(/,/g, '.');
+  return normalized === 'directeur@inptic.ga';
+}
+
+export function isRHAccountEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase().replace(/,/g, '.');
+  return (
+    normalized === 'rh@inptic.ga' ||
+    normalized === 'drh@inptic.ga' ||
+    normalized.startsWith('rh@') ||
+    normalized.startsWith('drh@') ||
+    normalized.includes('ressources-humaines') ||
+    normalized.includes('rh.')
+  );
+}
+
+export function isRHRole(value: unknown): boolean {
+  const role = normalizeRole(value);
+  return (
+    role === 'rh' ||
+    role === 'drh' ||
+    role === 'rh_admin' ||
+    role === 'rh_gestionnaire' ||
+    role === 'rh_consultation'
+  );
+}
+
+export function isScolariteAccountEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase().replace(/,/g, '.');
+  return (
+    normalized === 'scolarite@inptic.ga' ||
+    normalized === 'scol@inptic.ga' ||
+    normalized.startsWith('scolarite@') ||
+    normalized.startsWith('scol@') ||
+    normalized.includes('scolarite')
+  );
+}
+
+export function isStaffOrAdminUser(email?: string | null, role?: unknown): boolean {
+  return (
+    isAdminAccountEmail(email) ||
+    isDirectorAccountEmail(email) ||
+    isRHAccountEmail(email) ||
+    isScolariteAccountEmail(email) ||
+    isAdminRole(role) ||
+    isDirectorRole(role) ||
+    isCommunicationRole(role) ||
+    isRHRole(role) ||
+    normalizeRole(role) === 'scolarite'
+  );
+}
+
+export function getRolePath(role: string, email?: string): string {
+  if (isRHAccountEmail(email) || isRHRole(role)) return '/admin/rh';
+  if (isScolariteAccountEmail(email) || role === 'scolarite') return '/scolarite';
+  if (isDirectorAccountEmail(email) || isDirectorRole(role)) return '/directeur';
+  if (role === 'admin') return '/annonces/gestion';
   if (role === 'direction_etudes') return '/direction-etudes';
-  if (role === 'chef_departement') return '/chef-departement';
-  if (role === 'directeur') return '/directeur';
+  if (role === 'communication') return '/annonces/gestion';
   return '/admissions/suivi';
 }

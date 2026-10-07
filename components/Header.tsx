@@ -7,6 +7,8 @@ import { usePathname } from 'next/navigation';
 import { FormEvent, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
+import { authClient } from '@/lib/auth-client';
+import { isDirectorRole, isRHRole, normalizeRole } from '@/lib/roles';
 
 interface MenuItem {
   id: string;
@@ -28,7 +30,6 @@ export default function Header() {
       description: t('header.institutDescription'),
       submenu: [
         { id: 'presentation', label: t('header.presentation'), href: '/institut/presentation', description: '' },
-        { id: 'organigramme', label: t('footer.organizationChart'), href: '/institut/organigramme', description: '' },
         { id: 'gouvernance', label: t('header.governance'), href: '/institut/gouvernance', description: '' },
         { id: 'certifications', label: t('header.certifications'), href: '/institut/certifications', description: '' },
         { id: 'partenariats', label: t('header.partnerships'), href: '/institut/partenariats', description: '' },
@@ -48,23 +49,12 @@ export default function Header() {
       ],
     },
     {
-      id: 'admissions',
-      label: t('header.admissions'),
-      href: '/admissions',
-      description: t('header.admissionsDescription'),
-      submenu: [
-        { id: 'guide', label: t('header.guideAdmission'), href: '/admissions/guide', description: '' },
-        { id: 'calculateur', label: t('header.eligibilityCalculator'), href: '/admissions/calculateur', description: '' },
-        { id: 'depot', label: t('header.submitApplication'), href: '/admissions/depot', description: '' },
-        { id: 'suivi', label: t('header.realTimeTracking'), href: '/admissions/suivi', description: '' },
-      ],
-    },
-    {
       id: 'recherche',
       label: t('header.research'),
       href: '/recherche',
       description: t('header.researchDescription'),
       submenu: [
+        { id: 'publications', label: t('header.scientificPublications', 'Publications scientifiques'), href: '/recherche/publications', description: t('header.publicationsDesc', 'Travaux et articles de nos chercheurs') },
         { id: 'laboratoires', label: t('header.labs'), href: '/recherche/laboratoires', description: '' },
         { id: 'projets', label: t('header.studentProjects'), href: '/recherche/projets', description: '' },
         { id: 'incubateur', label: t('header.incubator'), href: '/recherche/incubateur', description: '' },
@@ -75,8 +65,10 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
+  const [isRH, setIsRH] = useState(false);
+  const [isScolarite, setIsScolarite] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
-  const [staffRole, setStaffRole] = useState<'scolarite' | 'chef_departement' | 'direction_etudes' | null>(null);
+  const [staffRole, setStaffRole] = useState<'scolarite' | 'direction_etudes' | 'communication' | 'admin' | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchNotification, setSearchNotification] = useState('');
@@ -100,14 +92,18 @@ export default function Header() {
     currentLanguage === 'zh' ? '🇨🇳' :
     currentLanguage === 'ar' ? '🇸🇦' : '🇫🇷';
 
-  const syncAuthState = () => {
-    const director = localStorage.getItem('inptic_directeur');
-    const student = localStorage.getItem('inptic_user');
-    const staffRaw = localStorage.getItem('inptic_staff');
-    const staff = staffRaw ? JSON.parse(staffRaw) : null;
-    setIsDirector(Boolean(director));
-    setIsStudent(Boolean(student));
-    setStaffRole(['scolarite', 'chef_departement', 'direction_etudes'].includes(staff?.role) ? staff.role : null);
+  const syncAuthState = async () => {
+    const { data } = await authClient.auth.getSession();
+    const role = normalizeRole(data.session?.user?.app_metadata?.role);
+    const isDir = isDirectorRole(role);
+    const rhUser = isRHRole(role) || role === 'admin';
+    const scolUser = role === 'scolarite';
+    setIsDirector(isDir);
+    setIsRH(rhUser);
+    setIsScolarite(scolUser);
+    setIsStudent(role === 'etudiant');
+    const allowedStaffRoles = ['scolarite', 'direction_etudes', 'communication', 'admin'] as const;
+    setStaffRole(allowedStaffRoles.find((staffRole) => staffRole === role) ?? (rhUser ? 'admin' : scolUser ? 'scolarite' : null));
   };
 
   const changeLanguage = (lang: 'fr' | 'en' | 'zh' | 'ar') => {
@@ -197,16 +193,10 @@ export default function Header() {
   };
 
   const handleLogout = async () => {
-    localStorage.setItem('inptic_logout_guard', String(Date.now()));
-    if (typeof window !== 'undefined') {
-      const { supabase } = await import('@/lib/supabase');
-      if (supabase) {
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // Ignored: fallback to local cleanup below.
-        }
-      }
+    const { error } = await authClient.auth.signOut();
+    if (error) {
+      window.alert(error.message);
+      return;
     }
 
     localStorage.removeItem('inptic_directeur');
@@ -318,10 +308,6 @@ export default function Header() {
                   <span className="btn-label">{t('common.dashboard')}</span>
                   <span className="icon-slot" aria-hidden="true">▣</span>
                 </Link>
-                <Link href="/directeur/compte" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.profile')}>
-                  <UserRound size={16} aria-hidden="true" />
-                  <span className="btn-label">{t('common.profile')}</span>
-                </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
                   <span className="icon-slot" aria-hidden="true">↗</span>
@@ -329,9 +315,9 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.professionalSpace')}>
+                <Link href={staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
                   <LayoutDashboard size={16} aria-hidden="true" />
-                  <span className="btn-label">{t('common.professionalSpace')}</span>
+                  <span className="btn-label">{staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
                 </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
@@ -340,9 +326,9 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/vie-etudiante" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.myAccount')}>
+                <Link href="/concours" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={16} aria-hidden="true" />
-                  <span className="btn-label">{t('common.myAccount')}</span>
+                  <span className="btn-label">{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
@@ -371,9 +357,9 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/chef-departement'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.professionalSpace')}>
+                <Link href={staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
                   <LayoutDashboard size={14} aria-hidden="true" />
-                  <span>{t('common.professionalSpace')}</span>
+                  <span>{staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
                 </Link>
                 <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
                   <LogOut size={14} aria-hidden="true" />
@@ -382,9 +368,9 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/vie-etudiante" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.myAccount')}>
+                <Link href="/concours" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={14} aria-hidden="true" />
-                  <span>{t('common.myAccount')}</span>
+                  <span>{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
                 <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
                   <LogOut size={14} aria-hidden="true" />
@@ -448,6 +434,14 @@ export default function Header() {
             {t('common.news')}
           </Link>
 
+          <Link href="/concours" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+            {t('common.concours', 'Concours')}
+          </Link>
+
+          <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+            {t('common.publications', 'Publications')}
+          </Link>
+
           {menuItems.map((item) => (
             <div key={item.id} className="relative group" role="none" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
               <Link href={item.href} className="nav-link flex items-center gap-1 transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] group-hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem" aria-haspopup={item.submenu ? 'menu' : undefined} aria-expanded={openMenuId === item.id}>
@@ -490,6 +484,52 @@ export default function Header() {
           <Link href="/contact" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
             {t('common.contact')}
           </Link>
+          <Link href="/annonces"
+            className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+            role="menuitem"
+          >
+            {t('common.annonces')}
+          </Link>
+
+          {isDirector && (
+            <Link
+              href="/directeur"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.espaceDg', 'Espace DG')}
+            </Link>
+          )}
+
+          {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
+            <Link
+              href="/annonces/gestion"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.gestionAnnonces', 'Gestion Annonces')}
+            </Link>
+          )}
+
+          {(isDirector || isScolarite) && (
+            <Link
+              href="/scolarite"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.scolarite', 'Scolarité')}
+            </Link>
+          )}
+
+          {(isDirector || isRH) && (
+            <Link
+              href="/admin/rh"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              {t('common.gestionRh', 'Gestion RH')}
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -507,6 +547,14 @@ export default function Header() {
 
             <Link href="/actualites" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.news')}
+            </Link>
+
+            <Link href="/concours" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+              {t('common.concours', 'Concours')}
+            </Link>
+
+            <Link href="/recherche/publications" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+              {t('common.publications', 'Publications')}
             </Link>
 
             {menuItems.map((item) => (
@@ -534,6 +582,34 @@ export default function Header() {
             <Link href="/contact" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.contact')}
             </Link>
+
+            <Link href="/annonces" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+              {t('common.annonces')}
+            </Link>
+
+            {isDirector && (
+              <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.espaceDg', 'Espace DG')}
+              </Link>
+            )}
+
+            {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
+              <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.gestionAnnonces', 'Gestion Annonces')}
+              </Link>
+            )}
+
+            {(isDirector || isScolarite) && (
+              <Link href="/scolarite" className="block px-4 py-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-cyan-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.scolarite', 'Scolarité')}
+              </Link>
+            )}
+
+            {(isDirector || isRH) && (
+              <Link href="/admin/rh" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[var(--gold)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.gestionRh', 'Gestion RH')}
+              </Link>
+            )}
 
           </div>
         </nav>

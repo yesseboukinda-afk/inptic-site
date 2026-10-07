@@ -3,23 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
-import { getRolePath, getStaffRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import { getRolePath, getStaffRole, isDirectorRole, isRHRole, normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
+import { getCandidateJourneyPath } from '@/lib/admissionsWorkflow';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
-const normalizeAccountEmail = (value?: string) => (value ?? '').trim().toLowerCase().replace(/,/g, '.');
-const isSpecialStaffEmail = (email?: string) => {
-  const normalized = normalizeAccountEmail(email);
-  return normalized === 'dep@inptic.ga' || normalized === 'dep@inpti.ga';
-};
-const isDirectorAccountEmail = (email?: string) => normalizeAccountEmail(email) === 'directeur@inptic.ga';
-
 const socialProviders = [
   { name: 'Google', icon: '/connexion/google_icon.svg' },
-  { name: 'Apple', icon: '/connexion/apple_icon.svg' },
   { name: 'Facebook', icon: '/connexion/facebook_icon.svg' },
 ] as const;
 
@@ -51,25 +44,72 @@ const readLocalProfiles = () => {
 };
 
 const persistLocalProfile = (profile: Record<string, any>) => {
-  const existingProfiles: any[] = readLocalProfiles();
-  const nextProfiles = existingProfiles.some((entry: any) => entry.email?.toLowerCase() === profile.email?.toLowerCase())
+  const existingProfiles: Record<string, any>[] = readLocalProfiles();
+  let existingUser: Record<string, any> = {};
+  try {
+    const raw = localStorage.getItem('inptic_user');
+    existingUser = raw ? JSON.parse(raw) : {};
+  } catch {
+    existingUser = {};
+  }
+  delete existingUser.password;
+  const safeProfile = { ...profile };
+  delete safeProfile.password;
+  const persistedProfile: Record<string, any> = {
+    ...existingUser,
+    ...safeProfile,
+    admissionWorkflow: safeProfile.admissionWorkflow ?? existingUser.admissionWorkflow,
+    candidatureData: safeProfile.candidatureData ?? existingUser.candidatureData,
+    documents: Array.isArray(safeProfile.documents) && safeProfile.documents.length
+      ? safeProfile.documents
+      : existingUser.documents ?? [],
+    paymentStatus: safeProfile.paymentStatus ?? existingUser.paymentStatus,
+    paymentReference: safeProfile.paymentReference ?? existingUser.paymentReference,
+    paymentTransactionId: safeProfile.paymentTransactionId ?? existingUser.paymentTransactionId,
+    paymentDate: safeProfile.paymentDate ?? existingUser.paymentDate,
+    dossierNumero: safeProfile.dossierNumero || existingUser.dossierNumero,
+  };
+  const nextProfiles = existingProfiles.some((entry) => entry.email?.toLowerCase() === persistedProfile.email?.toLowerCase())
     ? existingProfiles.map((entry: any) =>
-        entry.email?.toLowerCase() === profile.email?.toLowerCase() ? { ...entry, ...profile, role: profile.role || entry.role || 'etudiant' } : entry
+        entry.email?.toLowerCase() === persistedProfile.email?.toLowerCase()
+          ? { ...entry, ...persistedProfile, role: profile.role || entry.role || 'etudiant' }
+          : entry
       )
-    : [...existingProfiles, { ...profile, role: profile.role || 'etudiant' }];
+    : [...existingProfiles, { ...persistedProfile, role: profile.role || 'etudiant' }];
 
-  localStorage.setItem('inptic_users', JSON.stringify(nextProfiles));
-  localStorage.setItem('inptic_user', JSON.stringify(profile));
+  localStorage.setItem('inptic_users', JSON.stringify(nextProfiles.map((entry) => {
+    const safeEntry = { ...entry };
+    delete safeEntry.password;
+    return safeEntry;
+  })));
+  localStorage.setItem('inptic_user', JSON.stringify(persistedProfile));
   window.dispatchEvent(new Event('auth-state-changed'));
 };
 
-const buildSupabaseProfile = (user: any, fallbackName = 'Étudiant') => {
-  const rawRole = user?.user_metadata?.role ?? user?.user_metadata?.roles ?? user?.app_metadata?.role ?? user?.app_metadata?.roles ?? '';
+const getCandidateDestination = (profile?: Record<string, any>) => {
+  let storedProfile: Record<string, any> = {};
+  try {
+    const raw = localStorage.getItem('inptic_user');
+    storedProfile = raw ? JSON.parse(raw) : {};
+  } catch {
+    storedProfile = {};
+  }
+  const mergedProfile = {
+    ...storedProfile,
+    ...profile,
+    admissionWorkflow: profile?.admissionWorkflow ?? storedProfile.admissionWorkflow,
+    candidatureData: profile?.candidatureData ?? storedProfile.candidatureData,
+    documents: profile?.documents?.length ? profile.documents : storedProfile.documents ?? [],
+    paymentStatus: profile?.paymentStatus ?? storedProfile.paymentStatus,
+  };
+  return getCandidateJourneyPath(mergedProfile);
+};
+
+const buildAuthProfile = (user: any, fallbackName = 'Étudiant') => {
+  const rawRole = user?.app_metadata?.role ?? user?.app_metadata?.roles ?? '';
   const normalizedRole = normalizeRole(rawRole);
-  const staffRole = isSpecialStaffEmail(user?.email)
-    ? 'direction_etudes'
-    : getStaffRole(normalizedRole);
-  const isDirector = isDirectorRole(normalizedRole) || isDirectorAccountEmail(user?.email);
+  const staffRole = getStaffRole(normalizedRole);
+  const isDirector = isDirectorRole(normalizedRole);
 
   return {
     email: user?.email || '',
@@ -104,7 +144,7 @@ function SocialAuthButtons({ onClick, t }: { onClick: (provider: (typeof socialP
         <span className="h-px flex-1 bg-slate-200" />
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex justify-center">
         {socialProviders.map(({ name, icon }) => (
           <button
             key={name}
@@ -132,22 +172,8 @@ export default function Candidat() {
   const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
 
   const handleSocialAuth = async (provider: (typeof socialProviders)[number]['name']) => {
-    localStorage.removeItem('inptic_logout_guard');
-    const providerKey = provider.toLowerCase() as 'google' | 'apple' | 'facebook';
-
-    if (!supabase) {
-      setMsg('Connexion sociale non disponible. Configurez Supabase pour activer Google, Apple et Facebook.');
-      return;
-    }
-
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: providerKey,
-        options: {
-          redirectTo: `${window.location.origin}/candidat`,
-        },
-      });
-
+      const { error } = await authClient.auth.signInWithOAuth({ provider: provider.toLowerCase() });
       if (error) {
         setMsg(error.message || `La connexion avec ${provider} a échoué.`);
       }
@@ -164,154 +190,56 @@ export default function Candidat() {
   }, [msg]);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) return;
+    const routeAuthenticatedUser = (user: any) => {
+      const profile = buildAuthProfile(user);
+      const role = normalizeRole(user?.app_metadata?.role);
+      localStorage.removeItem('inptic_user');
+      localStorage.removeItem('inptic_staff');
+      localStorage.removeItem('inptic_directeur');
 
-    const logoutGuard = Number(localStorage.getItem('inptic_logout_guard') || '0');
-    const hasRecentLogout = Date.now() - logoutGuard < 15000;
-
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
-      if (event !== 'SIGNED_IN' || !session?.user || hasRecentLogout) return;
-
-      const user = session.user;
-      const profile = buildSupabaseProfile(user, user.user_metadata?.full_name || user.user_metadata?.name || 'Étudiant');
-      const localRole = normalizeRole(profile.role);
-      const staffRole = getStaffRole(localRole);
-
-      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
-        localStorage.removeItem('inptic_user');
-        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
-        window.dispatchEvent(new Event('auth-state-changed'));
+      if (isRHRole(role)) {
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
+        router.replace('/admin/rh');
+      } else if (role === 'scolarite') {
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role }));
+        router.replace('/scolarite');
+      } else if (isDirectorRole(role)) {
+        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role }));
         router.replace('/directeur');
-        return;
-      }
-
-      if (staffRole) {
-        localStorage.removeItem('inptic_user');
+      } else if (getStaffRole(role)) {
+        const staffRole = getStaffRole(role);
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
-        window.dispatchEvent(new Event('auth-state-changed'));
         router.replace(getRolePath(staffRole));
-        return;
+      } else {
+        persistLocalProfile(profile);
+        router.replace(getCandidateDestination(profile));
       }
-
-      persistLocalProfile(profile);
-      router.replace(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
-    });
-
-    const syncUserFromSupabaseSession = async () => {
-      if (hasRecentLogout) return;
-
-      const { data } = await client.auth.getSession();
-      const user = data.session?.user;
-      if (!user) return;
-
-      const profile = buildSupabaseProfile(user, user.user_metadata?.full_name || user.user_metadata?.name || 'Étudiant');
-      const localRole = normalizeRole(profile.role);
-      const staffRole = getStaffRole(localRole);
-
-      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
-        localStorage.removeItem('inptic_user');
-        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
-        window.dispatchEvent(new Event('auth-state-changed'));
-        router.replace('/directeur');
-        return;
-      }
-
-      if (staffRole) {
-        localStorage.removeItem('inptic_user');
-        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
-        window.dispatchEvent(new Event('auth-state-changed'));
-        router.replace(getRolePath(staffRole));
-        return;
-      }
-
-      persistLocalProfile(profile);
-      router.replace(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+      window.dispatchEvent(new Event('auth-state-changed'));
     };
 
-    const storedRaw = localStorage.getItem('inptic_user');
-    const director = localStorage.getItem('inptic_directeur');
-
-    if (director) {
-      router.replace('/directeur');
-      return () => subscription.unsubscribe();
-    }
-
-    if (storedRaw) {
-      try {
-        const stored = JSON.parse(storedRaw);
-        const storedRole = normalizeRole(stored?.role);
-        if (isDirectorRole(storedRole) || isDirectorAccountEmail(stored?.email)) {
-          router.replace('/directeur');
-        } else if (getStaffRole(storedRole)) {
-          router.replace(getRolePath(getStaffRole(storedRole)));
-        } else if (stored?.dossierValide === true || stored?.status === 'valide') {
-          router.replace('/vie-etudiante');
-        } else {
-          router.replace('/admissions/suivi');
-        }
-      } catch {
-        localStorage.removeItem('inptic_user');
+    const { data: { subscription } } = authClient.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        routeAuthenticatedUser(session.user);
       }
-      return () => subscription.unsubscribe();
-    }
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('inptic_user');
+        localStorage.removeItem('inptic_staff');
+        localStorage.removeItem('inptic_directeur');
+        window.dispatchEvent(new Event('auth-state-changed'));
+      }
+    });
 
-    syncUserFromSupabaseSession();
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('verified') === '1') setMsg('Adresse e-mail confirmée. Votre compte est activé.');
+    if (query.has('authError')) setMsg('La validation du lien ou la connexion a échoué. Réessayez.');
     return () => subscription.unsubscribe();
   }, [router]);
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!supabase) {
-      const localProfiles = readLocalProfiles();
-      const normalizedEmail = form.email.trim().toLowerCase();
-      const matchingProfile = localProfiles.find(
-        (entry: any) => entry.email?.toLowerCase() === normalizedEmail && entry.password === form.password
-      );
-
-      if (!matchingProfile) {
-        setMsg('Connexion Supabase non configurée. Ajoutez les variables d’environnement en production, puis redéployez.');
-        return;
-      }
-
-      const profile = {
-        ...matchingProfile,
-        password: form.password,
-        role: matchingProfile.role || 'etudiant',
-      };
-
-      const localRole = normalizeRole(profile.role);
-      if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
-        localStorage.removeItem('inptic_user');
-        localStorage.setItem(
-          'inptic_directeur',
-          JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' })
-        );
-        window.dispatchEvent(new Event('auth-state-changed'));
-        setMsg('Connexion réussie.');
-        router.push('/directeur');
-        return;
-      }
-
-      localStorage.removeItem('inptic_directeur');
-      localStorage.setItem('inptic_user', JSON.stringify(profile));
-      window.dispatchEvent(new Event('auth-state-changed'));
-      setMsg('Connexion réussie.');
-      const localStaffRole = getStaffRole(localRole);
-      if (localStaffRole) {
-        localStorage.removeItem('inptic_user');
-        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: localStaffRole }));
-        window.dispatchEvent(new Event('auth-state-changed'));
-        router.push(getRolePath(localStaffRole));
-        return;
-      }
-      router.push(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
-      return;
-    }
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await authClient.auth.signInWithPassword({
         email: form.email,
         password: form.password,
       });
@@ -320,20 +248,15 @@ export default function Candidat() {
         throw error;
       }
 
+      if (!data.user) {
+        throw new Error('Compte utilisateur absent de la réponse de connexion.');
+      }
+
       const user = data.user;
-      const rawRole =
-        user?.user_metadata?.role ??
-        user?.user_metadata?.roles ??
-        user?.app_metadata?.role ??
-        user?.app_metadata?.roles ??
-        '';
+      const rawRole = user?.app_metadata?.role ?? user?.app_metadata?.roles ?? '';
       const normalizedRole = normalizeRole(rawRole);
-      const staffRole = isSpecialStaffEmail(user?.email)
-        ? 'direction_etudes'
-        : getStaffRole(normalizedRole);
-      const isDirector =
-        isDirectorRole(normalizedRole) ||
-        isDirectorAccountEmail(user?.email);
+      const staffRole = getStaffRole(normalizedRole);
+      const isDirector = isDirectorRole(normalizedRole);
       const profile = {
         email: user?.email || form.email,
         name: user?.user_metadata?.full_name || user?.user_metadata?.name || form.name || 'Étudiant',
@@ -356,6 +279,30 @@ export default function Candidat() {
         notifications: Array.isArray(user?.user_metadata?.notifications) ? user.user_metadata.notifications : [],
         role: staffRole || (isDirector ? 'directeur' : 'etudiant'),
       };
+
+      const isRH = isRHRole(normalizedRole);
+      if (isRH) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem(
+          'inptic_staff',
+          JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin' })
+        );
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push('/admin/rh');
+        return;
+      }
+
+      const isScolarite = normalizedRole === 'scolarite';
+      if (isScolarite) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem(
+          'inptic_staff',
+          JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite' })
+        );
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push('/scolarite');
+        return;
+      }
 
       if (isDirector) {
         localStorage.removeItem('inptic_user');
@@ -385,47 +332,19 @@ export default function Candidat() {
       localStorage.setItem('inptic_user', JSON.stringify(profile));
       window.dispatchEvent(new Event('auth-state-changed'));
 
-      try {
-        await fetch('/api/candidat/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
-        });
-      } catch {
-        // Fallback local-only if Supabase is not configured.
+      const profileResponse = await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      if (!profileResponse.ok) {
+        const result = await profileResponse.json().catch(() => ({}));
+        throw new Error(result.error || 'Le profil candidat n’a pas pu être sauvegardé.');
       }
 
       setMsg('Connexion réussie.');
-      router.push(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
+      router.push(getCandidateDestination(profile));
     } catch (error) {
-      const localProfiles = readLocalProfiles();
-      const normalizedEmail = form.email.trim().toLowerCase();
-      const matchingProfile = localProfiles.find(
-        (entry: any) => entry.email?.toLowerCase() === normalizedEmail && entry.password === form.password
-      );
-
-      if (matchingProfile) {
-        const profile = { ...matchingProfile, password: form.password };
-        const localRole = normalizeRole(profile.role);
-        const localStaffRole = isSpecialStaffEmail(profile.email) ? 'direction_etudes' : getStaffRole(localRole);
-        if (isDirectorRole(localRole) || isDirectorAccountEmail(profile.email)) {
-          localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' }));
-          router.push('/directeur');
-          return;
-        }
-        if (localStaffRole) {
-          localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: localStaffRole }));
-          router.push(getRolePath(localStaffRole));
-          return;
-        }
-        localStorage.removeItem('inptic_directeur');
-        localStorage.setItem('inptic_user', JSON.stringify(profile));
-        window.dispatchEvent(new Event('auth-state-changed'));
-        setMsg('Connexion réussie.');
-        router.push(profile.dossierValide ? '/vie-etudiante' : '/admissions/suivi');
-        return;
-      }
-
       const message = error instanceof Error ? translateAuthError(error.message, t) : t('auth.genericError');
       setMsg(message);
     }
@@ -434,11 +353,6 @@ export default function Candidat() {
   async function requestPasswordReset(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!supabase) {
-      setMsg('La récupération du mot de passe nécessite la configuration Supabase.');
-      return;
-    }
-
     const email = form.email.trim();
 
     if (!email) {
@@ -446,16 +360,10 @@ export default function Candidat() {
       return;
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || window.location.origin;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/reset-password`,
-    });
-
-    setMsg(
-      error
-        ? translateAuthError(error.message, t)
-        : 'Un lien de récupération a été envoyé à cette adresse email.'
-    );
+    const { error } = await authClient.auth.resetPasswordForEmail(email);
+    setMsg(error
+      ? translateAuthError(error.message, t)
+      : 'Si un compte vérifié existe avec cette adresse, un lien de récupération sera envoyé.');
   }
 
   async function handleSignup(e: React.FormEvent) {
@@ -466,50 +374,8 @@ export default function Candidat() {
       return;
     }
 
-    if (!supabase) {
-      const profile = {
-        email: form.email.trim(),
-        name: form.name.trim(),
-        password: form.password,
-        phone: '',
-        niveau: '',
-        parcours: '',
-        promotion: '',
-        etablissement: '',
-        annee: '',
-        specialite: '',
-        bio: '',
-        diplome: '',
-        photo: '',
-        documents: [],
-        dossierValide: false,
-        status: 'inscription',
-        dossierStep: 'inscription',
-        dossierNumero: generateDossierNumber(),
-        filiere: '',
-        notifications: addNotification([], 'Votre inscription au concours a bien été enregistrée. Complétez maintenant votre dossier pour finaliser votre candidature.', 'info'),
-        role: 'etudiant',
-      };
-
-      const existingProfiles = readLocalProfiles();
-      const alreadyExists = existingProfiles.some(
-        (entry: { email?: string }) => entry.email?.toLowerCase() === profile.email.toLowerCase()
-      );
-
-      if (alreadyExists) {
-        setMsg('Un compte existe déjà avec cet email. Connectez-vous pour continuer.');
-        setMode('login');
-        return;
-      }
-
-      persistLocalProfile(profile);
-      setMsg('Compte créé avec succès. Vous pouvez maintenant compléter votre dossier.');
-      router.push('/admissions/suivi');
-      return;
-    }
-
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await authClient.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
@@ -524,6 +390,16 @@ export default function Candidat() {
 
       if (error) {
         throw error;
+      }
+
+      if (!data.session) {
+        setMode('login');
+        setMsg('Compte créé. Confirmez votre adresse e-mail depuis le message reçu, puis connectez-vous pour vous préinscrire.');
+        return;
+      }
+
+      if (!data.user) {
+        throw new Error('Compte utilisateur absent de la réponse d’inscription.');
       }
 
       const profile = {
@@ -557,61 +433,21 @@ export default function Candidat() {
       localStorage.setItem('inptic_user', JSON.stringify(profile));
       window.dispatchEvent(new Event('auth-state-changed'));
 
-      try {
-        await fetch('/api/candidat/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
-        });
-      } catch {
-        // Fallback local-only if Supabase is not configured.
+      const profileResponse = await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      if (!profileResponse.ok) {
+        const result = await profileResponse.json().catch(() => ({}));
+        throw new Error(result.error || 'Le profil candidat n’a pas pu être sauvegardé.');
       }
 
-      setMsg(
-        data.session
-          ? 'Inscription enregistrée. Votre dossier est en cours de traitement.'
-          : 'Compte créé. Vérifiez votre e-mail pour confirmer votre inscription, puis connectez-vous.'
-      );
-
-      if (data.session) {
-        router.push('/admissions/suivi');
-      }
+      setMsg('Inscription enregistrée. Votre dossier est en cours de traitement.');
+      router.push(getCandidateDestination(profile));
     } catch (error) {
-      const profile = {
-        email: form.email.trim(),
-        name: form.name.trim(),
-        password: form.password,
-        phone: '',
-        niveau: '',
-        parcours: '',
-        promotion: '',
-        etablissement: '',
-        annee: '',
-        specialite: '',
-        bio: '',
-        diplome: '',
-        photo: '',
-        documents: [],
-        dossierValide: false,
-        status: 'inscription',
-        dossierStep: 'inscription',
-        dossierNumero: generateDossierNumber(),
-        filiere: '',
-        notifications: addNotification([], 'Votre inscription au concours a bien été enregistrée. Complétez maintenant votre dossier pour finaliser votre candidature.', 'info'),
-        role: 'etudiant',
-      };
-
-      const existingProfiles = readLocalProfiles();
-      const alreadyExists = existingProfiles.some(
-        (entry: { email?: string }) => entry.email?.toLowerCase() === profile.email.toLowerCase()
-      );
-
-      if (!alreadyExists) {
-        persistLocalProfile(profile);
-      }
-
-      setMsg('Inscription enregistrée localement. Vous pouvez maintenant compléter votre dossier.');
-      router.push('/admissions/suivi');
+      const message = error instanceof Error ? translateAuthError(error.message, t) : t('auth.genericError');
+      setMsg(message);
     }
   }
 
@@ -669,8 +505,9 @@ export default function Candidat() {
 
           <ol className="mt-6 space-y-3 text-sm text-blue-50">
             <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white font-bold text-blue-700">1</span>{t('candidate.createAccount')}</li>
-            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">2</span>{t('candidate.completeFile')}</li>
-            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">3</span>{t('candidate.followValidation')}</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">2</span>Préinscription au concours</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">3</span>Formulaire et pièces justificatives</li>
+            <li className="flex items-center gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">4</span>Paiement des frais de dossier</li>
           </ol>
         </section>
 
@@ -829,4 +666,3 @@ export default function Candidat() {
     </main>
   );
 }
-

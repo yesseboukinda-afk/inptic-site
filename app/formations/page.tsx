@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import TrainingCatalog from '@/components/TrainingCatalog';
 
 const departmentCards = [
   {
@@ -348,6 +349,8 @@ export default function Formations() {
           </p>
         </div>
       </section>
+
+      <TrainingCatalog />
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
         <div className="grid gap-8 md:grid-cols-3">

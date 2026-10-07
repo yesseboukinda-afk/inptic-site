@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
 import { useTranslation } from 'react-i18next';
 
@@ -16,24 +16,18 @@ export default function ResetPasswordPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetToken, setResetToken] = useState('');
 
   useEffect(() => {
-    if (!supabase) {
-      setMessage(t('pages.supabaseRequired'));
-      return;
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token') || '';
+    setResetToken(token);
+    setIsReady(/^[a-f0-9]{64}$/i.test(token));
+    if (token) window.history.replaceState({}, document.title, url.pathname);
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      setMessage('Ce lien de réinitialisation est invalide ou a expiré. Demandez-en un nouveau.');
     }
-
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsReady(true);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: sessionData }) => {
-      setIsReady(Boolean(sessionData.session));
-    });
-
-    return () => data.subscription.unsubscribe();
   }, []);
 
   async function updatePassword(event: React.FormEvent) {
@@ -49,21 +43,30 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (!supabase || !isReady) {
+    if (!isReady || !resetToken) {
       setMessage(t('pages.invalidRecovery'));
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
-
-    if (error) {
-      setMessage(translateAuthError(error.message, t));
-      return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/auth/password/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, password }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'La mise à jour du mot de passe a échoué.');
+      setMessage(t('pages.passwordUpdated'));
+      await authClient.auth.signOut();
+      setTimeout(() => router.replace('/candidat'), 800);
+    } catch (error) {
+      setMessage(error instanceof Error
+        ? `La mise à jour a échoué : ${translateAuthError(error.message, t)}`
+        : 'La mise à jour du mot de passe a échoué.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setMessage(t('pages.passwordUpdated'));
-    await supabase.auth.signOut();
-    setTimeout(() => router.replace('/candidat'), 800);
   }
 
   return (
@@ -120,7 +123,7 @@ export default function ResetPasswordPage() {
 
           <button
             type="submit"
-            disabled={!isReady}
+            disabled={!isReady || isSubmitting}
             className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {t('pages.savePassword')}
