@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import { authClient } from '@/lib/auth-client';
 import { isDirectorRole, isRHRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
+import AccountSettingsModal from '@/components/AccountSettingsModal';
 
 interface MenuItem {
   id: string;
@@ -75,6 +76,8 @@ export default function Header() {
   const [searchNotification, setSearchNotification] = useState('');
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
@@ -95,6 +98,7 @@ export default function Header() {
 
   const syncAuthState = async () => {
     const { data } = await authClient.auth.getSession();
+    setAccountEmail(data.session?.user?.email || '');
     const role = normalizeRole(data.session?.user?.app_metadata?.role);
     const isDir = isDirectorRole(role);
     setIsSuperAdmin(isSuperAdminRole(role));
@@ -270,6 +274,18 @@ export default function Header() {
               {isDarkMode ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
             </button>
 
+            {accountEmail && (
+              <button
+                type="button"
+                onClick={() => setAccountSettingsOpen(true)}
+                aria-label="Paramètres du compte"
+                title="Paramètres du compte"
+                className="rounded-lg p-2 text-slate-700 transition hover:bg-violet-50 hover:text-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+              >
+                <Settings size={19} aria-hidden="true" />
+              </button>
+            )}
+
             <div ref={languageMenuRef} className="relative">
               <button
                 type="button"
@@ -418,6 +434,18 @@ export default function Header() {
                 </div>
               )}
             </div>
+
+            {accountEmail && (
+              <button
+                type="button"
+                onClick={() => setAccountSettingsOpen(true)}
+                aria-label="Paramètres du compte"
+                title="Paramètres du compte"
+                className="rounded-lg p-2 text-slate-700 transition hover:bg-violet-50 hover:text-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <Settings size={19} aria-hidden="true" />
+              </button>
+            )}
 
             <button ref={mobileMenuButtonRef} type="button" onClick={(event) => { event.stopPropagation(); setMobileMenuOpen((open) => !open); }} aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-menu" className="mobile-menu-trigger rounded-lg p-2 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 active:scale-95">
               {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
@@ -637,6 +665,12 @@ export default function Header() {
         <p className="fixed right-6 top-20 z-[100] max-w-xs rounded-lg border border-blue-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xl dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" role="status" aria-live="polite">
           {searchNotification}
         </p>
+      )}
+      {accountSettingsOpen && (
+        <AccountSettingsModal
+          email={accountEmail}
+          onClose={() => setAccountSettingsOpen(false)}
+        />
       )}
     </>
   );

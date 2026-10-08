@@ -89,6 +89,13 @@ compte d'authentification ; le dernier superadmin et le compte connecté ne
 peuvent pas être supprimés depuis l'interface. Les comptes étudiants ne sont
 pas gérés dans cette liste.
 
+Tout compte connecté peut ouvrir les paramètres de compte avec l'icône
+d'engrenage du bandeau. Le titulaire peut demander un changement d'adresse
+e-mail après vérification de son mot de passe actuel ; la nouvelle adresse
+reste en attente jusqu'à sa confirmation par e-mail, puis les dossiers liés
+sont mis à jour. Le mot de passe peut également être changé après vérification
+du mot de passe actuel ; les sessions précédentes sont alors révoquées.
+
 ## Migration PostgreSQL vers LWS
 
 `DATABASE_URL` et le module `lib/postgres.ts` fournissent la connexion serveur.

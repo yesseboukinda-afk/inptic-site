@@ -234,8 +234,17 @@ export default function Candidat() {
     });
 
     const query = new URLSearchParams(window.location.search);
-    if (query.get('verified') === '1') setMsg('Adresse e-mail confirmée. Votre compte est activé.');
-    if (query.has('authError')) setMsg('La validation du lien ou la connexion a échoué. Réessayez.');
+    if (query.get('verified') === '1' && query.get('emailChanged') === '1') {
+      setMsg('Nouvelle adresse e-mail confirmée. Connectez-vous avec cette adresse.');
+    } else if (query.get('verified') === '1') {
+      setMsg('Adresse e-mail confirmée. Votre compte est activé.');
+    }
+    if (query.get('passwordChanged') === '1') setMsg('Mot de passe modifié. Connectez-vous avec le nouveau mot de passe.');
+    if (query.get('authError') === 'email-change-conflict') {
+      setMsg('Cette adresse e-mail est déjà associée à un compte ou à un dossier.');
+    } else if (query.has('authError')) {
+      setMsg('La validation du lien ou la connexion a échoué. Réessayez.');
+    }
     return () => subscription.unsubscribe();
   }, [router]);
 
