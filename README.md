@@ -61,6 +61,9 @@ Avant d'activer le parcours :
    routes, lance `tsc --noEmit`, puis construit avec Webpack. Le contrôle de
    types séparé évite de relancer le vérificateur interne de Next.js, qui peut
    échouer sur certains hébergements mutualisés limitant la création de processus.
+   La version de Next.js est épinglée à celle validée pour ce déploiement ; exécuter
+   `npm install` après le transfert pour que l'environnement LWS prenne en compte
+   cette version exacte.
 
 Les comptes de l'ancien hébergement ne sont pas repris : les utilisateurs
 s'inscriront à nouveau sur le site. Après la première inscription du compte
