@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { DEFAULT_PUBLIC_WHITELIST, RHPublicWhitelist } from '@/types/rh';
+import { logRHCardScan } from '@/lib/rh-card-audit';
 
 // Rate limiting simple en mémoire par IP (max 30 requêtes par minute)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -81,6 +82,12 @@ export async function GET(
         },
       }
     );
+  }
+
+  try {
+    await logRHCardScan(profileData, request.headers);
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la journalisation du scan de carte RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
   }
 
   // Profil révoqué, inactif ou archivé

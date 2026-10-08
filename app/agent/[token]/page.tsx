@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import {
   AlertTriangle,
   Building2,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import { getPostgresPool } from '@/lib/postgres';
 import { DEFAULT_PUBLIC_WHITELIST, RHPublicWhitelist } from '@/types/rh';
+import { logRHCardScan } from '@/lib/rh-card-audit';
 
 export const metadata: Metadata = {
   title: 'Vérification d’Agent • INPTIC Gabon',
@@ -30,7 +32,7 @@ type AgentPageProps = {
   params: Promise<{ token: string }>;
 };
 
-async function getAgentData(token: string) {
+async function getAgentData(token: string, requestHeaders: Pick<Headers, 'get'>) {
   const { rows } = await getPostgresPool().query(
     'SELECT * FROM public.rh_profiles WHERE qr_token = $1 LIMIT 1',
     [token],
@@ -39,6 +41,12 @@ async function getAgentData(token: string) {
 
   if (!profileData) {
     return { status: 'inconnu', message: 'Ce QR Code ne correspond à aucun profil enregistré auprès de l’INPTIC Gabon.' };
+  }
+
+  try {
+    await logRHCardScan(profileData, requestHeaders);
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la journalisation du scan de carte RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
   }
 
   if (profileData.qr_status !== 'actif' || profileData.is_archived) {
@@ -71,7 +79,7 @@ async function getAgentData(token: string) {
 
 export default async function AgentPublicPage({ params }: AgentPageProps) {
   const { token } = await params;
-  const result = await getAgentData(token);
+  const result = await getAgentData(token, await headers());
 
   if (!result || result.status === 'inconnu') {
     return (

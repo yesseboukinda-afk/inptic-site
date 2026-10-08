@@ -586,180 +586,13 @@ export default function AdminRHPage() {
 
   // Impression dédiée d'une Carte Professionnelle au format badge portrait vertical
   const handlePrintCard = (p: RHProfile) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga';
-    const qrSvg = generateQRCodeSVG(`${origin}/agent/${p.qrToken || p.id}`, { size: 140, margin: 1 });
-
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
       window.alert('Autorisez les fenêtres contextuelles pour imprimer la carte professionnelle.');
       return;
     }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Carte Professionnelle - ${p.firstName} ${p.lastName}</title>
-          <style>
-            @page {
-              size: 53.98mm 85.6mm;
-              margin: 0;
-            }
-            html, body {
-              width: 53.98mm;
-              height: 85.6mm;
-              margin: 0;
-              padding: 0;
-              overflow: hidden;
-            }
-            body {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: #0f172a;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            .card {
-              width: 53.98mm;
-              height: 85.6mm;
-              background: #ffffff;
-              border-radius: 4mm;
-              overflow: hidden;
-              box-sizing: border-box;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              text-align: center;
-              position: relative;
-              border: 1px solid #cbd5e1;
-              break-inside: avoid-page;
-              page-break-inside: avoid;
-            }
-            .top-header {
-              width: 100%;
-              background: #1e3a8a;
-              padding: 2mm;
-              position: relative;
-              box-sizing: border-box;
-            }
-            .company-logo {
-              display: block;
-              width: 30mm;
-              height: auto;
-              margin: 0 auto;
-              padding: 0.5mm;
-              box-sizing: content-box;
-              background: #ffffff;
-              border-radius: 1mm;
-            }
-            .photo-wrapper {
-              margin-top: 2mm;
-              position: relative;
-              z-index: 10;
-            }
-            .photo {
-              width: 22mm;
-              height: 22mm;
-              border-radius: 50%;
-              border: 2mm solid #0ea5e9;
-              object-fit: cover;
-              background: #0f172a;
-            }
-            .body {
-              padding: 1.5mm 3mm 2mm;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              flex: 1;
-              justify-content: space-between;
-              width: 100%;
-              box-sizing: border-box;
-            }
-            .name {
-              font-size: 9pt;
-              font-weight: 900;
-              color: #0f172a;
-              line-height: 1.1;
-              text-transform: uppercase;
-            }
-            .position {
-              font-size: 6.5pt;
-              font-weight: 700;
-              color: #0284c7;
-              margin-top: 0.5mm;
-            }
-            .matr {
-              font-size: 5.5pt;
-              font-family: monospace;
-              color: #d4af37;
-              font-weight: 800;
-              margin-top: 0.5mm;
-            }
-            .qr-box {
-              width: 20mm;
-              height: 20mm;
-              background: #ffffff;
-              padding: 0.5mm;
-              border: 1px solid #e2e8f0;
-              border-radius: 1.5mm;
-              margin-top: 0.5mm;
-            }
-            .qr-box svg {
-              width: 100%;
-              height: 100%;
-            }
-            .footer {
-              font-size: 4.5pt;
-              color: #64748b;
-              font-weight: 600;
-            }
-            @media print {
-              html, body {
-                width: 53.98mm !important;
-                height: 85.6mm !important;
-                min-height: 0 !important;
-                overflow: hidden !important;
-              }
-              .card {
-                break-after: avoid-page;
-                page-break-after: avoid;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="top-header">
-              <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
-            </div>
-            <div class="photo-wrapper">
-              ${p.photoUrl ? `<img src="${p.photoUrl}" class="photo" />` : '<div class="photo" style="display:flex;align-items:center;justify-content:center;color:white;font-size:7pt;font-weight:bold;">PHOTO</div>'}
-            </div>
-            <div class="body">
-              <div>
-                <div class="name">${p.firstName} ${p.lastName}</div>
-                <div class="position">${p.position}</div>
-                <div class="matr">MATR: ${p.matricule}</div>
-              </div>
-              <div class="qr-box">${qrSvg}</div>
-              <div class="footer">
-                CARTE PROFESSIONNELLE OFFICIELLE
-              </div>
-            </div>
-          </div>
-          <script>
-            window.onload = () => {
-              setTimeout(() => {
-                window.print();
-                window.close();
-              }, 250);
-            };
-          </script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(getPrintableCardsDocument([p], window.location.origin));
     printWindow.document.close();
   };
 
@@ -1371,7 +1204,7 @@ export default function AdminRHPage() {
               <p className="mt-1 text-xs text-slate-500">
                 Le QR Code encode uniquement l&apos;URL publique non-devinable{' '}
                 <code className="rounded bg-slate-100 px-1 py-0.5 text-blue-700">/agent/[token]</code>.
-                Régénérer le token annule immédiatement l&apos;ancien QR.
+                Chaque consultation d&apos;une carte est enregistrée dans le journal d&apos;audit. Régénérer le token annule immédiatement l&apos;ancien QR.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1728,7 +1561,7 @@ export default function AdminRHPage() {
               Journal d&apos;Audit des Opérations RH &amp; Accès
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Traçabilité complète des créations, modifications, révocations de QR codes et archivages.
+              Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
             </p>
 
             <div className="mt-6 overflow-x-auto">
@@ -1762,7 +1595,14 @@ export default function AdminRHPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-slate-900">{log.targetName || '—'}</td>
-                        <td className="px-4 py-3 text-slate-600">{log.details || '—'}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <span>{log.details || '—'}</span>
+                          {log.action === 'SCAN_CARD' && log.ipAddress && (
+                            <span className="mt-1 block font-mono text-[10px] text-slate-400">
+                              Adresse IP : {log.ipAddress}
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}
