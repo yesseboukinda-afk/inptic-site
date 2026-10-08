@@ -67,11 +67,18 @@ Avant d'activer le parcours :
    active ses optimisations mémoire pour réduire le pic de consommation sur
    l'hébergement mutualisé.
 
-Les comptes de l'ancien hébergement ne sont pas repris : les utilisateurs
-s'inscriront à nouveau sur le site. Après la première inscription du compte
-administrateur, attribuer les rôles du personnel directement dans PostgreSQL à
-partir d'informations vérifiées. L'inscription publique ne peut créer que des
-comptes étudiants.
+Les comptes de l'ancien hébergement ne sont pas repris. L'inscription publique
+ne peut créer que des comptes étudiants. Pour créer un compte administrateur,
+utiliser la commande sécurisée ci-dessous depuis le serveur.
+
+Pour créer un compte administrateur sans inscription publique, lancer
+`npm run create-admin` depuis le répertoire du projet sur le serveur. La commande
+utilise `DATABASE_URL` si elle est disponible dans l'environnement du terminal ;
+sinon, elle la demande sans afficher la saisie. Elle demande ensuite l'adresse,
+le nom et le mot de passe (saisi et confirmé sans affichage), hache le mot de
+passe avec scrypt et crée un compte vérifié de rôle `admin`. Elle n'écrase jamais
+un compte existant. Ne pas enregistrer ni partager l'URL de connexion ou le
+mot de passe.
 
 ## Migration PostgreSQL vers LWS
 
