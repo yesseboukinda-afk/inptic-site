@@ -63,7 +63,9 @@ Avant d'activer le parcours :
    échouer sur certains hébergements mutualisés limitant la création de processus.
    La version de Next.js est épinglée à celle validée pour ce déploiement ; exécuter
    `npm install` après le transfert pour que l'environnement LWS prenne en compte
-   cette version exacte.
+   cette version exacte. La configuration de build limite Next.js à un worker et
+   active ses optimisations mémoire pour réduire le pic de consommation sur
+   l'hébergement mutualisé.
 
 Les comptes de l'ancien hébergement ne sont pas repris : les utilisateurs
 s'inscriront à nouveau sur le site. Après la première inscription du compte
