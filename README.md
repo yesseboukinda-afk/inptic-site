@@ -56,7 +56,11 @@ Avant d'activer le parcours :
    identifiants serveur `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
    `FACEBOOK_APP_ID` et `FACEBOOK_APP_SECRET` selon les fournisseurs activés.
    L'authentification sociale est facultative.
-4. Construire et redémarrer l'application Node.js LWS après la configuration.
+4. Depuis la racine du projet, construire avec `npm run build:next`, puis
+   redémarrer l'application Node.js LWS. Cette commande génère les types de
+   routes, lance `tsc --noEmit`, puis construit avec Webpack. Le contrôle de
+   types séparé évite de relancer le vérificateur interne de Next.js, qui peut
+   échouer sur certains hébergements mutualisés limitant la création de processus.
 
 Les comptes de l'ancien hébergement ne sont pas repris : les utilisateurs
 s'inscriront à nouveau sur le site. Après la première inscription du compte
