@@ -51,8 +51,8 @@ import { strToU8, unzipSync, zipSync } from 'fflate';
 import { authClient } from '@/lib/auth-client';
 import DeleteButton from '@/components/DeleteButton';
 import {
-  isAdminRole,
-  isDirectorRole,
+  isRHAdminRole,
+  isSuperAdminRole,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -426,8 +426,12 @@ export default function AdminRHPage() {
 
         const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
         const normRole = normalizeRole(rawRole);
+        if (!isSuperAdminRole(normRole) && !isRHAdminRole(normRole)) {
+          router.replace('/annonces/gestion');
+          return;
+        }
 
-        if (isAdminRole(normRole) || isDirectorRole(normRole) || normRole === 'rh_admin') {
+        if (isSuperAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
@@ -446,6 +450,19 @@ export default function AdminRHPage() {
       if (session) {
         setToken(session.access_token);
         setUserEmail(session.user?.email || null);
+        const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
+        const normRole = normalizeRole(rawRole);
+        if (!isSuperAdminRole(normRole) && !isRHAdminRole(normRole)) {
+          router.replace('/annonces/gestion');
+          return;
+        }
+        if (isSuperAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+          setUserRole('rh_admin');
+        } else if (normRole === 'rh_gestionnaire') {
+          setUserRole('rh_gestionnaire');
+        } else {
+          setUserRole('rh_consultation');
+        }
       } else {
         setToken(null);
         setUserEmail(null);

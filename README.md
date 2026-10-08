@@ -67,11 +67,34 @@ Avant d'activer le parcours :
    active ses optimisations mémoire pour réduire le pic de consommation sur
    l'hébergement mutualisé.
 
-Les comptes de l'ancien hébergement ne sont pas repris : les utilisateurs
-s'inscriront à nouveau sur le site. Après la première inscription du compte
-administrateur, attribuer les rôles du personnel directement dans PostgreSQL à
-partir d'informations vérifiées. L'inscription publique ne peut créer que des
-comptes étudiants.
+Les comptes de l'ancien hébergement ne sont pas repris. L'inscription publique
+ne peut créer que des comptes étudiants. Pour créer un compte administrateur,
+utiliser la commande sécurisée ci-dessous depuis le serveur.
+
+Pour créer un compte administrateur sans inscription publique, lancer
+`npm run create-admin` depuis le répertoire du projet sur le serveur. La commande
+utilise `DATABASE_URL` si elle est disponible dans l'environnement du terminal ;
+sinon, elle la demande sans afficher la saisie. Elle demande ensuite l'adresse,
+le nom et le mot de passe (saisi et confirmé sans affichage), hache le mot de
+passe avec scrypt et crée un compte vérifié de rôle `admin`. Elle n'écrase jamais
+un compte existant. Ne pas enregistrer ni partager l'URL de connexion ou le
+mot de passe.
+
+Les comptes ayant le rôle `superadmin` sont dirigés vers `/admin`. Ce tableau de
+bord permet de créer et supprimer les comptes du personnel, de les rechercher
+et de les filtrer par direction/service et rôle, puis d'accéder aux espaces de
+gestion. La création d'un compte active l'adresse et stocke uniquement un hash
+scrypt du mot de passe. La suppression révoque les sessions en supprimant le
+compte d'authentification ; le dernier superadmin et le compte connecté ne
+peuvent pas être supprimés depuis l'interface. Les comptes étudiants ne sont
+pas gérés dans cette liste.
+
+Tout compte connecté peut ouvrir les paramètres de compte avec l'icône
+d'engrenage du bandeau. Le titulaire peut demander un changement d'adresse
+e-mail après vérification de son mot de passe actuel ; la nouvelle adresse
+reste en attente jusqu'à sa confirmation par e-mail, puis les dossiers liés
+sont mis à jour. Le mot de passe peut également être changé après vérification
+du mot de passe actuel ; les sessions précédentes sont alors révoquées.
 
 ## Migration PostgreSQL vers LWS
 

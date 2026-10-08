@@ -4,7 +4,7 @@ import { deleteStoredFile, saveStoredFile } from '@/lib/localStorage';
 import { getProfileDocumentPrefix } from '@/lib/documentStorage';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import { isAdminRole, isCommunicationRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import { isAdminRole, isDirectorRole, normalizeRole } from '@/lib/roles';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
@@ -27,8 +27,7 @@ function canManageCandidateProfiles(role: string) {
   const normalizedRole = normalizeRole(role);
   return isAdminRole(normalizedRole) ||
     isDirectorRole(normalizedRole) ||
-    isCommunicationRole(normalizedRole) ||
-    ['scolarite', 'direction_etudes', 'rh_admin', 'rh_gestionnaire'].includes(normalizedRole);
+    ['scolarite', 'direction_etudes'].includes(normalizedRole);
 }
 
 function documentUrl(email: string, path: string) {

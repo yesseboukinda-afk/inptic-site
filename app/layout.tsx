@@ -43,7 +43,7 @@ export default function RootLayout({
             __html: `
               window.addEventListener("beforeinstallprompt", function(event) {
                 console.warn(
-                  "🔥 INPTIC : BEFOREINSTALLPROMPT REÇU PAR LE NAVIGATEUR"
+                  " INPTIC : BEFOREINSTALLPROMPT REÇU PAR LE NAVIGATEUR"
                 );
 
                 event.preventDefault();

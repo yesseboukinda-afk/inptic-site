@@ -58,6 +58,10 @@ export function isAdminRole(value: unknown): boolean {
   );
 }
 
+export function isSuperAdminRole(value: unknown): boolean {
+  return normalizeRole(value) === 'superadmin';
+}
+
 export function isCommunicationRole(value: unknown): boolean {
   const role = normalizeRole(value);
   return (
@@ -120,6 +124,10 @@ export function isRHRole(value: unknown): boolean {
   );
 }
 
+export function isRHAdminRole(value: unknown): boolean {
+  return ['rh', 'drh', 'rh_admin', 'rh_gestionnaire', 'rh_consultation'].includes(normalizeRole(value));
+}
+
 export function isScolariteAccountEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase().replace(/,/g, '.');
@@ -147,6 +155,7 @@ export function isStaffOrAdminUser(email?: string | null, role?: unknown): boole
 }
 
 export function getRolePath(role: string, email?: string): string {
+  if (isSuperAdminRole(role)) return '/admin';
   if (isRHAccountEmail(email) || isRHRole(role)) return '/admin/rh';
   if (isScolariteAccountEmail(email) || role === 'scolarite') return '/scolarite';
   if (isDirectorAccountEmail(email) || isDirectorRole(role)) return '/directeur';

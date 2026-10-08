@@ -3,8 +3,8 @@ import crypto from 'crypto';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
-  isAdminRole,
-  isDirectorRole,
+  isRHAdminRole,
+  isSuperAdminRole,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -209,13 +209,8 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
 
   const role = normalizeRole(user.role);
 
-  const isDirecteur = isDirectorRole(role);
-  const isAdmin = isAdminRole(role);
-  const isRHAdmin = role === 'rh_admin' || role === 'rh' || role === 'drh';
-  const isRHGestionnaire = role === 'rh_gestionnaire';
-  const isRHConsultation = role === 'rh_consultation';
-
-  const hasAccess = isDirecteur || isAdmin || isRHAdmin || isRHGestionnaire || isRHConsultation;
+  const isSuperAdmin = isSuperAdminRole(role);
+  const hasAccess = isSuperAdmin || isRHAdminRole(role);
 
   if (!hasAccess) {
     return {
@@ -226,7 +221,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     };
   }
 
-  if (requireWrite && isRHConsultation && !isAdmin && !isDirecteur && !isRHAdmin && !isRHGestionnaire) {
+  if (requireWrite && role === 'rh_consultation') {
     return {
       error: NextResponse.json(
         { error: 'Action non autorisée. Votre rôle est limité à la consultation des profils.' },
@@ -239,7 +234,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     user: {
       id: user.id,
       email: user.email,
-      role: isDirecteur || isAdmin || isRHAdmin ? 'rh_admin' : isRHGestionnaire ? 'rh_gestionnaire' : 'rh_consultation',
+      role: isSuperAdmin || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
     },
   };
 }
@@ -274,6 +269,12 @@ async function logAuditAction(
 }
 
 function mapRHProfile(d: any): RHProfile {
+  const archivedValue = d.is_archived;
+  const isArchived =
+    archivedValue === true ||
+    archivedValue === 1 ||
+    (typeof archivedValue === 'string' && ['true', 't', '1'].includes(archivedValue.trim().toLowerCase()));
+
   return {
     id: String(d.id),
     matricule: d.matricule,
@@ -294,7 +295,7 @@ function mapRHProfile(d: any): RHProfile {
       (Date.now() - new Date(d.hire_date).getTime()) / (365.25 * 24 * 3600 * 1000)
     ),
     jobDescription: d.job_description || '',
-    isArchived: Boolean(d.is_archived),
+    isArchived,
     archivedAt: d.archived_at,
     archiveReason: d.archive_reason,
     qrToken: d.qr_token,
