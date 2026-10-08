@@ -15,7 +15,7 @@ import {
   DeleteConfirm,
   EMPTY_FORM,
   type PublicationForm,
-} from './gestion/page';
+} from './gestion/AnnoncesGestionClient';
 import { isStaffOrAdminUser } from '@/lib/roles';
 
 /* ─────────────────────────────────── types ── */
