@@ -132,7 +132,7 @@ async function authorizeStaff(request: NextRequest) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!canAccessStaffService(user.role, 'concours')) {
+  if (!canAccessStaffService(user.role, 'concours', user.user_metadata.service ?? user.user_metadata.department)) {
     return {
       error: NextResponse.json({ error: 'Accès non autorisé pour la gestion des concours.' }, { status: 403 }),
     };

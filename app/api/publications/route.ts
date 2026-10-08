@@ -106,7 +106,7 @@ async function authorizeStaff(request: NextRequest) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  if (!canAccessStaffService(user.role, 'publications')) {
+  if (!canAccessStaffService(user.role, 'publications', user.user_metadata.service ?? user.user_metadata.department)) {
     return {
       error: NextResponse.json(
         { error: 'Accès non autorisé pour la gestion des publications scientifiques.' },

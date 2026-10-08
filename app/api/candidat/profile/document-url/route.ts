@@ -7,8 +7,8 @@ import { canAccessStaffService } from '@/lib/roles';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
 
-function canManageCandidateProfiles(role: string) {
-  return canAccessStaffService(role, 'candidate_profiles');
+function canManageCandidateProfiles(role: string, assignedService?: unknown) {
+  return canAccessStaffService(role, 'candidate_profiles', assignedService);
 }
 
 async function validateDocumentAccess(request: NextRequest, emailValue: unknown, pathValue: unknown) {
@@ -25,7 +25,7 @@ async function validateDocumentAccess(request: NextRequest, emailValue: unknown,
   if (!email || !path.startsWith(getProfileDocumentPrefix(email))) {
     return { error: NextResponse.json({ error: 'Chemin de document invalide.' }, { status: 400 }) };
   }
-  if (!canManageCandidateProfiles(user.role) && email !== user.email) {
+  if (!canManageCandidateProfiles(user.role, user.user_metadata.service ?? user.user_metadata.department) && email !== user.email) {
     return { error: NextResponse.json({ error: 'Vous ne pouvez consulter que vos propres documents.' }, { status: 403 }) };
   }
 

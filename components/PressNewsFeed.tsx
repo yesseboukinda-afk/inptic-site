@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Code2, Cpu, Database, ExternalLink, Globe2, RefreshCw, Search, SlidersHorizontal, Wifi } from 'lucide-react';
 import ArticleEngagement from '@/components/ArticleEngagement';
 import { authClient } from '@/lib/auth-client';
-import { isAdminRole } from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 
 type NewsItem = {
   id: string;
@@ -69,7 +69,8 @@ export default function PressNewsFeed() {
     void authClient.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
       if (!user) return;
-      setIsAdmin(isAdminRole(user.app_metadata?.role));
+      const assignedService = user.user_metadata?.service ?? user.user_metadata?.department;
+      setIsAdmin(canAccessStaffService(user.app_metadata?.role, 'announcements', assignedService));
     });
   }, []);
 

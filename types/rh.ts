@@ -1,4 +1,4 @@
-export type RHRole = 'rh_admin' | 'rh_gestionnaire' | 'rh_consultation' | 'admin' | 'directeur';
+export type RHRole = 'admin' | 'superadmin';
 
 export type RHStaffStatus =
   | 'titulaire'

@@ -138,25 +138,58 @@ export type StaffService =
   | 'reputation'
   | 'human_resources';
 
-export function canAccessStaffService(value: unknown, service: StaffService): boolean {
+export const STAFF_SERVICE_OPTIONS = [
+  { value: 'scolarite', label: 'Scolarité' },
+  { value: 'communication', label: 'Communication' },
+  { value: 'direction_etudes', label: 'Direction des études' },
+  { value: 'rh', label: 'Ressources humaines' },
+] as const;
+
+export type StaffServiceAssignment = (typeof STAFF_SERVICE_OPTIONS)[number]['value'];
+
+export function normalizeStaffService(value: unknown): StaffServiceAssignment | '' {
+  if (typeof value !== 'string') return '';
+  const service = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (service === 'scolarite' || service.includes('service_scolarite')) return 'scolarite';
+  if (service === 'communication' || service.includes('communication')) return 'communication';
+  if (service === 'direction_etudes' || service.includes('direction_des_etudes') || service.includes('direction_etudes')) return 'direction_etudes';
+  if (service === 'rh' || service.includes('ressources_humaines') || service.includes('service_rh') || service.includes('direction_rh')) return 'rh';
+  return '';
+}
+
+export function serviceAssignmentForRole(value: unknown): StaffServiceAssignment | '' {
+  const role = normalizeRole(value);
+  if (role === 'scolarite') return 'scolarite';
+  if (role === 'direction_etudes') return 'direction_etudes';
+  if (isCommunicationRole(role)) return 'communication';
+  if (isRHRole(role)) return 'rh';
+  return '';
+}
+
+export function canAccessStaffService(value: unknown, service: StaffService, assignedService?: unknown): boolean {
   const role = normalizeRole(value);
 
-  if (isSuperAdminRole(role) || isDirectorRole(role)) return true;
+  if (isSuperAdminRole(role)) return true;
+
+  const assignment = role === 'admin'
+    ? normalizeStaffService(assignedService)
+    : serviceAssignmentForRole(role);
+  if (!assignment) return false;
 
   switch (service) {
     case 'candidate_profiles':
     case 'preinscriptions':
-      return role === 'scolarite';
+      return assignment === 'scolarite';
     case 'concours':
     case 'publications':
     case 'formations':
-      return role === 'direction_etudes';
+      return assignment === 'direction_etudes';
     case 'announcements':
-      return isCommunicationRole(role) || ['admin', 'administrateur', 'administrator'].includes(role);
+      return assignment === 'communication';
     case 'reputation':
-      return isCommunicationRole(role);
+      return assignment === 'communication';
     case 'human_resources':
-      return isRHRole(role);
+      return assignment === 'rh';
   }
 
   return false;
@@ -187,13 +220,15 @@ export function isStaffOrAdminUser(email?: string | null, role?: unknown): boole
   );
 }
 
-export function getRolePath(role: string, email?: string): string {
+export function getRolePath(role: string, _email?: string, assignedService?: unknown): string {
   if (isSuperAdminRole(role)) return '/admin';
-  if (isRHAccountEmail(email) || isRHRole(role)) return '/admin/rh';
-  if (isScolariteAccountEmail(email) || role === 'scolarite') return '/scolarite';
-  if (isDirectorAccountEmail(email) || isDirectorRole(role)) return '/directeur';
-  if (role === 'admin') return '/annonces/gestion';
-  if (role === 'direction_etudes') return '/direction-etudes';
-  if (role === 'communication') return '/annonces/gestion';
+  const normalizedRole = normalizeRole(role);
+  const assignment = normalizedRole === 'admin'
+    ? normalizeStaffService(assignedService)
+    : serviceAssignmentForRole(normalizedRole);
+  if (assignment === 'rh') return '/admin/rh';
+  if (assignment === 'scolarite') return '/scolarite';
+  if (assignment === 'communication') return '/annonces/gestion';
+  if (assignment === 'direction_etudes') return '/concours';
   return '/admissions/suivi';
 }

@@ -21,8 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
-import { isSuperAdminRole } from '@/lib/roles';
-import { RH_DEPARTMENTS } from '@/types/rh';
+import { isSuperAdminRole, STAFF_SERVICE_OPTIONS } from '@/lib/roles';
 
 type StaffAccount = {
   id: string;
@@ -37,16 +36,10 @@ type StaffAccount = {
 const staffRoles = [
   { value: 'superadmin', label: 'Super administrateur' },
   { value: 'admin', label: 'Administrateur' },
-  { value: 'directeur', label: 'Direction générale' },
-  { value: 'scolarite', label: 'Scolarité' },
-  { value: 'direction_etudes', label: 'Direction des études' },
-  { value: 'communication', label: 'Communication' },
-  { value: 'rh_admin', label: 'RH — administrateur' },
-  { value: 'rh_gestionnaire', label: 'RH — gestionnaire' },
-  { value: 'rh_consultation', label: 'RH — consultation' },
 ] as const;
 
 const roleLabels = Object.fromEntries(staffRoles.map(({ value, label }) => [value, label]));
+const serviceLabels = Object.fromEntries(STAFF_SERVICE_OPTIONS.map(({ value, label }) => [value, label]));
 
 const managementAreas = [
   {
@@ -395,24 +388,34 @@ export default function SuperAdminDashboard() {
                 Rôle
                 <select
                   value={form.role}
-                  onChange={(event) => setForm({ ...form, role: event.target.value })}
+                  onChange={(event) => setForm({
+                    ...form,
+                    role: event.target.value,
+                    department: event.target.value === 'superadmin' ? '' : form.department,
+                  })}
                   className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 >
                   {staffRoles.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
-              <label className="text-sm font-medium text-slate-700 sm:col-span-2">
-                Direction ou service
-                <select
-                  required
-                  value={form.department}
-                  onChange={(event) => setForm({ ...form, department: event.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                >
-                  <option value="" disabled>Choisir une direction ou un service</option>
-                  {RH_DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
-                </select>
-              </label>
+              {form.role === 'admin' ? (
+                <label className="text-sm font-medium text-slate-700 sm:col-span-2">
+                  Service attribué
+                  <select
+                    required
+                    value={form.department}
+                    onChange={(event) => setForm({ ...form, department: event.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  >
+                    <option value="" disabled>Choisir un service</option>
+                    {STAFF_SERVICE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+              ) : (
+                <p className="self-end text-sm text-violet-700 sm:col-span-2">
+                  Le superadmin peut accéder à tous les services.
+                </p>
+              )}
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs leading-5 text-slate-500">
@@ -450,7 +453,7 @@ export default function SuperAdminDashboard() {
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 >
                   <option value="all">Toutes les directions/services</option>
-                  {RH_DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
+                  {STAFF_SERVICE_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
               <label>
@@ -478,7 +481,8 @@ export default function SuperAdminDashboard() {
                 {Object.entries(accountsByDepartment).sort(([left], [right]) => left.localeCompare(right, 'fr')).map(([department, departmentAccounts]) => (
                   <section key={department} aria-label={department}>
                     <h3 className="bg-slate-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-600 sm:px-5">
-                      {department} <span className="ml-1 font-medium text-slate-400">({departmentAccounts.length})</span>
+                      {serviceLabels[department as keyof typeof serviceLabels] || department}
+                      <span className="ml-1 font-medium text-slate-400">({departmentAccounts.length})</span>
                     </h3>
                     <div className="divide-y divide-slate-100">
                       {departmentAccounts.map((account) => (

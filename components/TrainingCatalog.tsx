@@ -65,13 +65,15 @@ export default function TrainingCatalog() {
     authClient.auth.getSession().then(({ data }) => {
       const session = data.session;
       const role = session?.user?.app_metadata?.role ?? null;
+      const assignedService = session?.user?.user_metadata?.service ?? session?.user?.user_metadata?.department;
       setToken(session?.access_token || null);
-      setCanManage(Boolean(session && canAccessStaffService(role, 'formations')));
+      setCanManage(Boolean(session && canAccessStaffService(role, 'formations', assignedService)));
     });
     const { data: { subscription } } = authClient.auth.onAuthStateChange((_event, session) => {
       const role = session?.user?.app_metadata?.role ?? null;
+      const assignedService = session?.user?.user_metadata?.service ?? session?.user?.user_metadata?.department;
       setToken(session?.access_token || null);
-      setCanManage(Boolean(session && canAccessStaffService(role, 'formations')));
+      setCanManage(Boolean(session && canAccessStaffService(role, 'formations', assignedService)));
     });
     return () => subscription.unsubscribe();
   }, []);

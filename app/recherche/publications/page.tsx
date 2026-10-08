@@ -69,6 +69,7 @@ export default function PublicationsPage() {
 
   // Authentification & Rôles
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userService, setUserService] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
@@ -103,6 +104,8 @@ export default function PublicationsPage() {
         setUserEmail(session.user?.email || null);
         const role = session.user?.app_metadata?.role;
         setUserRole(typeof role === 'string' ? role : null);
+        const service = session.user?.user_metadata?.service ?? session.user?.user_metadata?.department;
+        setUserService(typeof service === 'string' ? service : null);
       }
     });
 
@@ -113,12 +116,14 @@ export default function PublicationsPage() {
       setUserEmail(session?.user?.email || null);
       const role = session?.user?.app_metadata?.role;
       setUserRole(typeof role === 'string' ? role : null);
+      const service = session?.user?.user_metadata?.service ?? session?.user?.user_metadata?.department;
+      setUserService(typeof service === 'string' ? service : null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const isStaff = canAccessStaffService(userRole, 'publications');
+  const isStaff = canAccessStaffService(userRole, 'publications', userService);
 
   const fetchPublications = async () => {
     setLoading(true);

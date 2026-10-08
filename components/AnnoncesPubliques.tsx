@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '@/lib/auth-client';
-import { isAdminRole } from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 import TranslatedText from '@/components/TranslatedText';
 
 type Attachment = {
@@ -431,7 +431,11 @@ export default function AnnoncesPubliques() {
     // Check admin status
     void authClient.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
-      if (user) setIsAdmin(isAdminRole(user.app_metadata?.role));
+      if (user) {
+        const role = user.app_metadata?.role;
+        const assignedService = user.user_metadata?.service ?? user.user_metadata?.department;
+        setIsAdmin(canAccessStaffService(role, 'announcements', assignedService));
+      }
     });
 
     pollRef.current = setInterval(() => void loadAnnonces(true), POLL_INTERVAL_MS);

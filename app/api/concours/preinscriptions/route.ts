@@ -6,7 +6,7 @@ import { canAccessStaffService } from '@/lib/roles';
 async function authorizeStaff(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) return null;
-  return canAccessStaffService(user.role, 'preinscriptions');
+  return canAccessStaffService(user.role, 'preinscriptions', user.user_metadata.service ?? user.user_metadata.department);
 }
 
 export async function GET(request: NextRequest) {

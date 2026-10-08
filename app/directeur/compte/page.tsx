@@ -4,6 +4,7 @@ import { Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import { isSuperAdminRole } from '@/lib/roles';
 
 type DirectorProfile = {
   name: string;
@@ -62,32 +63,16 @@ export default function DirecteurCompte() {
   useEffect(() => {
     const director = localStorage.getItem('inptic_directeur');
     if (!director) {
-      setProfile({
-        name: 'Directeur général',
-        email: 'directeur@inptic.ga',
-        phone: '+241 00 00 00 00',
-        poste: 'Directeur général',
-        departement: 'Direction générale',
-        bureau: 'Siège INPTIC',
-        photo: defaultAvatar,
-        bio: 'Le directeur général supervise l’orientation stratégique, la qualité des programmes et l’accompagnement des étudiants et partenaires institutionnels.',
-      });
-      setForm({
-        name: 'Directeur général',
-        email: 'directeur@inptic.ga',
-        phone: '+241 00 00 00 00',
-        poste: 'Directeur général',
-        departement: 'Direction générale',
-        bureau: 'Siège INPTIC',
-        photo: defaultAvatar,
-        bio: 'Le directeur général supervise l’orientation stratégique, la qualité des programmes et l’accompagnement des étudiants et partenaires institutionnels.',
-      });
-      setReady(true);
+      router.replace('/candidat');
       return;
     }
 
     try {
       const parsed = JSON.parse(director);
+      if (!isSuperAdminRole(parsed.role)) {
+        router.replace('/candidat');
+        return;
+      }
       const nextProfile = {
         name: parsed.name || 'Directeur général',
         email: parsed.email || 'directeur@inptic.ga',
@@ -101,8 +86,8 @@ export default function DirecteurCompte() {
       setProfile(nextProfile);
       setForm(nextProfile);
     } catch {
-      setProfile((current) => current);
-      setForm((current) => current);
+      router.replace('/candidat');
+      return;
     }
 
     setReady(true);
