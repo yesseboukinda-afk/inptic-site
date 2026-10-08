@@ -53,6 +53,7 @@ import DeleteButton from '@/components/DeleteButton';
 import {
   canAccessStaffService,
   getRolePath,
+  isStandardAdminRole,
   isSuperAdminRole,
   normalizeRole,
   normalizeStaffService,
@@ -375,6 +376,7 @@ export default function AdminRHPage() {
   // Données
   const [profiles, setProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
+  const [profilesError, setProfilesError] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Filtres
@@ -437,7 +439,7 @@ export default function AdminRHPage() {
           return;
         }
 
-        if (isSuperAdminRole(normRole) || normRole === 'admin' || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+        if (isSuperAdminRole(normRole) || isStandardAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
@@ -465,7 +467,7 @@ export default function AdminRHPage() {
           router.replace(getRolePath(normRole, session.user?.email, assignedService));
           return;
         }
-        if (isSuperAdminRole(normRole) || normRole === 'admin' || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+        if (isSuperAdminRole(normRole) || isStandardAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
@@ -487,16 +489,18 @@ export default function AdminRHPage() {
   const loadProfiles = async () => {
     if (!token) return;
     setLoading(true);
+    setProfilesError('');
     try {
       const res = await fetch(`/api/rh/profiles?archived=${showArchived ? '1' : '0'}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json();
-      if (json.data && Array.isArray(json.data)) {
-        setProfiles(json.data);
-      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Chargement RH impossible (${res.status}).`);
+      if (!Array.isArray(json.data)) throw new Error('Réponse invalide lors du chargement des employés.');
+      setProfiles(json.data);
     } catch (err) {
       console.error('Erreur chargement profils:', err);
+      setProfilesError(err instanceof Error ? err.message : 'Impossible de charger la liste des employés.');
     } finally {
       setLoading(false);
     }
@@ -1215,6 +1219,12 @@ export default function AdminRHPage() {
                       <td colSpan={6} className="py-12 text-center text-slate-500">
                         <RefreshCw size={24} className="mx-auto animate-spin text-blue-600" />
                         <p className="mt-2 font-medium">Chargement des profils...</p>
+                      </td>
+                    </tr>
+                  ) : profilesError ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-red-700">
+                        {profilesError}
                       </td>
                     </tr>
                   ) : filteredProfiles.length === 0 ? (

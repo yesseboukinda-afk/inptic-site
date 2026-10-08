@@ -58,6 +58,11 @@ export function isAdminRole(value: unknown): boolean {
   );
 }
 
+export function isStandardAdminRole(value: unknown): boolean {
+  const role = normalizeRole(value);
+  return role === 'admin' || role === 'administrateur' || role === 'administrator';
+}
+
 export function isSuperAdminRole(value: unknown): boolean {
   return normalizeRole(value) === 'superadmin';
 }
@@ -171,7 +176,7 @@ export function canAccessStaffService(value: unknown, service: StaffService, ass
 
   if (isSuperAdminRole(role)) return true;
 
-  const assignment = role === 'admin'
+  const assignment = isStandardAdminRole(role)
     ? normalizeStaffService(assignedService)
     : serviceAssignmentForRole(role);
   if (!assignment) return false;
@@ -224,7 +229,7 @@ export function isStaffOrAdminUser(email?: string | null, role?: unknown): boole
 export function getRolePath(role: string, _email?: string, assignedService?: unknown): string {
   if (isSuperAdminRole(role)) return '/admin';
   const normalizedRole = normalizeRole(role);
-  const assignment = normalizedRole === 'admin'
+  const assignment = isStandardAdminRole(normalizedRole)
     ? normalizeStaffService(assignedService)
     : serviceAssignmentForRole(normalizedRole);
   if (assignment === 'rh') return '/admin/rh';

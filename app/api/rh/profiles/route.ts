@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
   canAccessStaffService,
   isSuperAdminRole,
+  isStandardAdminRole,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -235,7 +236,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     user: {
       id: user.id,
       email: user.email,
-      role: isSuperAdmin || role === 'admin' || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
+      role: isSuperAdmin || isStandardAdminRole(role) || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
     },
   };
 }

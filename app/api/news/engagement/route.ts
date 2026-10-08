@@ -152,9 +152,9 @@ export async function POST(request: NextRequest) {
       );
       await client.query(
         `UPDATE public.actualites_engagement_counters
-         SET likes_count = GREATEST(0, likes_count + CASE WHEN $3 THEN -1 ELSE 1 END)
+         SET likes_count = GREATEST(0, likes_count + CASE WHEN $2 THEN -1 ELSE 1 END)
          WHERE article_slug = $1`,
-        [articleSlug, visitorId, visitor.liked],
+        [articleSlug, visitor.liked],
       );
     } else if (network) {
       const [visitorColumn, counterColumn] = NETWORK_COLUMNS[network];
