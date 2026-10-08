@@ -53,6 +53,7 @@ import DeleteButton from '@/components/DeleteButton';
 import {
   canAccessStaffService,
   getRolePath,
+  isStandardAdminRole,
   isSuperAdminRole,
   normalizeRole,
   normalizeStaffService,
@@ -440,7 +441,7 @@ export default function AdminRHPage() {
         }
         setSelectedDept('all');
 
-        if (isSuperAdminRole(normRole) || normRole === 'admin' || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+        if (isSuperAdminRole(normRole) || isStandardAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
@@ -469,7 +470,7 @@ export default function AdminRHPage() {
           return;
         }
         setSelectedDept('all');
-        if (isSuperAdminRole(normRole) || normRole === 'admin' || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+        if (isSuperAdminRole(normRole) || isStandardAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
@@ -496,14 +497,13 @@ export default function AdminRHPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Impossible de charger les profils RH.');
-      if (json.data && Array.isArray(json.data)) {
-        setProfiles(json.data);
-        setProfilesError('');
-      }
+      if (!res.ok) throw new Error(json.error || `Chargement RH impossible (${res.status}).`);
+      if (!Array.isArray(json.data)) throw new Error('Réponse invalide lors du chargement des employés.');
+      setProfiles(json.data);
+      setProfilesError('');
     } catch (err) {
       console.error('Erreur chargement profils:', err);
-      setProfilesError(err instanceof Error ? err.message : 'Impossible de charger les profils RH.');
+      setProfilesError(err instanceof Error ? err.message : 'Impossible de charger la liste des employés.');
     } finally {
       setLoading(false);
     }

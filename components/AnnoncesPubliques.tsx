@@ -245,22 +245,33 @@ function ArticleEngagement({ articleSlug, title }: { articleSlug: string; title:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ articleSlug, action, network }),
     });
-    if (!response.ok) return;
-
-    const payload = await response.json();
-    const data = payload.data as { likes?: number; shares?: number; liked?: boolean };
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setShareNotice(payload?.error || 'Interaction impossible pour le moment.');
+      return false;
+    }
+    const data = payload?.data as { likes?: number; shares?: number; liked?: boolean } | undefined;
+    if (!data || typeof data.liked !== 'boolean') {
+      setShareNotice('La confirmation de l’interaction est invalide.');
+      return false;
+    }
     setCounts({
       likes: Number(data.likes) || 0,
       shares: Number(data.shares) || 0,
     });
-    setLiked(Boolean(data.liked));
+    setLiked(data.liked);
     window.dispatchEvent(new CustomEvent('inptic:article-engagement-updated', { detail: { articleSlug, data } }));
+    return true;
   }
 
   async function handleLike() {
     setPending(true);
+    setShareNotice('');
     try {
-      await track('like');
+      const confirmed = await track('like');
+      if (!confirmed) setShareNotice((notice) => notice || 'Le like n’a pas été confirmé; le compteur reste inchangé.');
+    } catch {
+      setShareNotice('Le like n’a pas pu être enregistré; le compteur reste inchangé.');
     } finally {
       setPending(false);
     }
