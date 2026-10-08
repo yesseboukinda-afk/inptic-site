@@ -47,7 +47,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { strToU8, zipSync } from 'fflate';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 import { authClient } from '@/lib/auth-client';
 import DeleteButton from '@/components/DeleteButton';
 import {
@@ -244,6 +244,121 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
   </html>
 `;
 
+function parseDelimitedText(text: string): string[][] {
+  const normalizedText = text.replace(/^\uFEFF/, '');
+  const firstLine = normalizedText.split(/\r?\n/, 1)[0] ?? '';
+  const semicolonCount = (firstLine.match(/;/g) ?? []).length;
+  const commaCount = (firstLine.match(/,/g) ?? []).length;
+  const delimiter = semicolonCount > commaCount ? ';' : ',';
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < normalizedText.length; index++) {
+    const character = normalizedText[index];
+    if (character === '"') {
+      if (inQuotes && normalizedText[index + 1] === '"') {
+        value += '"';
+        index++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (character === delimiter && !inQuotes) {
+      row.push(value.trim());
+      value = '';
+    } else if ((character === '\n' || character === '\r') && !inQuotes) {
+      if (character === '\r' && normalizedText[index + 1] === '\n') index++;
+      row.push(value.trim());
+      if (row.some((cell) => cell !== '')) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += character;
+    }
+  }
+
+  row.push(value.trim());
+  if (row.some((cell) => cell !== '')) rows.push(row);
+  return rows;
+}
+
+function serializeDelimitedRows(rows: string[][]): string {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+        .join(';'),
+    )
+    .join('\n');
+}
+
+async function readXlsxRows(file: File): Promise<string[][]> {
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  const decoder = new TextDecoder();
+  const readXml = (path: string) => {
+    const contents = archive[path];
+    if (!contents) throw new Error(`Le fichier Excel est incomplet (${path} manquant).`);
+    const document = new DOMParser().parseFromString(decoder.decode(contents), 'application/xml');
+    if (document.getElementsByTagName('parsererror').length > 0) {
+      throw new Error('Le fichier Excel contient un document XML invalide.');
+    }
+    return document;
+  };
+
+  const workbook = readXml('xl/workbook.xml');
+  const firstSheet = workbook.getElementsByTagNameNS('*', 'sheet')[0];
+  const relationshipId =
+    firstSheet?.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') ||
+    firstSheet?.getAttribute('r:id');
+  if (!relationshipId) throw new Error('Aucune feuille de calcul trouvée dans le fichier Excel.');
+
+  const relationships = readXml('xl/_rels/workbook.xml.rels');
+  const relationship = Array.from(relationships.getElementsByTagNameNS('*', 'Relationship')).find(
+    (item) => item.getAttribute('Id') === relationshipId,
+  );
+  const target = relationship?.getAttribute('Target');
+  if (!target) throw new Error('Impossible de localiser la feuille de calcul du fichier Excel.');
+
+  const pathParts = (target.startsWith('/') ? target.slice(1) : `xl/${target}`).split('/');
+  const worksheetPath: string[] = [];
+  for (const part of pathParts) {
+    if (part === '..') worksheetPath.pop();
+    else if (part !== '.' && part !== '') worksheetPath.push(part);
+  }
+  const worksheet = readXml(worksheetPath.join('/'));
+  const sharedStrings = archive['xl/sharedStrings.xml']
+    ? Array.from(readXml('xl/sharedStrings.xml').getElementsByTagNameNS('*', 'si')).map((item) =>
+        Array.from(item.getElementsByTagNameNS('*', 't'))
+          .map((text) => text.textContent ?? '')
+          .join(''),
+      )
+    : [];
+
+  return Array.from(worksheet.getElementsByTagNameNS('*', 'row')).map((sourceRow) => {
+    const values: string[] = [];
+    for (const cell of Array.from(sourceRow.getElementsByTagNameNS('*', 'c'))) {
+      const reference = cell.getAttribute('r') ?? '';
+      const columnLetters = reference.match(/[A-Z]+/i)?.[0]?.toUpperCase();
+      if (!columnLetters) continue;
+      const columnIndex = [...columnLetters].reduce(
+        (index, letter) => index * 26 + letter.charCodeAt(0) - 64,
+        0,
+      ) - 1;
+      const cellType = cell.getAttribute('t');
+      const rawValue =
+        cellType === 'inlineStr'
+          ? Array.from(cell.getElementsByTagNameNS('*', 't'))
+              .map((text) => text.textContent ?? '')
+              .join('')
+          : cell.getElementsByTagNameNS('*', 'v')[0]?.textContent ?? '';
+      values[columnIndex] =
+        cellType === 's' ? sharedStrings[Number(rawValue)] ?? '' : rawValue;
+    }
+    return values.map((value) => value ?? '');
+  });
+}
+
 export default function AdminRHPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('profils');
@@ -257,6 +372,8 @@ export default function AdminRHPage() {
   // Données
   const [profiles, setProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
+  const [profilesError, setProfilesError] = useState('');
+  const [auditLogsError, setAuditLogsError] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Filtres
@@ -276,6 +393,7 @@ export default function AdminRHPage() {
   // Modal Import CSV
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
+  const [importFileName, setImportFileName] = useState('');
   const [importReport, setImportReport] = useState<{ success: number; errors: string[] } | null>(null);
 
   // Formulaire Employé
@@ -349,12 +467,15 @@ export default function AdminRHPage() {
       const res = await fetch(`/api/rh/profiles?archived=${showArchived ? '1' : '0'}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Impossible de charger les profils RH.');
       if (json.data && Array.isArray(json.data)) {
         setProfiles(json.data);
+        setProfilesError('');
       }
     } catch (err) {
       console.error('Erreur chargement profils:', err);
+      setProfilesError(err instanceof Error ? err.message : 'Impossible de charger les profils RH.');
     } finally {
       setLoading(false);
     }
@@ -367,12 +488,14 @@ export default function AdminRHPage() {
       const res = await fetch('/api/rh/profiles?logs=1', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json();
-      if (json.logs && Array.isArray(json.logs)) {
-        setAuditLogs(json.logs);
-      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Journal RH indisponible.');
+      if (!Array.isArray(json.logs)) throw new Error('Réponse invalide lors du chargement du journal RH.');
+      setAuditLogs(json.logs);
+      setAuditLogsError('');
     } catch (err) {
       console.error('Erreur chargement logs:', err);
+      setAuditLogsError(err instanceof Error ? err.message : 'Journal RH indisponible.');
     }
   };
 
@@ -744,18 +867,42 @@ export default function AdminRHPage() {
     link.click();
   };
 
-  // Import CSV / Excel (parsing texte CSV avec séparateur , ou ;)
+  const handleImportFileSelection = async (file: File) => {
+    setImportFileName(file.name);
+    setImportReport(null);
+    try {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('Le fichier ne peut pas dépasser 10 Mo.');
+      }
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      if (extension === 'csv') {
+        setImportText(await file.text());
+      } else if (extension === 'xlsx') {
+        setImportText(serializeDelimitedRows(await readXlsxRows(file)));
+      } else {
+        throw new Error('Format non pris en charge. Sélectionnez un fichier CSV ou Excel (.xlsx).');
+      }
+    } catch (error) {
+      setImportText('');
+      setImportReport({
+        success: 0,
+        errors: [error instanceof Error ? error.message : 'Impossible de lire le fichier sélectionné.'],
+      });
+    }
+  };
+
   const handleExecuteImport = async () => {
     if (!token || !importText.trim()) return;
 
-    const lines = importText.trim().split('\n').filter((l) => l.trim().length > 0);
-    if (lines.length < 2) {
+    const rows = parseDelimitedText(importText);
+    if (rows.length < 2) {
       setImportReport({ success: 0, errors: ['Le fichier doit contenir au moins un en-tête et une ligne de données.'] });
       return;
     }
 
-    const separator = lines[0].includes(';') ? ';' : ',';
-    const rawHeaders = lines[0].split(separator).map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+    const rawHeaders = rows[0].map((header) =>
+      header.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase(),
+    );
 
     const colIndex = {
       matricule: rawHeaders.findIndex((h) => h.includes('matricule')),
@@ -778,13 +925,13 @@ export default function AdminRHPage() {
     let successCount = 0;
     const errors: string[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(separator).map((p) => p.replace(/^["']|["']$/g, '').trim());
+    for (let i = 1; i < rows.length; i++) {
+      const parts = rows[i];
       const nom = parts[colIndex.nom];
       const prenom = colIndex.prenom !== -1 ? parts[colIndex.prenom] : 'Agent';
       const direction = parts[colIndex.direction];
       const fonction = parts[colIndex.fonction];
-      const matricule = colIndex.matricule !== -1 && parts[colIndex.matricule] ? parts[colIndex.matricule] : `INPTIC-IMP-${Date.now().toString(36).slice(-4)}`;
+      const matricule = colIndex.matricule !== -1 && parts[colIndex.matricule] ? parts[colIndex.matricule] : `INPTIC-IMP-${Date.now().toString(36).slice(-4)}-${i}`;
       const email = colIndex.email !== -1 ? parts[colIndex.email] : '';
       const telephone = colIndex.telephone !== -1 ? parts[colIndex.telephone] : '';
 
@@ -1049,6 +1196,12 @@ export default function AdminRHPage() {
                       <td colSpan={6} className="py-12 text-center text-slate-500">
                         <RefreshCw size={24} className="mx-auto animate-spin text-blue-600" />
                         <p className="mt-2 font-medium">Chargement des profils...</p>
+                      </td>
+                    </tr>
+                  ) : profilesError ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-red-700">
+                        {profilesError}
                       </td>
                     </tr>
                   ) : filteredProfiles.length === 0 ? (
@@ -1576,7 +1729,13 @@ export default function AdminRHPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {auditLogs.length === 0 ? (
+                  {auditLogsError ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-red-700">
+                        Impossible de charger le journal : {auditLogsError}
+                      </td>
+                    </tr>
+                  ) : auditLogs.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-slate-500">
                         Aucun événement d&apos;audit enregistré.
@@ -2146,8 +2305,23 @@ export default function AdminRHPage() {
 
             <h3 className="text-lg font-black text-slate-900">Importer des profils (CSV / Excel)</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Collez ci-dessous le contenu de votre fichier CSV avec séparateur virgule ou point-virgule.
+              Sélectionnez un fichier CSV ou Excel (.xlsx), ou collez son contenu ci-dessous.
             </p>
+
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50 px-4 py-3 text-xs font-bold text-blue-700 hover:bg-blue-100">
+              <FileSpreadsheet size={16} />
+              <span>{importFileName || 'Choisir un fichier CSV ou Excel (.xlsx)'}</span>
+              <input
+                type="file"
+                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handleImportFileSelection(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
 
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-[11px] text-slate-600 font-mono">
               En-têtes acceptés : Matricule, Nom, Prénom, Direction, Fonction, Email, Téléphone
@@ -2156,15 +2330,21 @@ export default function AdminRHPage() {
             <textarea
               rows={8}
               value={importText}
-              onChange={(e) => setImportText(e.target.value)}
+              onChange={(e) => {
+                setImportText(e.target.value);
+                setImportFileName('');
+                setImportReport(null);
+              }}
               placeholder={`Matricule;Nom;Prénom;Direction;Fonction;Email&#10;INPTIC-042;MBOUMBA;Jean;Service Scolarité;Agent;jean@inptic.ga`}
               className="mt-4 w-full rounded-xl border border-slate-200 p-3 text-xs font-mono focus:border-blue-500 focus:outline-none"
             />
 
             {importReport && (
               <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs">
-                <p className="font-bold text-emerald-700">
-                  {importReport.success} profil(s) importé(s) avec succès !
+                <p className={`font-bold ${importReport.errors.length > 0 ? 'text-slate-700' : 'text-emerald-700'}`}>
+                  {importReport.success > 0
+                    ? `${importReport.success} profil(s) importé(s) avec succès.`
+                    : 'Aucun profil importé.'}
                 </p>
                 {importReport.errors.length > 0 && (
                   <ul className="mt-2 space-y-1 text-red-600">
