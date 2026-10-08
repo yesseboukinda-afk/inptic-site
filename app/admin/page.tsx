@@ -11,6 +11,8 @@ import {
   LoaderCircle,
   FileText,
   GraduationCap,
+  Eye,
+  EyeOff,
   Megaphone,
   Plus,
   Search,
@@ -127,6 +129,7 @@ export default function SuperAdminDashboard() {
     department: '',
   });
   const [creating, setCreating] = useState(false);
+  const [initialPasswordVisible, setInitialPasswordVisible] = useState(false);
   const [deletingId, setDeletingId] = useState('');
 
   useEffect(() => {
@@ -367,15 +370,26 @@ export default function SuperAdminDashboard() {
               </label>
               <label className="text-sm font-medium text-slate-700">
                 Mot de passe initial
-                <input
-                  required
-                  type="password"
-                  maxLength={256}
-                  value={form.password}
-                  onChange={(event) => setForm({ ...form, password: event.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                  autoComplete="new-password"
-                />
+                <div className="relative mt-1.5">
+                  <input
+                    required
+                    type={initialPasswordVisible ? 'text' : 'password'}
+                    maxLength={256}
+                    value={form.password}
+                    onChange={(event) => setForm({ ...form, password: event.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 pr-11 font-normal outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setInitialPasswordVisible((visible) => !visible)}
+                    aria-label={initialPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    title={initialPasswordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 transition hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    {initialPasswordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                  </button>
+                </div>
               </label>
               <label className="text-sm font-medium text-slate-700">
                 Rôle
