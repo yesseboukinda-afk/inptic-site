@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  isAdminRole,
-  isCommunicationRole,
-  isDirectorRole,
-  normalizeRole,
-} from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 import { strapi } from '@/lib/strapi';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
@@ -24,14 +19,7 @@ async function authorizeCommunication(request: NextRequest) {
   if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
-  const role = normalizeRole(user.role);
-
-  const isAuthorized =
-    isCommunicationRole(role) ||
-    isDirectorRole(role) ||
-    isAdminRole(role);
-
-  if (!isAuthorized) {
+  if (!canAccessStaffService(user.role, 'announcements')) {
     return {
       error: NextResponse.json(
         { error: 'Accès réservé aux administrateurs, au directeur général ou au responsable communication.' },

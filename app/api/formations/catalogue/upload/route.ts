@@ -4,7 +4,7 @@ import { authorizeStaffRequest, uploadStaffFiles } from '@/lib/staff-storage';
 const BUCKET = 'formations-catalogue';
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeStaffRequest(request, 'Accès réservé à l’administration des formations.');
+  const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
 
   const formData = await request.clone().formData();

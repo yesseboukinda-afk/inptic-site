@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '@/lib/auth-client';
-import { isStaffOrAdminUser } from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 import { PublicationAttachment, ResearchPublication } from '@/types/publication';
 import TranslatedText from '@/components/TranslatedText';
 
@@ -118,7 +118,7 @@ export default function PublicationsPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const isStaff = isStaffOrAdminUser(userEmail, userRole);
+  const isStaff = canAccessStaffService(userRole, 'publications');
 
   const fetchPublications = async () => {
     setLoading(true);

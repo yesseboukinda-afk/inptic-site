@@ -3,16 +3,12 @@ import { readStoredPrivateFile } from '@/lib/localStorage';
 import { getProfileDocumentPrefix } from '@/lib/documentStorage';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import { isAdminRole, isCommunicationRole, isDirectorRole, normalizeRole } from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
 
 function canManageCandidateProfiles(role: string) {
-  const normalizedRole = normalizeRole(role);
-  return isAdminRole(normalizedRole) ||
-    isDirectorRole(normalizedRole) ||
-    isCommunicationRole(normalizedRole) ||
-    ['scolarite', 'direction_etudes', 'rh_admin', 'rh_gestionnaire'].includes(normalizedRole);
+  return canAccessStaffService(role, 'candidate_profiles');
 }
 
 async function validateDocumentAccess(request: NextRequest, emailValue: unknown, pathValue: unknown) {

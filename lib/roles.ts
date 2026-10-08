@@ -124,6 +124,43 @@ export function isRHRole(value: unknown): boolean {
   );
 }
 
+export function isRHAdminRole(value: unknown): boolean {
+  return ['rh', 'drh', 'rh_admin', 'rh_gestionnaire', 'rh_consultation'].includes(normalizeRole(value));
+}
+
+export type StaffService =
+  | 'candidate_profiles'
+  | 'preinscriptions'
+  | 'concours'
+  | 'publications'
+  | 'formations'
+  | 'announcements'
+  | 'reputation'
+  | 'human_resources';
+
+export function canAccessStaffService(value: unknown, service: StaffService): boolean {
+  const role = normalizeRole(value);
+
+  if (isSuperAdminRole(role) || isDirectorRole(role)) return true;
+
+  switch (service) {
+    case 'candidate_profiles':
+    case 'preinscriptions':
+      return role === 'scolarite';
+    case 'concours':
+    case 'publications':
+    case 'formations':
+      return role === 'direction_etudes';
+    case 'announcements':
+      return isCommunicationRole(role) || ['admin', 'administrateur', 'administrator'].includes(role);
+    case 'reputation':
+      return isCommunicationRole(role);
+    case 'human_resources':
+      return isRHRole(role);
+  }
+
+  return false;
+}
 export function isScolariteAccountEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase().replace(/,/g, '.');

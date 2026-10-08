@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '@/lib/auth-client';
-import { isStaffOrAdminUser } from '@/lib/roles';
+import { canAccessStaffService, isStaffOrAdminUser } from '@/lib/roles';
 import { ConcoursAttachment, ConcoursItem, ConcoursStatus } from '@/types/concours';
 import DeleteButton from '@/components/DeleteButton';
 import TranslatedText from '@/components/TranslatedText';
@@ -125,7 +125,8 @@ export default function ConcoursPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const isStaff = isStaffOrAdminUser(userEmail, userRole);
+  const canManageConcours = canAccessStaffService(userRole, 'concours');
+  const canManagePreinscriptions = canAccessStaffService(userRole, 'preinscriptions');
   const currentConcours = useMemo(() => getCurrentAdmissionConcours(concours), [concours]);
 
   useEffect(() => {
@@ -570,7 +571,7 @@ export default function ConcoursPage() {
           </div>
 
           {/* Action admin si connecté */}
-          {isStaff && (
+          {(canManageConcours || canManagePreinscriptions) && (
             <div className="mt-6 flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-950/60 p-4 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <Lock size={18} className="text-cyan-400" />
@@ -579,20 +580,24 @@ export default function ConcoursPage() {
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => void handleShowPreRegistrations()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 px-4 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-900/50"
-                >
-                  <Users size={16} />
-                  Préinscriptions
-                </button>
-                <button
-                  onClick={handleOpenCreate}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:brightness-110"
-                >
-                  <Plus size={16} />
-                  Publier un nouveau concours
-                </button>
+                {canManagePreinscriptions && (
+                  <button
+                    onClick={() => void handleShowPreRegistrations()}
+                    className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 px-4 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-900/50"
+                  >
+                    <Users size={16} />
+                    Préinscriptions
+                  </button>
+                )}
+                {canManageConcours && (
+                  <button
+                    onClick={handleOpenCreate}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:brightness-110"
+                  >
+                    <Plus size={16} />
+                    Publier un nouveau concours
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -949,7 +954,7 @@ export default function ConcoursPage() {
                     </div>
 
                     {/* Actions gestionnaire */}
-                    {isStaff && (
+                    {canManageConcours && (
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
                         <button
                           onClick={() => handleOpenEdit(item)}
