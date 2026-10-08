@@ -768,9 +768,10 @@ export default function GestionAnnoncesPage() {
       if (session) {
         setAccessToken(session.access_token);
         const role = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
-        if (canAccessStaffService(role, 'announcements')) {
+        const assignedService = session.user?.user_metadata?.service ?? session.user?.user_metadata?.department;
+        if (canAccessStaffService(role, 'announcements', assignedService)) {
           setAuthorized(true);
-          setCanViewReputation(canAccessStaffService(role, 'reputation'));
+          setCanViewReputation(canAccessStaffService(role, 'reputation', assignedService));
           setCheckingRole(false);
           void load(session.access_token);
         } else {

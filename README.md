@@ -76,18 +76,22 @@ Pour créer un compte administrateur sans inscription publique, lancer
 utilise `DATABASE_URL` si elle est disponible dans l'environnement du terminal ;
 sinon, elle la demande sans afficher la saisie. Elle demande ensuite l'adresse,
 le nom et le mot de passe (saisi et confirmé sans affichage), hache le mot de
-passe avec scrypt et crée un compte vérifié de rôle `admin`. Elle n'écrase jamais
-un compte existant. Ne pas enregistrer ni partager l'URL de connexion ou le
-mot de passe.
+passe avec scrypt et crée un compte vérifié de rôle `admin` ou `superadmin`.
+Un compte admin doit recevoir un unique service (`scolarite`, `communication`,
+`direction_etudes` ou `rh`); seul le superadmin a accès à tous les espaces. Elle
+n'écrase jamais un compte existant. Ne pas enregistrer ni partager l'URL de
+connexion ou le mot de passe.
 
 Les comptes ayant le rôle `superadmin` sont dirigés vers `/admin`. Ce tableau de
 bord permet de créer et supprimer les comptes du personnel, de les rechercher
-et de les filtrer par direction/service et rôle, puis d'accéder aux espaces de
-gestion. La création d'un compte active l'adresse et stocke uniquement un hash
-scrypt du mot de passe. La suppression révoque les sessions en supprimant le
-compte d'authentification ; le dernier superadmin et le compte connecté ne
-peuvent pas être supprimés depuis l'interface. Les comptes étudiants ne sont
-pas gérés dans cette liste.
+et de les filtrer par service et rôle. Un admin ne reçoit qu'un service et ne
+voit que son espace dans la navigation; les API serveur vérifient également
+cette attribution. Seul le superadmin voit tous les liens de gestion et peut
+accéder à tous les espaces. La création active l'adresse et stocke uniquement
+un hash scrypt du mot de passe. La suppression révoque les sessions en
+supprimant le compte d'authentification ; le dernier superadmin et le compte
+connecté ne peuvent pas être supprimés depuis l'interface. Les comptes
+étudiants ne sont pas gérés dans cette liste.
 
 Tout compte connecté peut ouvrir les paramètres de compte avec l'icône
 d'engrenage du bandeau. Le titulaire peut demander un changement d'adresse

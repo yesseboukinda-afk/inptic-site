@@ -51,10 +51,12 @@ import { strToU8, unzipSync, zipSync } from 'fflate';
 import { authClient } from '@/lib/auth-client';
 import DeleteButton from '@/components/DeleteButton';
 import {
-  isDirectorRole,
-  isRHAdminRole,
+  canAccessStaffService,
+  getRolePath,
   isSuperAdminRole,
   normalizeRole,
+  normalizeStaffService,
+  serviceAssignmentForRole,
 } from '@/lib/roles';
 import {
   DEFAULT_PUBLIC_WHITELIST,
@@ -427,12 +429,15 @@ export default function AdminRHPage() {
 
         const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
         const normRole = normalizeRole(rawRole);
-        if (!isSuperAdminRole(normRole) && !isDirectorRole(normRole) && !isRHAdminRole(normRole)) {
-          router.replace('/annonces/gestion');
+        const assignedService =
+          normalizeStaffService(session.user?.user_metadata?.service ?? session.user?.user_metadata?.department) ||
+          serviceAssignmentForRole(normRole);
+        if (!canAccessStaffService(normRole, 'human_resources', assignedService)) {
+          router.replace(getRolePath(normRole, session.user?.email, assignedService));
           return;
         }
 
-        if (isSuperAdminRole(normRole) || isDirectorRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+        if (isSuperAdminRole(normRole) || normRole === 'admin' || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');
@@ -453,11 +458,14 @@ export default function AdminRHPage() {
         setUserEmail(session.user?.email || null);
         const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
         const normRole = normalizeRole(rawRole);
-        if (!isSuperAdminRole(normRole) && !isDirectorRole(normRole) && !isRHAdminRole(normRole)) {
-          router.replace('/annonces/gestion');
+        const assignedService =
+          normalizeStaffService(session.user?.user_metadata?.service ?? session.user?.user_metadata?.department) ||
+          serviceAssignmentForRole(normRole);
+        if (!canAccessStaffService(normRole, 'human_resources', assignedService)) {
+          router.replace(getRolePath(normRole, session.user?.email, assignedService));
           return;
         }
-        if (isSuperAdminRole(normRole) || isDirectorRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
+        if (isSuperAdminRole(normRole) || normRole === 'admin' || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
           setUserRole('rh_gestionnaire');

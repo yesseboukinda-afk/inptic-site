@@ -19,7 +19,7 @@ async function authorizeCommunication(request: NextRequest) {
   if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
-  if (!canAccessStaffService(user.role, 'announcements')) {
+  if (!canAccessStaffService(user.role, 'announcements', user.user_metadata.service ?? user.user_metadata.department)) {
     return {
       error: NextResponse.json(
         { error: 'Accès réservé aux administrateurs, au directeur général ou au responsable communication.' },

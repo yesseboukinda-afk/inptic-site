@@ -34,13 +34,14 @@ La plateforme doit fournir un point d'accès numérique commun aux candidats,
 | Personnel RH | Consulter ou gérer les dossiers RH selon son niveau d'autorisation. |
 | Administrateur | Administrer les espaces et opérations autorisés au compte. |
 
-Les rôles applicatifs comprennent notamment `admin`, `directeur`,
-`communication`, `scolarite`, `direction_etudes` et `etudiant`; les variantes
-connues (par exemple `dg`, `administrateur`, `drh` ou
-`responsable_communication`) sont normalisées. Les droits sont contrôlés selon
-la ressource et l'action; ils ne doivent pas être déduits du seul lien affiché
-dans la navigation. Les règles de normalisation et les destinations sont
-centralisées dans [`lib/roles.ts`](./lib/roles.ts).
+Les deux rôles administratifs sont `admin` et `superadmin`. Chaque compte
+`admin` est associé à un seul service parmi Scolarité, Communication, Direction
+des études et Ressources humaines; il ne voit et ne gère que cet espace. Le
+`superadmin` est le seul rôle global : il peut voir tous les liens et accéder à
+tous les espaces. Les droits sont vérifiés côté serveur pour chaque ressource
+et action, et ne dépendent pas du seul affichage de la navigation. Les règles
+de normalisation et les destinations sont centralisées dans
+[`lib/roles.ts`](./lib/roles.ts).
 
 ## 4. Périmètre fonctionnel
 

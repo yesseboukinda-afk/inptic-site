@@ -5,7 +5,6 @@ import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
   canAccessStaffService,
   isSuperAdminRole,
-  isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -211,8 +210,8 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
   const role = normalizeRole(user.role);
 
   const isSuperAdmin = isSuperAdminRole(role);
-  const isGlobalAdmin = isSuperAdmin || isDirectorRole(role);
-  const hasAccess = canAccessStaffService(role, 'human_resources');
+  const assignedService = user.user_metadata.service ?? user.user_metadata.department;
+  const hasAccess = canAccessStaffService(role, 'human_resources', assignedService);
 
   if (!hasAccess) {
     return {
@@ -236,7 +235,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     user: {
       id: user.id,
       email: user.email,
-      role: isGlobalAdmin || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
+      role: isSuperAdmin || role === 'admin' || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
     },
   };
 }

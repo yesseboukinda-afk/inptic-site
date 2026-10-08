@@ -23,8 +23,8 @@ type ProfileDocument = {
   url?: string;
 };
 
-function canManageCandidateProfiles(role: string) {
-  return canAccessStaffService(role, 'candidate_profiles');
+function canManageCandidateProfiles(role: string, assignedService?: unknown) {
+  return canAccessStaffService(role, 'candidate_profiles', assignedService);
 }
 
 function documentUrl(email: string, path: string) {
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const pool = getPostgresPool();
-    const result = canManageCandidateProfiles(user.role)
+    const result = canManageCandidateProfiles(user.role, user.user_metadata.service ?? user.user_metadata.department)
       ? await pool.query(
           'SELECT * FROM public.profiles ORDER BY updated_at DESC',
         )
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
   }
 
-  const canManageProfiles = canManageCandidateProfiles(user.role);
+  const canManageProfiles = canManageCandidateProfiles(user.role, user.user_metadata.service ?? user.user_metadata.department);
   let payload: Record<string, any>;
   let incomingFile: File | null = null;
   let incomingCategory = '';

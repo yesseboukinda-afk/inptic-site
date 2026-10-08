@@ -8,7 +8,14 @@ import { FormEvent, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import { authClient } from '@/lib/auth-client';
-import { isDirectorRole, isRHAdminRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
+import {
+  canAccessStaffService,
+  isSuperAdminRole,
+  normalizeStaffService,
+  normalizeRole,
+  serviceAssignmentForRole,
+  type StaffServiceAssignment,
+} from '@/lib/roles';
 import AccountSettingsModal from '@/components/AccountSettingsModal';
 
 interface MenuItem {
@@ -65,12 +72,10 @@ export default function Header() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
-  const [isDirector, setIsDirector] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isRH, setIsRH] = useState(false);
-  const [isScolarite, setIsScolarite] = useState(false);
+  const [accountRole, setAccountRole] = useState('');
+  const [assignedService, setAssignedService] = useState<StaffServiceAssignment | ''>('');
   const [isStudent, setIsStudent] = useState(false);
-  const [staffRole, setStaffRole] = useState<'scolarite' | 'direction_etudes' | 'communication' | 'admin' | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchNotification, setSearchNotification] = useState('');
@@ -95,37 +100,43 @@ export default function Header() {
     currentLanguage === 'en' ? '🇬🇧' :
     currentLanguage === 'zh' ? '🇨🇳' :
     currentLanguage === 'ar' ? '🇸🇦' : '🇫🇷';
+  const canManageRH = isSuperAdmin || canAccessStaffService(accountRole, 'human_resources', assignedService);
+  const canManageScolarite = isSuperAdmin || canAccessStaffService(accountRole, 'candidate_profiles', assignedService);
+  const canManageAnnouncements = isSuperAdmin || canAccessStaffService(accountRole, 'announcements', assignedService);
   const dashboardHref = isSuperAdmin
     ? '/admin'
-    : isRH
+    : canManageRH
       ? '/admin/rh'
-      : staffRole === 'scolarite'
+      : canManageScolarite
         ? '/scolarite'
-        : staffRole === 'direction_etudes'
-          ? '/direction-etudes'
-          : '/annonces/gestion';
+        : canManageAnnouncements
+          ? '/annonces/gestion'
+          : canAccessStaffService(accountRole, 'concours', assignedService)
+            ? '/concours'
+            : '';
   const dashboardLabel = isSuperAdmin
     ? 'Super admin'
-    : isRH
-      ? 'Dashboard RH'
-      : staffRole === 'admin'
-        ? 'Espace de gestion'
-        : t('common.professionalSpace');
+    : canManageRH
+      ? 'Espace RH'
+      : canManageScolarite
+        ? 'Espace Scolarité'
+        : canManageAnnouncements
+          ? 'Gestion Annonces'
+          : 'Direction des études';
+  const hasStaffDashboard = isSuperAdmin || Boolean(dashboardHref);
 
   const syncAuthState = async () => {
     const { data } = await authClient.auth.getSession();
-    setAccountEmail(data.session?.user?.email || '');
-    const role = normalizeRole(data.session?.user?.app_metadata?.role);
-    const isDir = isDirectorRole(role);
+    const user = data.session?.user;
+    setAccountEmail(user?.email || '');
+    const role = normalizeRole(user?.app_metadata?.role ?? user?.app_metadata?.roles);
     setIsSuperAdmin(isSuperAdminRole(role));
-    const rhUser = isRHAdminRole(role);
-    const scolUser = role === 'scolarite';
-    setIsDirector(isDir);
-    setIsRH(rhUser);
-    setIsScolarite(scolUser);
+    setAccountRole(role);
+    setAssignedService(
+      normalizeStaffService(user?.user_metadata?.service ?? user?.user_metadata?.department) ||
+      serviceAssignmentForRole(role),
+    );
     setIsStudent(role === 'etudiant');
-    const allowedStaffRoles = ['scolarite', 'direction_etudes', 'communication', 'admin'] as const;
-    setStaffRole(allowedStaffRoles.find((staffRole) => staffRole === role) ?? (rhUser ? 'admin' : scolUser ? 'scolarite' : null));
   };
 
   const changeLanguage = (lang: 'fr' | 'en' | 'zh' | 'ar') => {
@@ -224,9 +235,10 @@ export default function Header() {
     localStorage.removeItem('inptic_directeur');
     localStorage.removeItem('inptic_user');
     localStorage.removeItem('inptic_staff');
-    setIsDirector(false);
+    setIsSuperAdmin(false);
+    setAccountRole('');
+    setAssignedService('');
     setIsStudent(false);
-    setStaffRole(null);
     window.dispatchEvent(new Event('auth-state-changed'));
     window.location.href = '/candidat';
   };
@@ -336,10 +348,10 @@ export default function Header() {
               )}
             </div>
 
-            {isDirector ? (
+            {isSuperAdmin ? (
               <>
-                <Link href="/directeur" className="navbar-icon-only bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.dashboard')}>
-                  <span className="btn-label">{t('common.dashboard')}</span>
+                <Link href="/admin" className="navbar-icon-only bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label="Superadmin">
+                  <span className="btn-label">Superadmin</span>
                   <span className="icon-slot" aria-hidden="true">▣</span>
                 </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
@@ -347,7 +359,7 @@ export default function Header() {
                   <span className="icon-slot" aria-hidden="true">↗</span>
                 </button>
               </>
-            ) : staffRole ? (
+            ) : hasStaffDashboard ? (
               <>
                 <Link href={dashboardHref} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={dashboardLabel}>
                   <LayoutDashboard size={16} aria-hidden="true" />
@@ -378,18 +390,18 @@ export default function Header() {
           </div>
 
           <div className="ml-auto flex items-center gap-2 md:hidden">
-            {isDirector ? (
+            {isSuperAdmin ? (
               <>
-                <Link href="/directeur" className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.dashboard')}>
+                <Link href="/admin" className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white" aria-label="Superadmin">
                   <LayoutDashboard size={14} aria-hidden="true" />
-                  <span>{t('common.dashboard')}</span>
+                  <span>Superadmin</span>
                 </Link>
                 <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
                   <LogOut size={14} aria-hidden="true" />
                   <span>{t('common.logout')}</span>
                 </button>
               </>
-            ) : staffRole ? (
+            ) : hasStaffDashboard ? (
               <>
                 <Link href={dashboardHref} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={dashboardLabel}>
                   <LayoutDashboard size={14} aria-hidden="true" />
@@ -537,7 +549,7 @@ export default function Header() {
             {t('common.annonces')}
           </Link>
 
-          {isDirector && (
+          {isSuperAdmin && (
             <Link
               href="/directeur"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -547,7 +559,7 @@ export default function Header() {
             </Link>
           )}
 
-          {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
+          {canManageAnnouncements && (
             <Link
               href="/annonces/gestion"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -567,7 +579,7 @@ export default function Header() {
             </Link>
           )}
 
-          {(isDirector || isScolarite || isSuperAdmin) && (
+          {canManageScolarite && (
             <Link
               href="/scolarite"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -577,7 +589,7 @@ export default function Header() {
             </Link>
           )}
 
-          {(isRH || isSuperAdmin) && (
+          {canManageRH && (
             <Link
               href="/admin/rh"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -643,13 +655,13 @@ export default function Header() {
               {t('common.annonces')}
             </Link>
 
-            {isDirector && (
+            {isSuperAdmin && (
               <Link href="/directeur" className="block px-4 py-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.espaceDg', 'Espace DG')}
               </Link>
             )}
 
-            {(isDirector || staffRole === 'admin' || staffRole === 'communication') && (
+            {canManageAnnouncements && (
               <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.gestionAnnonces', 'Gestion Annonces')}
               </Link>
@@ -661,13 +673,13 @@ export default function Header() {
               </Link>
             )}
 
-            {(isDirector || isScolarite || isSuperAdmin) && (
+            {canManageScolarite && (
               <Link href="/scolarite" className="block px-4 py-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-cyan-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.scolarite', 'Scolarité')}
               </Link>
             )}
 
-            {(isRH || isSuperAdmin) && (
+            {canManageRH && (
               <Link href="/admin/rh" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[var(--gold)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.gestionRh', 'Gestion RH')}
               </Link>

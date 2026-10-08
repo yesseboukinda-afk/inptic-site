@@ -3,7 +3,7 @@
 import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award } from 'lucide-react';
 import { ChangeEvent, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { normalizeRole } from '@/lib/roles';
+import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 import { translateNotification } from '@/lib/authMessages';
 
@@ -103,18 +103,26 @@ export default function StaffDashboard({ role }: { role: Role }) {
     const director = localStorage.getItem('inptic_directeur');
     const session = localStorage.getItem('inptic_staff');
 
-    let sessionData: { role?: unknown };
+    let sessionData: { role?: unknown; service?: unknown; department?: unknown } = {};
+    let directorData: { role?: unknown } = {};
     try {
       sessionData = JSON.parse(session || '{}');
     } catch {
       sessionData = {};
     }
+    try {
+      directorData = JSON.parse(director || '{}');
+    } catch {
+      directorData = {};
+    }
 
-    const isDirector = Boolean(director);
-    const hasStaffAccess = isDirector || (session && (normalizeRole(sessionData.role) === role || sessionData.role === 'admin' || sessionData.role === 'scolarite'));
+    const assignedService = sessionData.service ?? sessionData.department;
+    const hasStaffAccess =
+      isSuperAdminRole(directorData.role) ||
+      canAccessStaffService(sessionData.role, 'candidate_profiles', assignedService);
 
     if (!hasStaffAccess) {
-      router.replace('/candidat');
+      router.replace(getRolePath(String(sessionData.role || ''), undefined, assignedService));
       return;
     }
 

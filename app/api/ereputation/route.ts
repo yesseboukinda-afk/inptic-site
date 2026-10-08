@@ -22,7 +22,7 @@ async function authorizeFacebookReply(request: NextRequest) {
     return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
   }
 
-  if (!canAccessStaffService(user.role, 'reputation')) {
+  if (!canAccessStaffService(user.role, 'reputation', user.user_metadata.service ?? user.user_metadata.department)) {
     return NextResponse.json(
       { error: 'Accès réservé au service Communication.' },
       { status: 403 },

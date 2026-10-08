@@ -88,11 +88,11 @@ Le sélecteur de langue permet de consulter les textes traduits lorsqu'une tradu
 
 Les boutons **Partager** ouvrent les réseaux ou services de partage avec le contenu courant; ce ne sont pas des liens vers des profils officiels. Le site ne configure actuellement pas de lien de profil Instagram, LinkedIn, X ou TikTok dans son pied de page.
 
-Les pages d'administration nécessitent le rôle approprié. Les rôles et leurs variantes reconnues sont centralisés dans [`lib/roles.ts`](./lib/roles.ts). Les rôles courants sont **Administrateur**, **Directeur**, **Communication**, **Scolarité**, **Direction des études**, **Ressources humaines** et **Étudiant**. Le site accepte aussi certaines variantes de libellé (par exemple `admin`/`administrateur`, `dg`/`directeur`, et `responsable_communication`) et les normalise avant vérification.
+Les deux rôles administratifs sont **Admin** et **Superadmin**. Chaque compte Admin reçoit un seul service : **Communication**, **Scolarité**, **Direction des études** ou **Ressources humaines**. L'admin ne voit dans la navigation que les liens de son service et ne peut pas accéder aux autres espaces. Seul le Superadmin voit tous les liens et peut naviguer partout. Les permissions sont vérifiées côté serveur, en plus des contrôles de navigation; elles ne sont pas accordées par une adresse e-mail ou un lien affiché. Les règles et variantes héritées sont centralisées dans [`lib/roles.ts`](./lib/roles.ts).
 
-Les droits précis dépendent de l'espace et de l'opération : un rôle affiché dans l'interface ne donne pas automatiquement accès à toutes les fonctions d'administration. Certains accès sont également reconnus à partir d'adresses de comptes autorisés. L'URL proposée après connexion est un raccourci de navigation, pas une preuve de permission. Si une page refuse l'accès, demander à l'administrateur de vérifier le compte et ses métadonnées de rôle dans Supabase; le rôle `user_metadata` n'est pas une source d'autorisation.
+Les opérations de chaque espace restent limitées au service attribué. Si une page refuse l'accès, demander au Superadmin de vérifier le rôle `admin` et le service associé au compte.
 
-Repères de navigation : **RH** vers `/admin/rh`, **Scolarité** vers `/scolarite`, **Direction** vers `/directeur`, **Administrateur** vers `/annonces/gestion`, **Direction des études** vers `/direction-etudes`, et les autres comptes vers le suivi des admissions. Les espaces dédiés peuvent évoluer; utiliser les liens de cette notice pour les pages effectivement documentées. La réinitialisation du mot de passe, la vérification d'une quittance et la vérification d'une carte RH utilisent des liens individuels; elles ne figurent pas ici, car leur URL dépend du compte, de la référence ou du QR concerné.
+Repères de navigation : **RH** vers `/admin/rh`, **Scolarité** vers `/scolarite`, **Communication** vers `/annonces/gestion`, **Direction des études** vers ses outils attribués, et **Superadmin** vers `/admin`. La réinitialisation du mot de passe, la vérification d'une quittance et la vérification d'une carte RH utilisent des liens individuels; elles ne figurent pas ici, car leur URL dépend du compte, de la référence ou du QR concerné.
 
 ## 2. Créer un compte candidat
 
@@ -151,7 +151,7 @@ Les espaces d'administration ne sont accessibles qu'aux comptes et rôles autori
 
 ### 7.1 Gestion des annonces et veille de communication
 
-Ouvrir [`/annonces/gestion`](https://inptic-site.vercel.app/annonces/gestion) avec un compte administrateur, directeur ou communication autorisé.
+Ouvrir [`/annonces/gestion`](https://inptic-site.vercel.app/annonces/gestion) avec un compte Admin auquel le service Communication est attribué, ou avec un compte Superadmin.
 
 1. Cliquer sur **Nouvelle annonce**.
 2. Renseigner le titre, la catégorie et le texte. Le titre est limité à 120 caractères et le texte à 5 000 caractères.
@@ -192,7 +192,7 @@ Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Le personnel auto
 
 ### 7.3 Scolarité et traitement des candidatures
 
-Ouvrir [`/scolarite`](https://inptic-site.vercel.app/scolarite) avec le rôle de scolarité ou un rôle supérieur autorisé.
+Ouvrir [`/scolarite`](https://inptic-site.vercel.app/scolarite) avec un compte Admin auquel le service Scolarité est attribué, ou avec un compte Superadmin.
 
 1. Dans **Dossiers d'admission**, examiner la file des dossiers en attente. Ouvrir un dossier avec **Examiner & Valider**.
 2. Vérifier l'identité, la filière, le niveau et chaque pièce jointe. Ouvrir les documents pour les lire avant de prendre une décision.
@@ -204,7 +204,7 @@ Le rôle **Direction des études** peut voir les outils correspondant à ses dro
 
 ### 7.4 Direction générale
 
-Ouvrir [`/directeur`](https://inptic-site.vercel.app/directeur) avec un compte de direction autorisé. Le tableau présente les effectifs candidats et des indicateurs de dossiers validés ou en attente; il consolide les profils disponibles dans la base et, selon la session, les profils locaux. Utiliser cet espace pour le suivi général. Le traitement opérationnel des dossiers se fait dans **Scolarité**. Se déconnecter avant de quitter un poste partagé.
+L'espace général [`/directeur`](https://inptic-site.vercel.app/directeur) est réservé au Superadmin. Le traitement opérationnel des dossiers se fait dans **Scolarité**, accessible uniquement à l'admin auquel ce service est attribué et au Superadmin. Se déconnecter avant de quitter un poste partagé.
 
 Dans [`/directeur/compte`](https://inptic-site.vercel.app/directeur/compte), ouvrir **Paramètres du compte** pour modifier le nom, l'e-mail affiché, le téléphone, le poste, le département, le bureau, la présentation ou la photo, puis cliquer **Enregistrer**. Dans cette version, ces paramètres sont conservés dans le navigateur utilisé; ils ne sont pas automatiquement synchronisés entre appareils.
 
@@ -225,7 +225,7 @@ Ouvrir [`/formations`](https://inptic-site.vercel.app/formations). Un membre du 
 
 ### 7.7 Administration des ressources humaines
 
-Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un rôle RH ou administrateur. Un compte de consultation peut voir les données mais pas effectuer les actions de gestion.
+Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un compte Admin auquel le service RH est attribué, ou avec un compte Superadmin.
 
 **Profils du personnel**
 

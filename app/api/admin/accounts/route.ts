@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser, hashPassword } from '@/lib/postgres-auth';
-import { isSuperAdminRole } from '@/lib/roles';
-import { RH_DEPARTMENTS } from '@/types/rh';
+import {
+  isSuperAdminRole,
+  normalizeStaffService,
+  serviceAssignmentForRole,
+} from '@/lib/roles';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const STAFF_ROLES = new Set([
+const LEGACY_STAFF_ROLES = [
   'superadmin',
   'admin',
   'administrateur',
@@ -26,7 +29,7 @@ const STAFF_ROLES = new Set([
   'rh_admin',
   'rh_gestionnaire',
   'rh_consultation',
-]);
+];
 
 async function requireSuperAdmin(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -53,19 +56,23 @@ export async function GET(request: NextRequest) {
        FROM public.app_users
        WHERE role = ANY($1::text[])
        ORDER BY lower(COALESCE(user_metadata->>'department', '')), lower(email)`,
-      [Array.from(STAFF_ROLES)],
+      [LEGACY_STAFF_ROLES],
     );
 
     return NextResponse.json({
-      accounts: rows.map((row) => ({
-        id: row.id,
-        email: row.email,
-        role: row.role,
-        name: row.user_metadata?.full_name || row.user_metadata?.name || '',
-        department: row.user_metadata?.department || row.user_metadata?.service || '',
-        emailVerified: Boolean(row.email_verified_at),
-        createdAt: row.created_at,
-      })),
+      accounts: rows.map((row) => {
+        const service = normalizeStaffService(row.user_metadata?.service || row.user_metadata?.department) ||
+          serviceAssignmentForRole(row.role);
+        return {
+          id: row.id,
+          email: row.email,
+          role: isSuperAdminRole(row.role) ? 'superadmin' : 'admin',
+          name: row.user_metadata?.full_name || row.user_metadata?.name || '',
+          department: service,
+          emailVerified: Boolean(row.email_verified_at),
+          createdAt: row.created_at,
+        };
+      }),
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[Admin accounts GET] PostgreSQL error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
@@ -82,6 +89,7 @@ export async function POST(request: NextRequest) {
     name?: unknown;
     password?: unknown;
     role?: unknown;
+    service?: unknown;
     department?: unknown;
   };
   try {
@@ -94,7 +102,7 @@ export async function POST(request: NextRequest) {
   const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : '';
   const password = typeof body.password === 'string' ? body.password : '';
   const role = typeof body.role === 'string' ? body.role : '';
-  const department = typeof body.department === 'string' ? body.department : '';
+  const department = normalizeStaffService(body.service ?? body.department);
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: 'Adresse e-mail invalide.' }, { status: 400 });
@@ -102,12 +110,13 @@ export async function POST(request: NextRequest) {
   if (!name || !password || password.length > 256) {
     return NextResponse.json({ error: 'Nom et mot de passe requis (256 caractères maximum).' }, { status: 400 });
   }
-  if (!STAFF_ROLES.has(role)) {
-    return NextResponse.json({ error: 'Rôle du personnel invalide.' }, { status: 400 });
+  if (role !== 'admin' && role !== 'superadmin') {
+    return NextResponse.json({ error: 'Les seuls rôles disponibles sont Admin et Superadmin.' }, { status: 400 });
   }
-  if (!(RH_DEPARTMENTS as readonly string[]).includes(department)) {
-    return NextResponse.json({ error: 'Sélectionne une direction ou un service valide.' }, { status: 400 });
+  if (role === 'admin' && !department) {
+    return NextResponse.json({ error: 'Attribue un service à ce compte admin.' }, { status: 400 });
   }
+  const assignedService = role === 'admin' ? department : '';
 
   try {
     const pool = getPostgresPool();
@@ -116,8 +125,8 @@ export async function POST(request: NextRequest) {
       name,
       full_name: name,
       role,
-      department,
-      service: department,
+      department: assignedService,
+      service: assignedService,
     });
     const { rows } = await pool.query(
       `INSERT INTO public.app_users
@@ -134,7 +143,7 @@ export async function POST(request: NextRequest) {
         email: account.email,
         role: account.role,
         name: account.user_metadata?.full_name || account.user_metadata?.name || '',
-        department: account.user_metadata?.department || '',
+        department: account.user_metadata?.service || account.user_metadata?.department || '',
         emailVerified: Boolean(account.email_verified_at),
         createdAt: account.created_at,
       },

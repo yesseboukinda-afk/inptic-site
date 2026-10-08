@@ -202,7 +202,7 @@ export default function Candidat() {
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role }));
         router.replace('/admin');
       } else if (isRHRole(role)) {
-        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin', service: 'rh' }));
         router.replace('/admin/rh');
       } else if (role === 'scolarite') {
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role }));
@@ -212,8 +212,20 @@ export default function Candidat() {
         router.replace('/directeur');
       } else if (getStaffRole(role)) {
         const staffRole = getStaffRole(role);
-        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
-        router.replace(getRolePath(staffRole));
+        localStorage.setItem(
+          'inptic_staff',
+          JSON.stringify({
+            email: profile.email,
+            name: profile.name,
+            role: staffRole,
+            service: user?.user_metadata?.service ?? user?.user_metadata?.department,
+          }),
+        );
+        router.replace(getRolePath(
+          staffRole,
+          profile.email,
+          user?.user_metadata?.service ?? user?.user_metadata?.department,
+        ));
       } else {
         persistLocalProfile(profile);
         router.replace(getCandidateDestination(profile));
@@ -307,7 +319,7 @@ export default function Candidat() {
         localStorage.removeItem('inptic_user');
         localStorage.setItem(
           'inptic_staff',
-          JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin' })
+          JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin', service: 'rh' })
         );
         window.dispatchEvent(new Event('auth-state-changed'));
         router.push('/admin/rh');
@@ -319,7 +331,7 @@ export default function Candidat() {
         localStorage.removeItem('inptic_user');
         localStorage.setItem(
           'inptic_staff',
-          JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite' })
+          JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite', service: 'scolarite' })
         );
         window.dispatchEvent(new Event('auth-state-changed'));
         router.push('/scolarite');
@@ -339,9 +351,21 @@ export default function Candidat() {
 
       if (staffRole) {
         localStorage.removeItem('inptic_user');
-        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: staffRole }));
+        localStorage.setItem(
+          'inptic_staff',
+          JSON.stringify({
+            email: profile.email,
+            name: profile.name,
+            role: staffRole,
+            service: user?.user_metadata?.service ?? user?.user_metadata?.department,
+          }),
+        );
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push(getRolePath(staffRole));
+        router.push(getRolePath(
+          staffRole,
+          profile.email,
+          user?.user_metadata?.service ?? user?.user_metadata?.department,
+        ));
         return;
       }
 

@@ -460,8 +460,9 @@ export default function AnnoncesPublicPage() {
       const sessionEmail = session?.user?.email || '';
       const rawRole = session?.user?.app_metadata?.role;
       const role = typeof rawRole === 'string' ? rawRole : '';
+      const assignedService = session?.user?.user_metadata?.service ?? session?.user?.user_metadata?.department;
 
-      if (active && session && canAccessStaffService(role, 'announcements')) {
+      if (active && session && canAccessStaffService(role, 'announcements', assignedService)) {
         setIsAdmin(true);
         setAdminEmail(sessionEmail);
         if (sessionToken) setAccessToken(sessionToken);
