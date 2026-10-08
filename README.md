@@ -80,6 +80,15 @@ passe avec scrypt et crée un compte vérifié de rôle `admin`. Elle n'écrase 
 un compte existant. Ne pas enregistrer ni partager l'URL de connexion ou le
 mot de passe.
 
+Les comptes ayant le rôle `superadmin` sont dirigés vers `/admin`. Ce tableau de
+bord permet de créer et supprimer les comptes du personnel, de les rechercher
+et de les filtrer par direction/service et rôle, puis d'accéder aux espaces de
+gestion. La création d'un compte active l'adresse et stocke uniquement un hash
+scrypt du mot de passe. La suppression révoque les sessions en supprimant le
+compte d'authentification ; le dernier superadmin et le compte connecté ne
+peuvent pas être supprimés depuis l'interface. Les comptes étudiants ne sont
+pas gérés dans cette liste.
+
 ## Migration PostgreSQL vers LWS
 
 `DATABASE_URL` et le module `lib/postgres.ts` fournissent la connexion serveur.

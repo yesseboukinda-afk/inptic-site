@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
-import { getRolePath, getStaffRole, isDirectorRole, isRHRole, normalizeRole } from '@/lib/roles';
+import { getRolePath, getStaffRole, isDirectorRole, isRHRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 import { getCandidateJourneyPath } from '@/lib/admissionsWorkflow';
 
@@ -197,7 +197,11 @@ export default function Candidat() {
       localStorage.removeItem('inptic_staff');
       localStorage.removeItem('inptic_directeur');
 
-      if (isRHRole(role)) {
+      if (isSuperAdminRole(role)) {
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
+        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role }));
+        router.replace('/admin');
+      } else if (isRHRole(role)) {
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
         router.replace('/admin/rh');
       } else if (role === 'scolarite') {
@@ -279,6 +283,15 @@ export default function Candidat() {
         notifications: Array.isArray(user?.user_metadata?.notifications) ? user.user_metadata.notifications : [],
         role: staffRole || (isDirector ? 'directeur' : 'etudiant'),
       };
+
+      if (isSuperAdminRole(normalizedRole)) {
+        localStorage.removeItem('inptic_user');
+        localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
+        localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role: normalizedRole }));
+        window.dispatchEvent(new Event('auth-state-changed'));
+        router.push('/admin');
+        return;
+      }
 
       const isRH = isRHRole(normalizedRole);
       if (isRH) {

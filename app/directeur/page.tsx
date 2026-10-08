@@ -21,7 +21,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { isDirectorRole, normalizeRole } from '@/lib/roles';
+import { isDirectorRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 
 type StudentProfile = {
@@ -55,7 +55,7 @@ export default function DirecteurDashboard() {
       directorData = {};
     }
 
-    if (!director || !isDirectorRole(normalizeRole(directorData.role))) {
+    if (!director || (!isDirectorRole(normalizeRole(directorData.role)) && !isSuperAdminRole(directorData.role))) {
       router.replace('/candidat');
       return;
     }

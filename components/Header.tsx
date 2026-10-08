@@ -8,7 +8,7 @@ import { FormEvent, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import { authClient } from '@/lib/auth-client';
-import { isDirectorRole, isRHRole, normalizeRole } from '@/lib/roles';
+import { isDirectorRole, isRHRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
 
 interface MenuItem {
   id: string;
@@ -65,6 +65,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [isDirector, setIsDirector] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isRH, setIsRH] = useState(false);
   const [isScolarite, setIsScolarite] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
@@ -96,7 +97,8 @@ export default function Header() {
     const { data } = await authClient.auth.getSession();
     const role = normalizeRole(data.session?.user?.app_metadata?.role);
     const isDir = isDirectorRole(role);
-    const rhUser = isRHRole(role) || role === 'admin';
+    setIsSuperAdmin(isSuperAdminRole(role));
+    const rhUser = isRHRole(role) || role === 'admin' || isSuperAdminRole(role);
     const scolUser = role === 'scolarite';
     setIsDirector(isDir);
     setIsRH(rhUser);
@@ -315,9 +317,9 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
+                <Link href={isSuperAdmin ? '/admin' : staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={isSuperAdmin ? 'Tableau de bord superadmin' : staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
                   <LayoutDashboard size={16} aria-hidden="true" />
-                  <span className="btn-label">{staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
+                  <span className="btn-label">{isSuperAdmin ? 'Super admin' : staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
                 </Link>
                 <button onClick={handleLogout} className="navbar-icon-only bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.logout')}>
                   <span className="btn-label">{t('common.logout')}</span>
@@ -357,9 +359,9 @@ export default function Header() {
               </>
             ) : staffRole ? (
               <>
-                <Link href={staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
+                <Link href={isSuperAdmin ? '/admin' : staffRole === 'admin' ? '/admin/rh' : staffRole === 'scolarite' ? '/scolarite' : staffRole === 'direction_etudes' ? '/direction-etudes' : '/annonces/gestion'} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={isSuperAdmin ? 'Tableau de bord superadmin' : staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}>
                   <LayoutDashboard size={14} aria-hidden="true" />
-                  <span>{staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
+                  <span>{isSuperAdmin ? 'Super admin' : staffRole === 'admin' ? 'Dashboard RH' : t('common.professionalSpace')}</span>
                 </Link>
                 <button onClick={handleLogout} className="flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.logout')}>
                   <LogOut size={14} aria-hidden="true" />
@@ -511,7 +513,17 @@ export default function Header() {
             </Link>
           )}
 
-          {(isDirector || isScolarite) && (
+          {isSuperAdmin && (
+            <Link
+              href="/admin"
+              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-violet-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
+              role="menuitem"
+            >
+              Super admin
+            </Link>
+          )}
+
+          {(isDirector || isScolarite || isSuperAdmin) && (
             <Link
               href="/scolarite"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -521,7 +533,7 @@ export default function Header() {
             </Link>
           )}
 
-          {(isDirector || isRH) && (
+          {(isDirector || isRH || isSuperAdmin) && (
             <Link
               href="/admin/rh"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
@@ -599,13 +611,19 @@ export default function Header() {
               </Link>
             )}
 
-            {(isDirector || isScolarite) && (
+            {isSuperAdmin && (
+              <Link href="/admin" className="block px-4 py-3 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                Tableau de bord superadmin
+              </Link>
+            )}
+
+            {(isDirector || isScolarite || isSuperAdmin) && (
               <Link href="/scolarite" className="block px-4 py-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-cyan-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.scolarite', 'Scolarité')}
               </Link>
             )}
 
-            {(isDirector || isRH) && (
+            {(isDirector || isRH || isSuperAdmin) && (
               <Link href="/admin/rh" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[var(--gold)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
                 {t('common.gestionRh', 'Gestion RH')}
               </Link>

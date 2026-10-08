@@ -58,6 +58,10 @@ export function isAdminRole(value: unknown): boolean {
   );
 }
 
+export function isSuperAdminRole(value: unknown): boolean {
+  return normalizeRole(value) === 'superadmin';
+}
+
 export function isCommunicationRole(value: unknown): boolean {
   const role = normalizeRole(value);
   return (
@@ -147,6 +151,7 @@ export function isStaffOrAdminUser(email?: string | null, role?: unknown): boole
 }
 
 export function getRolePath(role: string, email?: string): string {
+  if (isSuperAdminRole(role)) return '/admin';
   if (isRHAccountEmail(email) || isRHRole(role)) return '/admin/rh';
   if (isScolariteAccountEmail(email) || role === 'scolarite') return '/scolarite';
   if (isDirectorAccountEmail(email) || isDirectorRole(role)) return '/directeur';
