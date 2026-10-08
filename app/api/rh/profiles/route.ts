@@ -211,6 +211,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
 
   const isDirecteur = isDirectorRole(role);
   const isAdmin = isAdminRole(role);
+  const isDepartmentScopedAdmin = ['admin', 'administrateur', 'administrator'].includes(role);
   const isRHAdmin = role === 'rh_admin' || role === 'rh' || role === 'drh';
   const isRHGestionnaire = role === 'rh_gestionnaire';
   const isRHConsultation = role === 'rh_consultation';
@@ -221,6 +222,18 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     return {
       error: NextResponse.json(
         { error: 'Accès refusé. Cette section est réservée à la DRH et aux gestionnaires habilités DRTI.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  const departmentValue = user.user_metadata.department ?? user.user_metadata.service;
+  const department =
+    typeof departmentValue === 'string' ? departmentValue.trim() : '';
+  if (isDepartmentScopedAdmin && !department) {
+    return {
+      error: NextResponse.json(
+        { error: 'Aucun service n’est associé à votre compte administrateur. Contactez le superadmin.' },
         { status: 403 }
       ),
     };
@@ -240,6 +253,8 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
       id: user.id,
       email: user.email,
       role: isDirecteur || isAdmin || isRHAdmin ? 'rh_admin' : isRHGestionnaire ? 'rh_gestionnaire' : 'rh_consultation',
+      department,
+      departmentScoped: isDepartmentScopedAdmin,
     },
   };
 }
@@ -320,9 +335,19 @@ export async function GET(request: NextRequest) {
   // Consultation du journal d'audit
   if (getAuditLogs) {
     try {
-      const { rows } = await getPostgresPool().query(
-        'SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100',
-      );
+      const { rows } = auth.user!.departmentScoped
+        ? await getPostgresPool().query(
+            `SELECT * FROM public.rh_audit_logs
+             WHERE target_id IN (
+               SELECT id::text FROM public.rh_profiles
+               WHERE lower(department) = lower($1)
+             )
+             ORDER BY timestamp DESC LIMIT 100`,
+            [auth.user!.department],
+          )
+        : await getPostgresPool().query(
+            'SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100',
+          );
       return NextResponse.json({
         logs: rows.map((row) => ({
           id: String(row.id),
@@ -353,6 +378,12 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Erreur PostgreSQL de lecture des profils RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Profils RH indisponibles.' }, { status: 503 });
+  }
+
+  if (auth.user!.departmentScoped) {
+    profiles = profiles.filter(
+      (profile) => profile.department.trim().toLowerCase() === auth.user!.department.toLowerCase(),
+    );
   }
 
   // Filtrage
@@ -424,7 +455,7 @@ export async function POST(request: NextRequest) {
     phone: body.phone || '',
     email: body.email || '',
     photoUrl: body.photoUrl || '',
-    department: body.department,
+    department: auth.user!.departmentScoped ? auth.user!.department : body.department,
     position: body.position,
     status: body.status || 'contractuel',
     contractType: body.contractType || 'CDI',
@@ -542,6 +573,21 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('Erreur PostgreSQL lors du chargement du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible de charger le profil RH.' }, { status: 503 });
+  }
+
+  if (
+    auth.user!.departmentScoped &&
+    profile.department.trim().toLowerCase() !== auth.user!.department.toLowerCase()
+  ) {
+    return NextResponse.json({ error: 'Accès refusé : ce profil appartient à un autre service.' }, { status: 403 });
+  }
+
+  if (
+    auth.user!.departmentScoped &&
+    typeof body.department === 'string' &&
+    body.department.trim().toLowerCase() !== auth.user!.department.toLowerCase()
+  ) {
+    return NextResponse.json({ error: 'Vous ne pouvez gérer que les profils de votre service.' }, { status: 403 });
   }
 
   // Gestion des actions spéciales : REGENERATE_QR, REVOKE_QR, ARCHIVE, RESTORE

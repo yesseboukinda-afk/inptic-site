@@ -367,6 +367,8 @@ export default function AdminRHPage() {
   const [token, setToken] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('rh_consultation');
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [departmentScopedAdmin, setDepartmentScopedAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Données
@@ -428,6 +430,13 @@ export default function AdminRHPage() {
 
         const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
         const normRole = normalizeRole(rawRole);
+        const metadata = session.user?.user_metadata;
+        const assignedDepartment = metadata?.department ?? metadata?.service;
+        const scopedAdmin = ['admin', 'administrateur', 'administrator'].includes(normRole);
+        const department = typeof assignedDepartment === 'string' ? assignedDepartment.trim() : '';
+        setDepartmentScopedAdmin(scopedAdmin);
+        setUserDepartment(department || null);
+        setSelectedDept(scopedAdmin && department ? department : 'all');
 
         if (isAdminRole(normRole) || isDirectorRole(normRole) || normRole === 'rh_admin') {
           setUserRole('rh_admin');
@@ -448,9 +457,27 @@ export default function AdminRHPage() {
       if (session) {
         setToken(session.access_token);
         setUserEmail(session.user?.email || null);
+        const rawRole = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
+        const normRole = normalizeRole(rawRole);
+        const metadata = session.user?.user_metadata;
+        const assignedDepartment = metadata?.department ?? metadata?.service;
+        const scopedAdmin = ['admin', 'administrateur', 'administrator'].includes(normRole);
+        const department = typeof assignedDepartment === 'string' ? assignedDepartment.trim() : '';
+        setDepartmentScopedAdmin(scopedAdmin);
+        setUserDepartment(department || null);
+        setSelectedDept(scopedAdmin && department ? department : 'all');
+        if (isAdminRole(normRole) || isDirectorRole(normRole) || normRole === 'rh_admin') {
+          setUserRole('rh_admin');
+        } else if (normRole === 'rh_gestionnaire') {
+          setUserRole('rh_gestionnaire');
+        } else {
+          setUserRole('rh_consultation');
+        }
       } else {
         setToken(null);
         setUserEmail(null);
+        setUserDepartment(null);
+        setDepartmentScopedAdmin(false);
       }
     });
 
@@ -619,7 +646,7 @@ export default function AdminRHPage() {
     setFormPhone('+241 ');
     setFormEmail('');
     setFormPhotoUrl('');
-    setFormDept(RH_DEPARTMENTS[0]);
+    setFormDept(departmentScopedAdmin && userDepartment ? userDepartment : RH_DEPARTMENTS[0]);
     setFormPosition('');
     setFormStatus('contractuel');
     setFormContract('CDI');
@@ -1103,12 +1130,13 @@ export default function AdminRHPage() {
 
               {/* Filtre Direction */}
               <select
-                value={selectedDept}
+                value={departmentScopedAdmin ? userDepartment ?? '' : selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
+                disabled={departmentScopedAdmin}
                 className="max-w-[200px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
               >
-                <option value="all">Toutes les directions</option>
-                {RH_DEPARTMENTS.map((d) => (
+                {!departmentScopedAdmin && <option value="all">Toutes les directions</option>}
+                {(departmentScopedAdmin && userDepartment ? [userDepartment] : RH_DEPARTMENTS).map((d) => (
                   <option key={d} value={d}>
                     {d}
                   </option>
@@ -1960,9 +1988,10 @@ export default function AdminRHPage() {
                   <select
                     value={formDept}
                     onChange={(e) => setFormDept(e.target.value)}
+                    disabled={departmentScopedAdmin}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
                   >
-                    {RH_DEPARTMENTS.map((d) => (
+                    {(departmentScopedAdmin && userDepartment ? [userDepartment] : RH_DEPARTMENTS).map((d) => (
                       <option key={d} value={d}>
                         {d}
                       </option>
