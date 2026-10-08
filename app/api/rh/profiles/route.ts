@@ -388,11 +388,30 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
 
   const body = await request.json().catch(() => null);
-  if (!body || !body.firstName || !body.lastName || !body.matricule || !body.department || !body.position) {
+  if (
+    !body ||
+    typeof body.firstName !== 'string' ||
+    typeof body.lastName !== 'string' ||
+    typeof body.matricule !== 'string' ||
+    typeof body.department !== 'string' ||
+    typeof body.position !== 'string' ||
+    !body.firstName.trim() ||
+    !body.lastName.trim() ||
+    !body.matricule.trim() ||
+    !body.department.trim() ||
+    !body.position.trim()
+  ) {
     return NextResponse.json(
       { error: 'Nom, prénom, matricule, direction et fonction sont obligatoires.' },
       { status: 400 }
     );
+  }
+
+  if (
+    (body.birthDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(body.birthDate)) ||
+    (body.hireDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(body.hireDate))
+  ) {
+    return NextResponse.json({ error: 'Les dates de naissance et d’embauche doivent être valides.' }, { status: 400 });
   }
 
   const qrToken = generateSecureToken();
@@ -454,8 +473,33 @@ export async function POST(request: NextRequest) {
     );
     newProfile.id = String(rows[0].id);
   } catch (error) {
-    console.error('Erreur PostgreSQL lors de la création du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Impossible de créer le profil RH.' }, { status: 503 });
+    const databaseError = error && typeof error === 'object'
+      ? error as { code?: string; constraint?: string; column?: string }
+      : {};
+    const requestId = crypto.randomUUID();
+    console.error('[RH profile create] PostgreSQL error', {
+      requestId,
+      code: databaseError.code || 'UNKNOWN',
+      constraint: databaseError.constraint || null,
+      column: databaseError.column || null,
+    });
+
+    if (databaseError.code === '23505' && databaseError.constraint?.includes('matricule')) {
+      return NextResponse.json({ error: 'Ce matricule est déjà attribué. Vérifiez le matricule puis réessayez.' }, { status: 409 });
+    }
+    if (databaseError.code === '23514') {
+      return NextResponse.json({ error: 'Une valeur du profil est invalide. Vérifiez le sexe et le statut administratif.' }, { status: 400 });
+    }
+    if (databaseError.code === '22007' || databaseError.code === '22008') {
+      return NextResponse.json({ error: 'Une date du profil est invalide. Vérifiez les dates saisies.' }, { status: 400 });
+    }
+    if (databaseError.code === '42P01' || databaseError.code === '42703') {
+      return NextResponse.json({ error: 'Le schéma RH de la base n’est pas à jour. Contactez l’administrateur avec la référence ' + requestId + '.' }, { status: 503 });
+    }
+
+    return NextResponse.json({
+      error: `Impossible de créer le profil RH. Référence : ${requestId}.`,
+    }, { status: 503 });
   }
 
   await logAuditAction(

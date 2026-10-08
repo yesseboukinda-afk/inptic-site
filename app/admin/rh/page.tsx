@@ -47,7 +47,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { strToU8, zipSync } from 'fflate';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 import { authClient } from '@/lib/auth-client';
 import DeleteButton from '@/components/DeleteButton';
 import {
@@ -244,6 +244,121 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
   </html>
 `;
 
+function parseDelimitedText(text: string): string[][] {
+  const normalizedText = text.replace(/^\uFEFF/, '');
+  const firstLine = normalizedText.split(/\r?\n/, 1)[0] ?? '';
+  const semicolonCount = (firstLine.match(/;/g) ?? []).length;
+  const commaCount = (firstLine.match(/,/g) ?? []).length;
+  const delimiter = semicolonCount > commaCount ? ';' : ',';
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < normalizedText.length; index++) {
+    const character = normalizedText[index];
+    if (character === '"') {
+      if (inQuotes && normalizedText[index + 1] === '"') {
+        value += '"';
+        index++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (character === delimiter && !inQuotes) {
+      row.push(value.trim());
+      value = '';
+    } else if ((character === '\n' || character === '\r') && !inQuotes) {
+      if (character === '\r' && normalizedText[index + 1] === '\n') index++;
+      row.push(value.trim());
+      if (row.some((cell) => cell !== '')) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += character;
+    }
+  }
+
+  row.push(value.trim());
+  if (row.some((cell) => cell !== '')) rows.push(row);
+  return rows;
+}
+
+function serializeDelimitedRows(rows: string[][]): string {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+        .join(';'),
+    )
+    .join('\n');
+}
+
+async function readXlsxRows(file: File): Promise<string[][]> {
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  const decoder = new TextDecoder();
+  const readXml = (path: string) => {
+    const contents = archive[path];
+    if (!contents) throw new Error(`Le fichier Excel est incomplet (${path} manquant).`);
+    const document = new DOMParser().parseFromString(decoder.decode(contents), 'application/xml');
+    if (document.getElementsByTagName('parsererror').length > 0) {
+      throw new Error('Le fichier Excel contient un document XML invalide.');
+    }
+    return document;
+  };
+
+  const workbook = readXml('xl/workbook.xml');
+  const firstSheet = workbook.getElementsByTagNameNS('*', 'sheet')[0];
+  const relationshipId =
+    firstSheet?.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') ||
+    firstSheet?.getAttribute('r:id');
+  if (!relationshipId) throw new Error('Aucune feuille de calcul trouvée dans le fichier Excel.');
+
+  const relationships = readXml('xl/_rels/workbook.xml.rels');
+  const relationship = Array.from(relationships.getElementsByTagNameNS('*', 'Relationship')).find(
+    (item) => item.getAttribute('Id') === relationshipId,
+  );
+  const target = relationship?.getAttribute('Target');
+  if (!target) throw new Error('Impossible de localiser la feuille de calcul du fichier Excel.');
+
+  const pathParts = (target.startsWith('/') ? target.slice(1) : `xl/${target}`).split('/');
+  const worksheetPath: string[] = [];
+  for (const part of pathParts) {
+    if (part === '..') worksheetPath.pop();
+    else if (part !== '.' && part !== '') worksheetPath.push(part);
+  }
+  const worksheet = readXml(worksheetPath.join('/'));
+  const sharedStrings = archive['xl/sharedStrings.xml']
+    ? Array.from(readXml('xl/sharedStrings.xml').getElementsByTagNameNS('*', 'si')).map((item) =>
+        Array.from(item.getElementsByTagNameNS('*', 't'))
+          .map((text) => text.textContent ?? '')
+          .join(''),
+      )
+    : [];
+
+  return Array.from(worksheet.getElementsByTagNameNS('*', 'row')).map((sourceRow) => {
+    const values: string[] = [];
+    for (const cell of Array.from(sourceRow.getElementsByTagNameNS('*', 'c'))) {
+      const reference = cell.getAttribute('r') ?? '';
+      const columnLetters = reference.match(/[A-Z]+/i)?.[0]?.toUpperCase();
+      if (!columnLetters) continue;
+      const columnIndex = [...columnLetters].reduce(
+        (index, letter) => index * 26 + letter.charCodeAt(0) - 64,
+        0,
+      ) - 1;
+      const cellType = cell.getAttribute('t');
+      const rawValue =
+        cellType === 'inlineStr'
+          ? Array.from(cell.getElementsByTagNameNS('*', 't'))
+              .map((text) => text.textContent ?? '')
+              .join('')
+          : cell.getElementsByTagNameNS('*', 'v')[0]?.textContent ?? '';
+      values[columnIndex] =
+        cellType === 's' ? sharedStrings[Number(rawValue)] ?? '' : rawValue;
+    }
+    return values.map((value) => value ?? '');
+  });
+}
+
 export default function AdminRHPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('profils');
@@ -276,6 +391,7 @@ export default function AdminRHPage() {
   // Modal Import CSV
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
+  const [importFileName, setImportFileName] = useState('');
   const [importReport, setImportReport] = useState<{ success: number; errors: string[] } | null>(null);
 
   // Formulaire Employé
@@ -586,180 +702,13 @@ export default function AdminRHPage() {
 
   // Impression dédiée d'une Carte Professionnelle au format badge portrait vertical
   const handlePrintCard = (p: RHProfile) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga';
-    const qrSvg = generateQRCodeSVG(`${origin}/agent/${p.qrToken || p.id}`, { size: 140, margin: 1 });
-
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
       window.alert('Autorisez les fenêtres contextuelles pour imprimer la carte professionnelle.');
       return;
     }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Carte Professionnelle - ${p.firstName} ${p.lastName}</title>
-          <style>
-            @page {
-              size: 53.98mm 85.6mm;
-              margin: 0;
-            }
-            html, body {
-              width: 53.98mm;
-              height: 85.6mm;
-              margin: 0;
-              padding: 0;
-              overflow: hidden;
-            }
-            body {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: #0f172a;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            .card {
-              width: 53.98mm;
-              height: 85.6mm;
-              background: #ffffff;
-              border-radius: 4mm;
-              overflow: hidden;
-              box-sizing: border-box;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              text-align: center;
-              position: relative;
-              border: 1px solid #cbd5e1;
-              break-inside: avoid-page;
-              page-break-inside: avoid;
-            }
-            .top-header {
-              width: 100%;
-              background: #1e3a8a;
-              padding: 2mm;
-              position: relative;
-              box-sizing: border-box;
-            }
-            .company-logo {
-              display: block;
-              width: 30mm;
-              height: auto;
-              margin: 0 auto;
-              padding: 0.5mm;
-              box-sizing: content-box;
-              background: #ffffff;
-              border-radius: 1mm;
-            }
-            .photo-wrapper {
-              margin-top: 2mm;
-              position: relative;
-              z-index: 10;
-            }
-            .photo {
-              width: 22mm;
-              height: 22mm;
-              border-radius: 50%;
-              border: 2mm solid #0ea5e9;
-              object-fit: cover;
-              background: #0f172a;
-            }
-            .body {
-              padding: 1.5mm 3mm 2mm;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              flex: 1;
-              justify-content: space-between;
-              width: 100%;
-              box-sizing: border-box;
-            }
-            .name {
-              font-size: 9pt;
-              font-weight: 900;
-              color: #0f172a;
-              line-height: 1.1;
-              text-transform: uppercase;
-            }
-            .position {
-              font-size: 6.5pt;
-              font-weight: 700;
-              color: #0284c7;
-              margin-top: 0.5mm;
-            }
-            .matr {
-              font-size: 5.5pt;
-              font-family: monospace;
-              color: #d4af37;
-              font-weight: 800;
-              margin-top: 0.5mm;
-            }
-            .qr-box {
-              width: 20mm;
-              height: 20mm;
-              background: #ffffff;
-              padding: 0.5mm;
-              border: 1px solid #e2e8f0;
-              border-radius: 1.5mm;
-              margin-top: 0.5mm;
-            }
-            .qr-box svg {
-              width: 100%;
-              height: 100%;
-            }
-            .footer {
-              font-size: 4.5pt;
-              color: #64748b;
-              font-weight: 600;
-            }
-            @media print {
-              html, body {
-                width: 53.98mm !important;
-                height: 85.6mm !important;
-                min-height: 0 !important;
-                overflow: hidden !important;
-              }
-              .card {
-                break-after: avoid-page;
-                page-break-after: avoid;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="top-header">
-              <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
-            </div>
-            <div class="photo-wrapper">
-              ${p.photoUrl ? `<img src="${p.photoUrl}" class="photo" />` : '<div class="photo" style="display:flex;align-items:center;justify-content:center;color:white;font-size:7pt;font-weight:bold;">PHOTO</div>'}
-            </div>
-            <div class="body">
-              <div>
-                <div class="name">${p.firstName} ${p.lastName}</div>
-                <div class="position">${p.position}</div>
-                <div class="matr">MATR: ${p.matricule}</div>
-              </div>
-              <div class="qr-box">${qrSvg}</div>
-              <div class="footer">
-                CARTE PROFESSIONNELLE OFFICIELLE
-              </div>
-            </div>
-          </div>
-          <script>
-            window.onload = () => {
-              setTimeout(() => {
-                window.print();
-                window.close();
-              }, 250);
-            };
-          </script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(getPrintableCardsDocument([p], window.location.origin));
     printWindow.document.close();
   };
 
@@ -911,18 +860,42 @@ export default function AdminRHPage() {
     link.click();
   };
 
-  // Import CSV / Excel (parsing texte CSV avec séparateur , ou ;)
+  const handleImportFileSelection = async (file: File) => {
+    setImportFileName(file.name);
+    setImportReport(null);
+    try {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('Le fichier ne peut pas dépasser 10 Mo.');
+      }
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      if (extension === 'csv') {
+        setImportText(await file.text());
+      } else if (extension === 'xlsx') {
+        setImportText(serializeDelimitedRows(await readXlsxRows(file)));
+      } else {
+        throw new Error('Format non pris en charge. Sélectionnez un fichier CSV ou Excel (.xlsx).');
+      }
+    } catch (error) {
+      setImportText('');
+      setImportReport({
+        success: 0,
+        errors: [error instanceof Error ? error.message : 'Impossible de lire le fichier sélectionné.'],
+      });
+    }
+  };
+
   const handleExecuteImport = async () => {
     if (!token || !importText.trim()) return;
 
-    const lines = importText.trim().split('\n').filter((l) => l.trim().length > 0);
-    if (lines.length < 2) {
+    const rows = parseDelimitedText(importText);
+    if (rows.length < 2) {
       setImportReport({ success: 0, errors: ['Le fichier doit contenir au moins un en-tête et une ligne de données.'] });
       return;
     }
 
-    const separator = lines[0].includes(';') ? ';' : ',';
-    const rawHeaders = lines[0].split(separator).map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+    const rawHeaders = rows[0].map((header) =>
+      header.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase(),
+    );
 
     const colIndex = {
       matricule: rawHeaders.findIndex((h) => h.includes('matricule')),
@@ -945,13 +918,13 @@ export default function AdminRHPage() {
     let successCount = 0;
     const errors: string[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(separator).map((p) => p.replace(/^["']|["']$/g, '').trim());
+    for (let i = 1; i < rows.length; i++) {
+      const parts = rows[i];
       const nom = parts[colIndex.nom];
       const prenom = colIndex.prenom !== -1 ? parts[colIndex.prenom] : 'Agent';
       const direction = parts[colIndex.direction];
       const fonction = parts[colIndex.fonction];
-      const matricule = colIndex.matricule !== -1 && parts[colIndex.matricule] ? parts[colIndex.matricule] : `INPTIC-IMP-${Date.now().toString(36).slice(-4)}`;
+      const matricule = colIndex.matricule !== -1 && parts[colIndex.matricule] ? parts[colIndex.matricule] : `INPTIC-IMP-${Date.now().toString(36).slice(-4)}-${i}`;
       const email = colIndex.email !== -1 ? parts[colIndex.email] : '';
       const telephone = colIndex.telephone !== -1 ? parts[colIndex.telephone] : '';
 
@@ -1371,7 +1344,7 @@ export default function AdminRHPage() {
               <p className="mt-1 text-xs text-slate-500">
                 Le QR Code encode uniquement l&apos;URL publique non-devinable{' '}
                 <code className="rounded bg-slate-100 px-1 py-0.5 text-blue-700">/agent/[token]</code>.
-                Régénérer le token annule immédiatement l&apos;ancien QR.
+                Chaque consultation d&apos;une carte est enregistrée dans le journal d&apos;audit. Régénérer le token annule immédiatement l&apos;ancien QR.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1728,7 +1701,7 @@ export default function AdminRHPage() {
               Journal d&apos;Audit des Opérations RH &amp; Accès
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Traçabilité complète des créations, modifications, révocations de QR codes et archivages.
+              Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
             </p>
 
             <div className="mt-6 overflow-x-auto">
@@ -1762,7 +1735,14 @@ export default function AdminRHPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-slate-900">{log.targetName || '—'}</td>
-                        <td className="px-4 py-3 text-slate-600">{log.details || '—'}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <span>{log.details || '—'}</span>
+                          {log.action === 'SCAN_CARD' && log.ipAddress && (
+                            <span className="mt-1 block font-mono text-[10px] text-slate-400">
+                              Adresse IP : {log.ipAddress}
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -2306,8 +2286,23 @@ export default function AdminRHPage() {
 
             <h3 className="text-lg font-black text-slate-900">Importer des profils (CSV / Excel)</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Collez ci-dessous le contenu de votre fichier CSV avec séparateur virgule ou point-virgule.
+              Sélectionnez un fichier CSV ou Excel (.xlsx), ou collez son contenu ci-dessous.
             </p>
+
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50 px-4 py-3 text-xs font-bold text-blue-700 hover:bg-blue-100">
+              <FileSpreadsheet size={16} />
+              <span>{importFileName || 'Choisir un fichier CSV ou Excel (.xlsx)'}</span>
+              <input
+                type="file"
+                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handleImportFileSelection(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
 
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-[11px] text-slate-600 font-mono">
               En-têtes acceptés : Matricule, Nom, Prénom, Direction, Fonction, Email, Téléphone
@@ -2316,15 +2311,21 @@ export default function AdminRHPage() {
             <textarea
               rows={8}
               value={importText}
-              onChange={(e) => setImportText(e.target.value)}
+              onChange={(e) => {
+                setImportText(e.target.value);
+                setImportFileName('');
+                setImportReport(null);
+              }}
               placeholder={`Matricule;Nom;Prénom;Direction;Fonction;Email&#10;INPTIC-042;MBOUMBA;Jean;Service Scolarité;Agent;jean@inptic.ga`}
               className="mt-4 w-full rounded-xl border border-slate-200 p-3 text-xs font-mono focus:border-blue-500 focus:outline-none"
             />
 
             {importReport && (
               <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs">
-                <p className="font-bold text-emerald-700">
-                  {importReport.success} profil(s) importé(s) avec succès !
+                <p className={`font-bold ${importReport.errors.length > 0 ? 'text-slate-700' : 'text-emerald-700'}`}>
+                  {importReport.success > 0
+                    ? `${importReport.success} profil(s) importé(s) avec succès.`
+                    : 'Aucun profil importé.'}
                 </p>
                 {importReport.errors.length > 0 && (
                   <ul className="mt-2 space-y-1 text-red-600">
