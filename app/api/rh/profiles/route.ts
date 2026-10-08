@@ -3,8 +3,9 @@ import crypto from 'crypto';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
-  isRHAdminRole,
+  canAccessStaffService,
   isSuperAdminRole,
+  isDirectorRole,
   normalizeRole,
 } from '@/lib/roles';
 import {
@@ -210,7 +211,8 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
   const role = normalizeRole(user.role);
 
   const isSuperAdmin = isSuperAdminRole(role);
-  const hasAccess = isSuperAdmin || isRHAdminRole(role);
+  const isGlobalAdmin = isSuperAdmin || isDirectorRole(role);
+  const hasAccess = canAccessStaffService(role, 'human_resources');
 
   if (!hasAccess) {
     return {
@@ -234,7 +236,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
     user: {
       id: user.id,
       email: user.email,
-      role: isSuperAdmin || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
+      role: isGlobalAdmin || ['rh', 'drh', 'rh_admin'].includes(role) ? 'rh_admin' : role,
     },
   };
 }

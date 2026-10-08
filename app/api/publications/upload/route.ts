@@ -6,6 +6,7 @@ const BUCKET = 'publications-docs';
 export async function POST(request: NextRequest) {
   const auth = await authorizeStaffRequest(
     request,
+    'publications',
     'Accès non autorisé pour les pièces jointes de publications.'
   );
   if (auth.error) return auth.error;
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const auth = await authorizeStaffRequest(
     request,
+    'publications',
     'Accès non autorisé pour les pièces jointes de publications.'
   );
   if (auth.error) return auth.error;

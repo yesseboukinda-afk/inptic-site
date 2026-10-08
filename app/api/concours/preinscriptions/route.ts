@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import {
-  isAdminRole,
-  isCommunicationRole,
-  isDirectorRole,
-  normalizeRole,
-} from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 
 async function authorizeStaff(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) return null;
-  const role = normalizeRole(user.role);
-  return isAdminRole(role) || isDirectorRole(role) || isCommunicationRole(role) ||
-    role === 'scolarite' || role === 'direction_etudes';
+  return canAccessStaffService(user.role, 'preinscriptions');
 }
 
 export async function GET(request: NextRequest) {

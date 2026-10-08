@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'Base PostgreSQL indisponible.' }, { status: 503 });
   const manage = request.nextUrl.searchParams.get('manage') === '1';
   if (manage) {
-    const auth = await authorizeStaffRequest(request, 'Accès réservé à l’administration des formations.');
+    const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
     if (auth.error) return auth.error;
   }
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeStaffRequest(request, 'Accès réservé à l’administration des formations.');
+  const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'PostgreSQL indisponible.' }, { status: 503 });
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await authorizeStaffRequest(request, 'Accès réservé à l’administration des formations.');
+  const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'PostgreSQL indisponible.' }, { status: 503 });
 
@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await authorizeStaffRequest(request, 'Accès réservé à l’administration des formations.');
+  const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'PostgreSQL indisponible.' }, { status: 503 });
 

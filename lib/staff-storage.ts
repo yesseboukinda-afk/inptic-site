@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  isAdminRole,
-  isCommunicationRole,
-  isDirectorRole,
-  normalizeRole,
-} from '@/lib/roles';
+import { canAccessStaffService, type StaffService } from '@/lib/roles';
 import { deleteStoredFile, getPublicStorageUrl, saveStoredFile } from '@/lib/localStorage';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 
@@ -16,22 +11,17 @@ export type StoredAttachment = {
   path: string;
 };
 
-export async function authorizeStaffRequest(request: NextRequest, forbiddenMessage: string) {
+export async function authorizeStaffRequest(
+  request: NextRequest,
+  service: StaffService,
+  forbiddenMessage: string,
+) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  const role = normalizeRole(user.role);
-
-  const isAuthorized =
-    isAdminRole(role) ||
-    isDirectorRole(role) ||
-    isCommunicationRole(role) ||
-    role === 'scolarite' ||
-    role === 'direction_etudes';
-
-  if (!isAuthorized) {
+  if (!canAccessStaffService(user.role, service)) {
     return { error: NextResponse.json({ error: forbiddenMessage }, { status: 403 }) };
   }
 

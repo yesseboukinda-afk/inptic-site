@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import {
-  isAdminRole,
-  isCommunicationRole,
-  isDirectorRole,
-  normalizeRole,
-} from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 import { ConcoursItem } from '@/types/concours';
 
 // Graines initiales réalistes INPTIC Gabon en cas de table vide ou hors ligne
@@ -137,16 +132,7 @@ async function authorizeStaff(request: NextRequest) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  const role = normalizeRole(user.role);
-
-  const isAuthorized =
-    isAdminRole(role) ||
-    isDirectorRole(role) ||
-    isCommunicationRole(role) ||
-    role === 'scolarite' ||
-    role === 'direction_etudes';
-
-  if (!isAuthorized) {
+  if (!canAccessStaffService(user.role, 'concours')) {
     return {
       error: NextResponse.json({ error: 'Accès non autorisé pour la gestion des concours.' }, { status: 403 }),
     };

@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
-import {
-  isAdminRole,
-  isCommunicationRole,
-  isDirectorRole,
-  normalizeRole,
-} from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 import { ResearchPublication } from '@/types/publication';
 
 // Graines initiales représentatives des travaux des chercheurs de l'INPTIC Gabon
@@ -111,15 +106,7 @@ async function authorizeStaff(request: NextRequest) {
     return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
 
-  const role = normalizeRole(user.role);
-
-  const isAuthorized =
-    isAdminRole(role) ||
-    isDirectorRole(role) ||
-    isCommunicationRole(role) ||
-    role === 'direction_etudes';
-
-  if (!isAuthorized) {
+  if (!canAccessStaffService(user.role, 'publications')) {
     return {
       error: NextResponse.json(
         { error: 'Accès non autorisé pour la gestion des publications scientifiques.' },

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Download, ExternalLink, FileText, Loader2, PlayCircle, Plus, Trash2, Upload, Video } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
-import { isStaffOrAdminUser } from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 
 type TrainingResource = {
   id: string;
@@ -66,12 +66,12 @@ export default function TrainingCatalog() {
       const session = data.session;
       const role = session?.user?.app_metadata?.role ?? null;
       setToken(session?.access_token || null);
-      setCanManage(Boolean(session && isStaffOrAdminUser(undefined, role)));
+      setCanManage(Boolean(session && canAccessStaffService(role, 'formations')));
     });
     const { data: { subscription } } = authClient.auth.onAuthStateChange((_event, session) => {
       const role = session?.user?.app_metadata?.role ?? null;
       setToken(session?.access_token || null);
-      setCanManage(Boolean(session && isStaffOrAdminUser(undefined, role)));
+      setCanManage(Boolean(session && canAccessStaffService(role, 'formations')));
     });
     return () => subscription.unsubscribe();
   }, []);

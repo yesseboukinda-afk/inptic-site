@@ -10,6 +10,7 @@ import {
   RefreshCw, Tag, Trash2, UploadCloud, X,
 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import { canAccessStaffService } from '@/lib/roles';
 import TechVeilleFeed from '@/components/TechVeilleFeed';
 import EReputationDashboard from '@/components/EReputationDashboard';
 
@@ -720,6 +721,7 @@ export function Composer({
 export default function GestionAnnoncesPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [canViewReputation, setCanViewReputation] = useState(false);
   const [checkingRole, setCheckingRole] = useState(true);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [accessToken, setAccessToken] = useState('');
@@ -765,9 +767,18 @@ export default function GestionAnnoncesPage() {
       const session = data.session;
       if (session) {
         setAccessToken(session.access_token);
-        setAuthorized(true);
-        setCheckingRole(false);
-        void load(session.access_token);
+        const role = session.user?.app_metadata?.role ?? session.user?.app_metadata?.roles;
+        if (canAccessStaffService(role, 'announcements')) {
+          setAuthorized(true);
+          setCanViewReputation(canAccessStaffService(role, 'reputation'));
+          setCheckingRole(false);
+          void load(session.access_token);
+        } else {
+          setAuthorized(false);
+          setCanViewReputation(false);
+          setCheckingRole(false);
+          router.replace('/candidat');
+        }
         return;
       }
 
@@ -983,7 +994,7 @@ export default function GestionAnnoncesPage() {
 
             {/* Veille e-réputation (colonne droite) */}
             <section className="min-w-0 border-t border-slate-200 pt-8 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-              <EReputationDashboard accessToken={accessToken} />
+              {canViewReputation && <EReputationDashboard accessToken={accessToken} />}
             </section>
           </div>
         </div>

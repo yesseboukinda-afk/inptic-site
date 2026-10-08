@@ -16,7 +16,7 @@ import {
   EMPTY_FORM,
   type PublicationForm,
 } from './gestion/AnnoncesGestionClient';
-import { isStaffOrAdminUser } from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 
 /* ─────────────────────────────────── types ── */
 type Attachment = {
@@ -461,7 +461,7 @@ export default function AnnoncesPublicPage() {
       const rawRole = session?.user?.app_metadata?.role;
       const role = typeof rawRole === 'string' ? rawRole : '';
 
-      if (active && session && isStaffOrAdminUser(undefined, role)) {
+      if (active && session && canAccessStaffService(role, 'announcements')) {
         setIsAdmin(true);
         setAdminEmail(sessionEmail);
         if (sessionToken) setAccessToken(sessionToken);

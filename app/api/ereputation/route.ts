@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import {
-  isAdminRole,
-  isCommunicationRole,
-  normalizeRole,
-} from '@/lib/roles';
+import { canAccessStaffService } from '@/lib/roles';
 
 type MentionItem = {
   id: string;
@@ -26,14 +22,9 @@ async function authorizeFacebookReply(request: NextRequest) {
     return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
   }
 
-  const role = normalizeRole(user.role);
-  const isAuthorized =
-    isAdminRole(role) ||
-    isCommunicationRole(role);
-
-  if (!isAuthorized) {
+  if (!canAccessStaffService(user.role, 'reputation')) {
     return NextResponse.json(
-      { error: 'Vous n’êtes pas autorisé à répondre au nom de la Page INPTIC.' },
+      { error: 'Accès réservé au service Communication.' },
       { status: 403 },
     );
   }
@@ -67,6 +58,9 @@ function classifySentiment(content: string): MentionItem['sentiment'] {
 }
 
 export async function GET(request: NextRequest) {
+  const authorizationError = await authorizeFacebookReply(request);
+  if (authorizationError) return authorizationError;
+
   const forceRefresh = request.nextUrl.searchParams.get('refresh') === '1';
   const facebookPageId = process.env.FACEBOOK_PAGE_ID || '61557159190234';
   const fbAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
