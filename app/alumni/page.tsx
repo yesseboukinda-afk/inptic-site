@@ -1,7 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RotateCcw, Search } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { isSuperAdminRole } from '@/lib/roles';
 
@@ -52,6 +53,42 @@ export default function Alumni() {
   const [localDraft, setLocalDraft] = useState<AlumniDraft | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [directorySearchBy, setDirectorySearchBy] = useState('all');
+  const [directorySortBy, setDirectorySortBy] = useState('');
+  const [directorySortDirection, setDirectorySortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const visibleAlumni = useMemo(() => {
+    const query = directoryQuery.trim().toLocaleLowerCase();
+    const fields: Record<string, (person: Alumni) => string> = {
+      nom: (person) => `${person.prenom} ${person.nom}`,
+      filiere: (person) => person.filiere,
+      poste: (person) => person.poste,
+      entreprise: (person) => person.entreprise,
+      promotion: (person) => person.promotion,
+    };
+    const searchableFields = directorySearchBy === 'all'
+      ? Object.keys(fields)
+      : [directorySearchBy];
+    const filtered = alumni.filter((person) =>
+      !query || searchableFields.some((field) =>
+        fields[field]?.(person).toLocaleLowerCase().includes(query),
+      ),
+    );
+
+    if (!directorySortBy) return filtered;
+
+    const sortField = fields[directorySortBy];
+    if (!sortField) return filtered;
+
+    return [...filtered].sort((first, second) => {
+      const comparison = sortField(first).localeCompare(sortField(second), 'fr', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      return directorySortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [alumni, directoryQuery, directorySearchBy, directorySortBy, directorySortDirection]);
 
   useEffect(() => {
     const { data: { subscription } } = authClient.auth.onAuthStateChange((_event, session) => {
@@ -959,150 +996,166 @@ export default function Alumni() {
 
           ) : (
 
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <>
+              <div className="alumni-directory-toolbar mt-8 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
+                <label className="relative min-w-0 flex-1">
+                  <span className="sr-only">Rechercher un Alumni</span>
+                  <Search
+                    size={18}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="search"
+                    value={directoryQuery}
+                    onChange={(event) => setDirectoryQuery(event.target.value)}
+                    placeholder="Rechercher un Alumni"
+                    className="alumni-directory-control w-full border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
 
-              {alumni.map((person) => (
+                <div className="grid grid-cols-2 gap-2 sm:flex">
+                  <label>
+                    <span className="sr-only">Rechercher par</span>
+                    <select
+                      value={directorySearchBy}
+                      onChange={(event) => setDirectorySearchBy(event.target.value)}
+                      className="alumni-directory-control h-full min-h-11 w-full border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-auto"
+                    >
+                      <option value="all">Tous les champs</option>
+                      <option value="nom">Nom</option>
+                      <option value="filiere">Filière</option>
+                      <option value="poste">Poste</option>
+                      <option value="entreprise">Entreprise</option>
+                      <option value="promotion">Promotion</option>
+                    </select>
+                  </label>
 
-                <article
-                  key={person.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                >
+                  <label>
+                    <span className="sr-only">Trier par</span>
+                    <select
+                      value={directorySortBy}
+                      onChange={(event) => setDirectorySortBy(event.target.value)}
+                      className="alumni-directory-control h-full min-h-11 w-full border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-auto"
+                    >
+                      <option value="">Ordre d’affichage</option>
+                      <option value="nom">Nom</option>
+                      <option value="promotion">Promotion</option>
+                      <option value="filiere">Filière</option>
+                      <option value="entreprise">Entreprise</option>
+                    </select>
+                  </label>
 
-                  <div className="h-2 bg-gradient-to-r from-blue-600 to-cyan-500" />
+                  <label>
+                    <span className="sr-only">Sens du tri</span>
+                    <select
+                      value={directorySortDirection}
+                      onChange={(event) => setDirectorySortDirection(event.target.value as 'asc' | 'desc')}
+                      className="alumni-directory-control h-full min-h-11 w-full border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-auto"
+                    >
+                      <option value="asc">Croissant</option>
+                      <option value="desc">Décroissant</option>
+                    </select>
+                  </label>
 
-                  <div className="p-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDirectoryQuery('');
+                      setDirectorySearchBy('all');
+                      setDirectorySortBy('');
+                      setDirectorySortDirection('asc');
+                    }}
+                    className="alumni-directory-control inline-flex min-h-11 items-center justify-center gap-2 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  >
+                    <RotateCcw size={15} aria-hidden="true" />
+                    Réinitialiser
+                  </button>
+                </div>
+              </div>
 
-                    {/* IDENTITE */}
-
-                    <div className="flex items-start gap-4">
-
+              {visibleAlumni.length === 0 ? (
+                <p className="mt-10 rounded-xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500">
+                  Aucun Alumni ne correspond à votre recherche.
+                </p>
+              ) : (
+                <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-8 lg:grid-cols-4">
+                  {visibleAlumni.map((person) => (
+                    <article
+                      key={person.id}
+                      className="alumni-directory-card group mx-auto w-full max-w-64 text-center transition duration-200 hover:-translate-y-1"
+                    >
                       {person.photo ? (
-
                         <img
                           src={person.photo}
                           alt={`Photo de ${person.prenom} ${person.nom}`}
-                          className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-blue-100"
+                          className="alumni-directory-photo mx-auto aspect-square w-full max-w-40 object-cover shadow-sm transition group-hover:shadow-md"
+                          loading="lazy"
                         />
-
                       ) : (
-
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-blue-600">
+                        <div
+                          className="alumni-directory-photo mx-auto flex aspect-square w-full max-w-40 items-center justify-center bg-gradient-to-br from-blue-100 to-cyan-100 text-4xl font-black text-blue-700"
+                          aria-label={`Aucune photo pour ${person.prenom} ${person.nom}`}
+                        >
                           {person.prenom.charAt(0)}
                           {person.nom.charAt(0)}
                         </div>
-
                       )}
 
-                      <div>
-
-                        <h3 className="text-xl font-bold text-slate-900">
+                      <div className="px-1 pt-4">
+                        <h3 className="text-base font-bold leading-snug text-slate-900 sm:text-lg">
                           {person.prenom} {person.nom}
                         </h3>
+                        <p className="mt-1 text-sm font-medium text-slate-500">{person.filiere}</p>
+                        <p className="mt-1 text-sm text-slate-500">{person.poste}</p>
+                        <p className="mt-1 text-sm text-slate-500">{person.entreprise}</p>
+                        <p className="mt-1 text-sm text-slate-500">Promotion {person.promotion}</p>
 
-                        <p className="mt-1 text-sm font-medium text-blue-600">
-                          Promotion {person.promotion}
-                        </p>
+                        {person.commentaire && (
+                          <div className="mt-4 border-t border-slate-200 pt-3 text-left">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                              Témoignage
+                            </p>
+                            <p className="mt-1 line-clamp-4 text-sm italic leading-5 text-slate-600">
+                              « {person.commentaire} »
+                            </p>
+                          </div>
+                        )}
 
+                        {person.isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => editProfile(person)}
+                            className="alumni-directory-control mt-4 w-full bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                          >
+                            Modifier mon profil
+                          </button>
+                        )}
+
+                        {isSuperAdmin && (
+                          <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
+                            <button
+                              type="button"
+                              onClick={() => editProfile(person)}
+                              className="alumni-directory-control flex-1 border border-violet-200 px-2 py-2 text-xs font-semibold text-violet-800 transition hover:bg-violet-50"
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteProfile(person)}
+                              className="alumni-directory-control flex-1 border border-red-200 px-2 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        )}
                       </div>
-
-                    </div>
-
-                    {/* INFORMATIONS */}
-
-                    <div className="mt-6 space-y-4">
-
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Filière
-                        </p>
-
-                        <p className="mt-1 font-medium text-slate-700">
-                          {person.filiere}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Poste actuel
-                        </p>
-
-                        <p className="mt-1 font-medium text-slate-700">
-                          {person.poste}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Entreprise
-                        </p>
-
-                        <p className="mt-1 font-medium text-slate-700">
-                          {person.entreprise}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    {/* COMMENTAIRE */}
-
-                    {person.commentaire && (
-
-                      <div className="mt-6 border-t border-slate-100 pt-5">
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Témoignage
-                        </p>
-
-                        <p className="mt-2 text-sm italic leading-6 text-slate-600">
-                          « {person.commentaire} »
-                        </p>
-
-                      </div>
-
-                    )}
-
-                    {person.isOwner && (
-                      <button
-                        type="button"
-                        onClick={() => editProfile(person)}
-                        className="mt-6 w-full rounded-lg border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
-                      >
-                        Modifier mon profil
-                      </button>
-                    )}
-
-                    {isSuperAdmin && (
-                      <div className="mt-6 flex gap-3 border-t border-slate-100 pt-5">
-                        <button
-                          type="button"
-                          onClick={() => editProfile(person)}
-                          className="flex-1 rounded-lg border border-violet-200 px-4 py-2.5 text-sm font-semibold text-violet-800 transition hover:bg-violet-50"
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteProfile(person)}
-                          className="flex-1 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-
-                </article>
-
-              ))}
-
-            </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
 
           )}
 

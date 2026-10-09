@@ -214,6 +214,15 @@ html.dark .text-gray-500 {
   color: #cbd5e1 !important;
 }
 
+.alumni-directory-toolbar,
+.alumni-directory-photo {
+  border-radius: 0.875rem !important;
+}
+
+.alumni-directory-control {
+  border-radius: 0.625rem !important;
+}
+
 html.dark .formation-result-card {
   background-color: #1e293b !important;
   color: #f8fafc !important;

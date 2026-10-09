@@ -98,7 +98,7 @@ const getProfileFileName = (profile: RHProfile) =>
 
 const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
   const qrSvg = generateQRCodeSVG(`${origin}/agent/${profile.qrToken || profile.id}`, {
-    size: 140,
+    size: 240,
     margin: 1,
   });
   const photo = profile.photoUrl
@@ -106,21 +106,32 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
     : '<div class="photo photo-placeholder">PHOTO</div>';
 
   return `
-    <div class="card">
-      <div class="top-header">
+    <section class="card-face card-front">
+      <div class="front-band">
+        <span>MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE<br />DE LA DIGITALISATION ET DE L’INNOVATION</span>
+        <i aria-hidden="true"></i>
+      </div>
+      <div class="brand-row">
         <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
+        <img src="${origin}/rh/gabon-emblem.png" class="state-emblem" alt="Emblème de la République gabonaise" />
       </div>
+      <h1>CARTE PROFESSIONNELLE</h1>
       <div class="photo-wrapper">${photo}</div>
-      <div class="body">
-        <div>
-          <div class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</div>
-          <div class="position">${escapeHtml(profile.position)}</div>
-          <div class="matr">MATR: ${escapeHtml(profile.matricule)}</div>
-        </div>
-        <div class="qr-box">${qrSvg}</div>
-        <div class="footer">CARTE PROFESSIONNELLE OFFICIELLE</div>
+      <div class="identity">
+        <strong class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</strong>
+        <span class="position">${escapeHtml(profile.position)}</span>
+        <span class="department">${escapeHtml(profile.department)}</span>
+        <span class="matr">MATRICULE : ${escapeHtml(profile.matricule)}</span>
       </div>
-    </div>
+      <div class="front-footer">
+        <div class="qr-box">${qrSvg}</div>
+        <span>www.inptic-ga.org</span>
+        <i aria-hidden="true"></i>
+      </div>
+    </section>
+    <section class="card-face card-back">
+      <img src="${origin}/rh/carte-professionnelle-verso.png" alt="Conditions d’utilisation de la carte professionnelle INPTIC" />
+    </section>
   `;
 };
 
@@ -131,109 +142,219 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       <meta charset="utf-8" />
       <title>Cartes professionnelles INPTIC</title>
       <style>
-        @page { size: 53.98mm 85.6mm; margin: 0; }
+        @page { size: 55mm 85mm; margin: 0; }
+        * { box-sizing: border-box; }
         html, body {
-          width: 53.98mm;
+          width: 55mm;
           margin: 0;
           padding: 0;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        .card {
-          width: 53.98mm;
-          height: 85.6mm;
-          margin: 0 auto;
-          background: #ffffff;
-          border-radius: 4mm;
+        .card-face {
+          position: relative;
+          width: 55mm;
+          height: 85mm;
+          margin: 0;
           overflow: hidden;
-          box-sizing: border-box;
+          background: #fff;
+          break-after: page;
+          page-break-after: always;
+        }
+        .card-face:last-child { break-after: auto; page-break-after: auto; }
+        .card-front {
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
-          border: 1px solid #cbd5e1;
-          break-after: page;
-          page-break-after: always;
+          color: #111827;
+          background:
+            linear-gradient(135deg, transparent 72%, #eef9fd 72%),
+            #fff;
         }
-        .card:last-child { break-after: auto; page-break-after: auto; }
-        .top-header {
+        .front-band {
+          position: relative;
+          display: flex;
+          align-items: center;
           width: 100%;
-          background: #1e3a8a;
-          padding: 2mm;
-          box-sizing: border-box;
+          height: 13mm;
+          flex: 0 0 13mm;
+          padding: 0 2mm;
+          overflow: hidden;
+          color: #fff;
+          background: #55afe0;
+          text-align: left;
+          font-size: 4pt;
+          font-weight: 700;
+          line-height: 1.35;
+        }
+        .front-band i {
+          position: absolute;
+          top: 0;
+          right: -1mm;
+          width: 17mm;
+          height: 13mm;
+          background: #383e9e;
+          clip-path: polygon(100% 0, 100% 100%, 0 100%);
+        }
+        .brand-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          height: 10mm;
+          padding: 1mm 2mm 0;
         }
         .company-logo {
           display: block;
-          width: 30mm;
-          height: auto;
-          margin: 0 auto;
-          padding: 0.5mm;
-          box-sizing: content-box;
-          background: #ffffff;
-          border-radius: 1mm;
+          width: 27mm;
+          height: 8mm;
+          object-fit: contain;
+          object-position: left center;
         }
-        .photo-wrapper { margin-top: 2mm; position: relative; z-index: 1; }
-        .photo {
-          width: 22mm;
-          height: 22mm;
-          border-radius: 50%;
-          border: 2mm solid #0ea5e9;
+        .state-emblem {
+          display: block;
+          width: 13mm;
+          height: 8mm;
           object-fit: cover;
-          background: #0f172a;
+          border: 0.25mm solid #e5e7eb;
+        }
+        .card-front h1 {
+          margin: 0.5mm 0 0;
+          color: #171717;
+          font-size: 8pt;
+          font-weight: 900;
+          line-height: 1.1;
+        }
+        .photo-wrapper {
+          position: relative;
+          z-index: 1;
+          width: 25mm;
+          height: 25mm;
+          flex: 0 0 25mm;
+          margin-top: 1mm;
+          overflow: hidden;
+          border: 0.7mm solid #26399b;
+          border-radius: 50%;
+          background: #f1f5f9;
+        }
+        .photo {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center 25%;
         }
         .photo-placeholder {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: #fff;
+          background: #172554;
           font-size: 7pt;
-          font-weight: bold;
+          font-weight: 800;
         }
-        .body {
-          padding: 1.5mm 3mm 2mm;
+        .identity {
           display: flex;
           flex-direction: column;
           align-items: center;
-          flex: 1;
-          justify-content: space-between;
           width: 100%;
-          box-sizing: border-box;
+          padding: 1mm 2mm 0;
+          line-height: 1.15;
         }
         .name {
-          font-size: 9pt;
+          max-width: 100%;
+          overflow: hidden;
+          color: #1b1b1b;
+          font-size: 8.5pt;
           font-weight: 900;
-          color: #0f172a;
-          line-height: 1.1;
+          line-height: 1.15;
+          text-overflow: ellipsis;
           text-transform: uppercase;
+          white-space: nowrap;
         }
         .position {
+          max-width: 100%;
+          overflow: hidden;
+          margin-top: 0.5mm;
+          color: #262626;
           font-size: 6.5pt;
           font-weight: 700;
-          color: #0284c7;
-          margin-top: 0.5mm;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .department {
+          max-width: 100%;
+          overflow: hidden;
+          margin-top: 0.35mm;
+          color: #4b5563;
+          font-size: 5.5pt;
+          font-weight: 600;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .matr {
-          font-size: 5.5pt;
+          margin-top: 0.6mm;
+          color: #26399b;
           font-family: monospace;
-          color: #d4af37;
+          font-size: 5.5pt;
           font-weight: 800;
-          margin-top: 0.5mm;
+        }
+        .front-footer {
+          position: absolute;
+          right: 0;
+          bottom: 0;
+          left: 0;
+          display: flex;
+          align-items: flex-end;
+          justify-content: flex-end;
+          width: 100%;
+          height: 13mm;
+          padding: 0 2mm 2mm;
+          color: #fff;
+          background: #55afe0;
+          font-size: 6.5pt;
+          font-weight: 700;
+        }
+        .front-footer > span {
+          position: relative;
+          z-index: 1;
+          padding-bottom: 1mm;
+        }
+        .front-footer i {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 10mm;
+          height: 13mm;
+          background: #383e9e;
+          clip-path: polygon(0 0, 100% 100%, 0 100%);
         }
         .qr-box {
-          width: 20mm;
-          height: 20mm;
-          background: #ffffff;
-          padding: 0.5mm;
-          border: 1px solid #e2e8f0;
-          border-radius: 1.5mm;
-          margin-top: 0.5mm;
+          position: absolute;
+          z-index: 2;
+          bottom: 1mm;
+          left: 2mm;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 18mm;
+          height: 18mm;
+          padding: 0.7mm;
+          background: #fff;
         }
-        .qr-box svg { width: 100%; height: 100%; }
-        .footer { font-size: 4.5pt; color: #64748b; font-weight: 600; }
+        .qr-box svg { display: block; width: 100%; height: 100%; }
+        .card-back img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: fill;
+        }
         @media screen {
-          body { background: #e2e8f0; }
-          .card { margin-bottom: 12px; }
+          html, body { width: auto; }
+          body { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #e2e8f0; }
+          .card-face { box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
         }
       </style>
     </head>
@@ -241,7 +362,7 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       ${profiles.map((profile) => getPrintableCardMarkup(profile, origin)).join('')}
       <script>
         window.onload = () => {
-          setTimeout(() => window.print(), 250);
+          setTimeout(() => window.print(), 500);
         };
       </script>
     </body>
@@ -1405,12 +1526,13 @@ export default function AdminRHPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Printer size={15} />
-                  Exporter toutes les cartes en PDF ({exportableProfiles.length})
+                  Imprimer toutes les cartes recto-verso ({exportableProfiles.length})
                 </button>
               </div>
               <p className="mt-2 text-[11px] text-slate-500">
                 Les exports groupés suivent les filtres de la liste et incluent les profils actifs uniquement.
-                Les cartes s&apos;ouvrent dans la fenêtre d&apos;impression : choisissez « Enregistrer au format PDF » pour les télécharger ensemble.
+                Chaque carte ouvre deux pages à imprimer recto-verso, avec retournement sur le bord court, au format 55 × 85 mm.
+                Choisissez « Enregistrer au format PDF » pour obtenir le document.
               </p>
 
               <div className="mt-4 divide-y divide-slate-100">
@@ -1502,7 +1624,7 @@ export default function AdminRHPage() {
             <div>
               <div className="sticky top-20 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-900">Carte Professionnelle Imprimable</h3>
+                  <h3 className="text-sm font-black text-slate-900">Aperçu de la carte recto-verso</h3>
                   {selectedForCard && (
                     <button
                       onClick={() => handlePrintCard(selectedForCard)}
@@ -1516,64 +1638,67 @@ export default function AdminRHPage() {
 
                 {selectedForCard ? (
                   <div className="mt-4">
-                    {/* Carte Verticale Style Modèle Référence */}
-                    <div
-                      id="printable-card"
-                      className="relative mx-auto w-full max-w-[270px] overflow-hidden rounded-3xl border border-slate-300 bg-white text-slate-900 shadow-2xl flex flex-col items-center text-center"
-                      style={{ aspectRatio: '53.98/85.6' }}
-                    >
-                      {/* En-tête avec le logo officiel */}
-                      <div className="w-full bg-blue-900 px-2 py-2 relative">
-                        <Image
-                          src="/logoinptic.png"
-                          alt="Logo INPTIC"
-                          width={1698}
-                          height={962}
-                          className="mx-auto h-auto w-[56%] max-w-full rounded-md bg-white p-1 object-contain"
-                        />
-                      </div>
-
-                      {/* Photo circulaire avec anneau cyan */}
-                      <div className="mt-2 relative z-10">
-                        <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-cyan-500 bg-slate-900 shadow-lg">
-                          {selectedForCard.photoUrl ? (
-                            <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-blue-950 text-blue-200 text-xs font-bold">
-                              PHOTO
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Corps de la carte : Nom, Poste, Matricule & QR Code centré en bas */}
-                      <div className="p-3 pt-1 pb-2 flex flex-col items-center justify-between flex-1 w-full">
-                        <div>
-                          <h4 className="text-sm font-black text-slate-900 uppercase leading-snug">
-                            {selectedForCard.firstName} {selectedForCard.lastName}
-                          </h4>
-                          <p className="text-xs font-bold text-sky-600 mt-0.5">
-                            {selectedForCard.position}
-                          </p>
-                          <p className="text-[10px] font-mono font-bold text-[#D4AF37] mt-1">
-                            MATR: {selectedForCard.matricule}
-                          </p>
-                        </div>
-
-                        {/* QR Code centré */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Recto</p>
                         <div
-                          className="my-1 h-24 w-24 rounded-xl bg-white p-1 border border-slate-200 shadow-sm flex items-center justify-center"
-                          dangerouslySetInnerHTML={{
-                            __html: generateQRCodeSVG(
-                              `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga'}/agent/${selectedForCard.qrToken}`,
-                              { size: 72, margin: 1 }
-                            ),
-                          }}
+                          className="relative mx-auto w-full overflow-hidden border border-slate-300 bg-white text-center shadow-lg"
+                          style={{ aspectRatio: '55/85' }}
+                        >
+                          <div className="relative flex h-[15%] items-center overflow-hidden bg-[#55afe0] px-[4%] text-left text-[5px] font-bold leading-tight text-white">
+                            MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE<br />
+                            DE LA DIGITALISATION ET DE L’INNOVATION
+                            <span className="absolute -right-1 top-0 h-full w-[30%] bg-[#383e9e]" style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }} />
+                          </div>
+                          <div className="flex h-[11%] items-center justify-between px-[5%]">
+                            <Image
+                              src="/logoinptic.png"
+                              alt="Logo INPTIC"
+                              width={1698}
+                              height={962}
+                              className="h-[80%] w-[58%] object-contain object-left"
+                            />
+                            <img src="/rh/gabon-emblem.png" alt="Emblème gabonais" className="h-[76%] w-[28%] object-cover" />
+                          </div>
+                          <h4 className="mt-[1%] text-[7px] font-black leading-none text-neutral-900">CARTE PROFESSIONNELLE</h4>
+                          <div className="mx-auto mt-[2%] h-[29%] w-[29%] overflow-hidden rounded-full border-2 border-[#293b9d] bg-slate-100">
+                            {selectedForCard.photoUrl ? (
+                              <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover object-[center_25%]" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center bg-blue-950 text-[7px] font-bold text-blue-100">PHOTO</div>
+                            )}
+                          </div>
+                          <div className="relative z-10 mx-auto flex w-[94%] flex-col items-center px-1 pt-[2%] leading-tight">
+                            <p className="w-full truncate text-[9px] font-black uppercase text-neutral-900">
+                              {selectedForCard.firstName} {selectedForCard.lastName}
+                            </p>
+                            <p className="w-full truncate text-[7px] font-bold text-neutral-800">{selectedForCard.position}</p>
+                            <p className="w-full truncate text-[6px] font-semibold text-slate-600">{selectedForCard.department}</p>
+                            <p className="mt-[1%] text-[6px] font-mono font-bold text-[#293b9d]">MATRICULE : {selectedForCard.matricule}</p>
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 flex h-[15%] items-end justify-end bg-[#55afe0] px-[4%] pb-[3%] text-[7px] font-bold text-white">
+                            www.inptic-ga.org
+                            <span className="absolute bottom-0 left-0 h-full w-[22%] bg-[#383e9e]" style={{ clipPath: 'polygon(0 0, 100% 100%, 0 100%)' }} />
+                          </div>
+                          <div
+                            className="absolute bottom-[1%] left-[3%] z-10 flex h-[22%] w-[33%] items-center justify-center bg-white p-[1%]"
+                            dangerouslySetInnerHTML={{
+                              __html: generateQRCodeSVG(
+                                `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic-ga.org'}/agent/${selectedForCard.qrToken || selectedForCard.id}`,
+                                { size: 100, margin: 1 }
+                              ),
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Verso</p>
+                        <img
+                          src="/rh/carte-professionnelle-verso.png"
+                          alt="Conditions d’utilisation de la carte professionnelle INPTIC"
+                          className="mx-auto block w-full border border-slate-300 shadow-lg"
+                          style={{ aspectRatio: '55/85' }}
                         />
-
-                        <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100 pt-1.5 w-full">
-                          Carte Professionnelle Officielle
-                        </p>
                       </div>
                     </div>
 
@@ -1589,6 +1714,9 @@ export default function AdminRHPage() {
                         Token : {selectedForCard.qrToken}
                       </p>
                     </div>
+                    <p className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-[11px] leading-5 text-blue-900">
+                      Impression recto-verso au format 55 × 85 mm. Dans la fenêtre d’impression, choisissez une impression recto-verso avec retournement sur le bord court et une échelle de 100 %.
+                    </p>
                   </div>
                 ) : (
                   <div className="mt-6 rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-500">
@@ -2402,39 +2530,6 @@ export default function AdminRHPage() {
         </div>
       )}
 
-      <style jsx global>{`
-        @media print {
-          body {
-            background: #ffffff !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-card,
-          #printable-card * {
-            visibility: visible !important;
-          }
-          #printable-card {
-            position: fixed !important;
-            left: 50% !important;
-            top: 50% !important;
-            transform: translate(-50%, -50%) scale(1.5) !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-            border-color: #0f172a !important;
-            background-color: #0f172a !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            page-break-inside: avoid !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
-        }
-      `}</style>
     </main>
   );
 }
