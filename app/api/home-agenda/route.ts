@@ -9,6 +9,13 @@ const EVENT_IDS = ['openDay', 'companiesForum', 'aiConference'] as const;
 type AgendaEventId = (typeof EVENT_IDS)[number];
 type AgendaEvent = { id: AgendaEventId; date: string; title: string };
 
+function postgresErrorCode(error: unknown) {
+  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') {
+    return error.code;
+  }
+  return 'UNKNOWN';
+}
+
 function isAgendaEvents(value: unknown): value is AgendaEvent[] {
   if (!Array.isArray(value) || value.length !== EVENT_IDS.length) return false;
   return value.every((event, index) => {
@@ -72,12 +79,20 @@ export async function GET() {
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
+    const code = postgresErrorCode(error);
     console.error(
       '[Homepage agenda GET] PostgreSQL error:',
-      error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      {
+        code,
+        message: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      },
     );
     return NextResponse.json(
-      { error: 'Impossible de charger l’agenda. Vérifiez que le schéma PostgreSQL est à jour.' },
+      {
+        error: code === '42P01' || code === '42703'
+          ? `Schéma de l’agenda absent ou incomplet (PostgreSQL ${code}). Exécutez scripts/15_repair_homepage_agenda.sql sur la base utilisée par le site.`
+          : `Impossible de charger l’agenda (PostgreSQL ${code}). Consultez les journaux serveur pour le détail.`,
+      },
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
@@ -116,12 +131,20 @@ export async function PUT(request: NextRequest) {
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
+    const code = postgresErrorCode(error);
     console.error(
       '[Homepage agenda PUT] PostgreSQL error:',
-      error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      {
+        code,
+        message: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      },
     );
     return NextResponse.json(
-      { error: 'Impossible d’enregistrer l’agenda. Vérifiez que le schéma PostgreSQL est à jour.' },
+      {
+        error: code === '42P01' || code === '42703' || code === '42P10'
+          ? `Schéma de l’agenda absent ou incompatible (PostgreSQL ${code}). Exécutez scripts/15_repair_homepage_agenda.sql sur la base utilisée par le site.`
+          : `Impossible d’enregistrer l’agenda (PostgreSQL ${code}). Consultez les journaux serveur pour le détail.`,
+      },
       { status: 503 },
     );
   }

@@ -2,9 +2,10 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { authClient } from '@/lib/auth-client';
 
 type Alumni = {
-  id: number | string;
+  id: string;
   nom: string;
   prenom: string;
   filiere: string;
@@ -13,6 +14,25 @@ type Alumni = {
   promotion: string;
   commentaire: string;
   photo: string;
+  isOwner: boolean;
+};
+
+type AlumniDraft = Omit<Alumni, 'id' | 'isOwner'>;
+
+type AuthUser = {
+  id: string;
+  email?: string;
+};
+
+const EMPTY_FORM = {
+  nom: '',
+  prenom: '',
+  filiere: '',
+  poste: '',
+  entreprise: '',
+  promotion: '',
+  commentaire: '',
+  photo: '',
 };
 
 export default function Alumni() {
@@ -20,55 +40,92 @@ export default function Alumni() {
 
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [submitting, setSubmitting] = useState(false);
-
-  const [form, setForm] = useState({
-    nom: '',
-    prenom: '',
-    filiere: '',
-    poste: '',
-    entreprise: '',
-    promotion: '',
-    commentaire: '',
-    photo: '',
-  });
-
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loadingAlumni, setLoadingAlumni] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [localDraft, setLocalDraft] = useState<AlumniDraft | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
 
-  // Charger les anciens étudiants persistés au montage (localStorage + API PostgreSQL)
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem('inptic_alumni');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setAlumni(parsed);
-        }
-      }
-    } catch {}
+    const { data: { subscription } } = authClient.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ? {
+        id: session.user.id,
+        email: session.user.email,
+      } : null);
+      setAuthLoading(false);
+      setIsEditing(false);
+    });
 
-    fetch('/api/alumni')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((payload) => {
-        if (Array.isArray(payload?.data) && payload.data.length > 0) {
-          setAlumni((prev) => {
-            // Combiner les données distantes avec les ajouts locaux récents
-            const map = new Map<string | number, Alumni>();
-            payload.data.forEach((item: Alumni) => map.set(item.id, item));
-            prev.forEach((item) => {
-              if (!map.has(item.id)) map.set(item.id, item);
-            });
-            const merged = Array.from(map.values());
-            try {
-              localStorage.setItem('inptic_alumni', JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-      })
-      .catch((err) => {
-        console.error('[Alumni] Erreur de chargement distant:', err);
-      });
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAlumni() {
+      setLoadingAlumni(true);
+      setLoadError('');
+      try {
+        const response = await fetch('/api/alumni', { cache: 'no-store' });
+        const payload = await response.json() as { data?: Alumni[]; error?: string };
+        if (!response.ok) throw new Error(payload.error || 'Impossible de charger les anciens étudiants.');
+        if (!Array.isArray(payload.data)) throw new Error('Réponse invalide du serveur Alumni.');
+        if (active) setAlumni(payload.data);
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : 'Impossible de charger les anciens étudiants.');
+        }
+      } finally {
+        if (active) setLoadingAlumni(false);
+      }
+    }
+
+    void loadAlumni();
+    return () => {
+      active = false;
+    };
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (!authUser || loadingAlumni || alumni.some((person) => person.isOwner)) {
+      setLocalDraft(null);
+      return;
+    }
+
+    setLocalDraft(null);
+    try {
+      const cached = JSON.parse(localStorage.getItem('inptic_alumni') || '[]') as unknown;
+      if (!Array.isArray(cached)) return;
+      const draft = cached.find((item): item is AlumniDraft & { id: string } =>
+        Boolean(
+          item &&
+          typeof item === 'object' &&
+          typeof item.id === 'string' &&
+          item.id.startsWith('temp-') &&
+          typeof item.nom === 'string' &&
+          typeof item.prenom === 'string',
+        ),
+      );
+      if (draft) {
+        setLocalDraft({
+          nom: draft.nom,
+          prenom: draft.prenom,
+          filiere: typeof draft.filiere === 'string' ? draft.filiere : '',
+          poste: typeof draft.poste === 'string' ? draft.poste : '',
+          entreprise: typeof draft.entreprise === 'string' ? draft.entreprise : '',
+          promotion: typeof draft.promotion === 'string' ? draft.promotion : '',
+          commentaire: typeof draft.commentaire === 'string' ? draft.commentaire : '',
+          photo: typeof draft.photo === 'string' ? draft.photo : '',
+        });
+      }
+    } catch {
+      setLocalDraft(null);
+    }
+  }, [alumni, authUser, loadingAlumni]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -115,13 +172,13 @@ export default function Alumni() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError('');
+    setSubmitted(false);
 
-    const tempId = `temp-${Date.now()}`;
-    const newAlumni: Alumni = {
-      id: tempId,
+    const alumniInput = {
       nom: form.nom.trim(),
       prenom: form.prenom.trim(),
-      filiere: form.filiere,
+      filiere: form.filiere.trim(),
       poste: form.poste.trim(),
       entreprise: form.entreprise.trim(),
       promotion: form.promotion,
@@ -129,61 +186,50 @@ export default function Alumni() {
       photo: form.photo,
     };
 
-    // 1. Afficher immédiatement et persister localement
-    setAlumni((prev) => {
-      const next = [newAlumni, ...prev.filter((a) => a.id !== newAlumni.id)];
-      try {
-        localStorage.setItem('inptic_alumni', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    setForm({
-      nom: '',
-      prenom: '',
-      filiere: '',
-      poste: '',
-      entreprise: '',
-      promotion: '',
-      commentaire: '',
-      photo: '',
-    });
-
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-    }, 5000);
-
-    setTimeout(() => {
-      document.getElementById('anciens')?.scrollIntoView({
-        behavior: 'smooth',
-      });
-    }, 100);
-
-    // 2. Sauvegarde asynchrone dans PostgreSQL via /api/alumni
     try {
-      const res = await fetch('/api/alumni', {
-        method: 'POST',
+      const response = await fetch('/api/alumni', {
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAlumni),
+        body: JSON.stringify(alumniInput),
       });
-      if (res.ok) {
-        const payload = await res.json();
-        if (payload?.data?.id) {
-          setAlumni((prev) => {
-            const updated = prev.map((a) => (a.id === tempId ? payload.data : a));
-            try {
-              localStorage.setItem('inptic_alumni', JSON.stringify(updated));
-            } catch {}
-            return updated;
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('[Alumni] Sauvegarde distante échouée, conservé en local:', err);
+      const payload = await response.json() as { data?: Alumni; error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Impossible d’enregistrer le profil Alumni.');
+      const savedProfile = payload.data;
+      if (!savedProfile?.id) throw new Error('Le serveur n’a pas confirmé l’enregistrement du profil.');
+
+      setAlumni((previous) => isEditing
+        ? previous.map((person) => person.isOwner ? savedProfile : person)
+        : [savedProfile, ...previous]);
+      setLocalDraft(null);
+      setForm(EMPTY_FORM);
+      setIsEditing(false);
+      setSubmitted(true);
+      window.setTimeout(() => setSubmitted(false), 5000);
+      window.setTimeout(() => {
+        document.getElementById('anciens')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Impossible d’enregistrer le profil Alumni.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const editProfile = (person: Alumni) => {
+    setForm({
+      nom: person.nom,
+      prenom: person.prenom,
+      filiere: person.filiere,
+      poste: person.poste,
+      entreprise: person.entreprise,
+      promotion: person.promotion,
+      commentaire: person.commentaire,
+      photo: person.photo,
+    });
+    setIsEditing(true);
+    setSubmitted(false);
+    setSubmitError('');
+    document.getElementById('rejoindre')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -416,13 +462,71 @@ export default function Alumni() {
 
           <div className="mx-auto mt-10 max-w-4xl rounded-2xl bg-white p-6 text-slate-900 shadow-2xl md:p-10">
 
-            {submitted && (
-              <div
-                className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700"
-                role="status"
-              >
-                Votre profil Alumni a été ajouté avec succès.
+                {submitted && (
+                  <div
+                    className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700"
+                    role="status"
+                  >
+                    Votre profil Alumni a bien été enregistré dans l’annuaire.
+                  </div>
+                )}
+
+                {authLoading ? (
+              <p className="text-center text-slate-600" role="status">
+                Vérification de votre session…
+              </p>
+            ) : !authUser ? (
+              <div className="text-center">
+                <p className="leading-7 text-slate-700">
+                  Pour publier un profil partagé et pouvoir le modifier ensuite, connectez-vous
+                  avec un compte INPTIC dont l’adresse e-mail a été vérifiée.
+                </p>
+                <a
+                  href="/candidat"
+                  className="mt-5 inline-flex rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Créer un compte ou se connecter
+                </a>
               </div>
+            ) : loadingAlumni ? (
+              <p className="text-center text-slate-600" role="status">
+                Chargement de votre profil…
+              </p>
+            ) : alumni.some((person) => person.isOwner) && !isEditing ? (
+              <div className="text-center">
+                <p className="leading-7 text-slate-700">
+                  Votre profil est publié dans l’annuaire. Utilisez le bouton « Modifier mon profil »
+                  sur votre fiche pour le mettre à jour.
+                </p>
+              </div>
+            ) : (
+              <>
+              {localDraft && !isEditing && (
+                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <p>
+                    Un brouillon non synchronisé est conservé sur cet appareil. Vérifiez son contenu
+                    avant de le publier avec votre compte.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(localDraft);
+                      setSubmitError('');
+                    }}
+                    className="mt-3 rounded-lg border border-amber-300 px-4 py-2 font-semibold transition hover:bg-amber-100"
+                  >
+                    Récupérer le brouillon de cet appareil
+                  </button>
+                </div>
+              )}
+
+              {submitError && (
+              <p
+                className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700"
+                role="alert"
+              >
+                {submitError}
+              </p>
             )}
 
             <form
@@ -450,6 +554,7 @@ export default function Alumni() {
                     value={form.nom}
                     onChange={handleChange}
                     required
+                    maxLength={100}
                     placeholder="Votre nom"
                     className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
@@ -474,6 +579,7 @@ export default function Alumni() {
                     value={form.prenom}
                     onChange={handleChange}
                     required
+                    maxLength={100}
                     placeholder="Votre prénom"
                     className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
@@ -697,12 +803,34 @@ export default function Alumni() {
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-blue-600 px-6 py-3.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                disabled={submitting}
+                className="w-full rounded-lg bg-blue-600 px-6 py-3.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Rejoindre le réseau Alumni
+                {submitting
+                  ? 'Enregistrement…'
+                  : isEditing
+                    ? 'Enregistrer les modifications'
+                    : 'Rejoindre le réseau Alumni'}
               </button>
 
+              {isEditing && (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setForm(EMPTY_FORM);
+                    setSubmitError('');
+                  }}
+                  className="w-full rounded-lg border border-slate-300 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Annuler les modifications
+                </button>
+              )}
+
             </form>
+              </>
+            )}
 
           </div>
 
@@ -738,7 +866,19 @@ export default function Alumni() {
 
           </div>
 
-          {alumni.length === 0 ? (
+          {loadingAlumni ? (
+
+            <p className="mt-10 text-center text-slate-500" role="status">
+              Chargement de l’annuaire Alumni…
+            </p>
+
+          ) : loadError ? (
+
+            <p className="mt-10 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+              {loadError}
+            </p>
+
+          ) : alumni.length === 0 ? (
 
             <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
 
@@ -863,6 +1003,16 @@ export default function Alumni() {
 
                       </div>
 
+                    )}
+
+                    {person.isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => editProfile(person)}
+                        className="mt-6 w-full rounded-lg border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
+                      >
+                        Modifier mon profil
+                      </button>
                     )}
 
                   </div>
