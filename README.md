@@ -144,6 +144,9 @@ PostgreSQL sur tous les appareils ; publier ou modifier une fiche exige un compt
 INPTIC avec une adresse e-mail vérifiée. Les anciennes fiches restent visibles,
 mais ne sont pas automatiquement attribuées à un compte.
 
+Pour rendre le message du Directeur éditable, exécuter aussi
+`scripts/16_create_homepage_director_message.sql` dans PostgreSQL.
+
 Les fichiers publics sont servis par `/api/storage/...`.
 
 Configurer les variables serveur et démarrer l'application. Les profils, pièces jointes,
