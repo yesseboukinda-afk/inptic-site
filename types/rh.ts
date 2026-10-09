@@ -49,24 +49,40 @@ export const RH_PUBLIC_WHITELIST_FIELDS = [
 ] as const satisfies ReadonlyArray<{ key: keyof RHPublicWhitelist; label: string }>;
 
 export function normalizeRHPublicWhitelist(value: unknown): RHPublicWhitelist {
+  let parsedValue = value;
+  if (typeof parsedValue === 'string') {
+    try {
+      parsedValue = JSON.parse(parsedValue) as unknown;
+    } catch {
+      parsedValue = null;
+    }
+  }
+
   const whitelist =
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? value as Record<string, unknown>
+    parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)
+      ? parsedValue as Record<string, unknown>
       : {};
+  const getBoolean = (key: keyof RHPublicWhitelist, defaultValue: boolean) => {
+    const field = whitelist[key];
+    if (typeof field === 'boolean') return field;
+    if (field === 1 || field === 'true') return true;
+    if (field === 0 || field === 'false') return false;
+    return defaultValue;
+  };
 
   return {
-    photo: whitelist.photo === true,
-    matricule: typeof whitelist.matricule === 'boolean' ? whitelist.matricule : true,
-    lastName: whitelist.lastName === true,
-    firstName: whitelist.firstName === true,
-    position: whitelist.position === true,
-    department: whitelist.department === true,
-    status: whitelist.status === true,
-    gender: whitelist.gender === true,
-    birthDate: whitelist.birthDate === true,
-    birthPlace: whitelist.birthPlace === true,
-    phone: whitelist.phone === true,
-    email: whitelist.email === true,
+    photo: getBoolean('photo', DEFAULT_PUBLIC_WHITELIST.photo),
+    matricule: getBoolean('matricule', DEFAULT_PUBLIC_WHITELIST.matricule),
+    lastName: getBoolean('lastName', DEFAULT_PUBLIC_WHITELIST.lastName),
+    firstName: getBoolean('firstName', DEFAULT_PUBLIC_WHITELIST.firstName),
+    position: getBoolean('position', DEFAULT_PUBLIC_WHITELIST.position),
+    department: getBoolean('department', DEFAULT_PUBLIC_WHITELIST.department),
+    status: getBoolean('status', DEFAULT_PUBLIC_WHITELIST.status),
+    gender: getBoolean('gender', DEFAULT_PUBLIC_WHITELIST.gender),
+    birthDate: getBoolean('birthDate', DEFAULT_PUBLIC_WHITELIST.birthDate),
+    birthPlace: getBoolean('birthPlace', DEFAULT_PUBLIC_WHITELIST.birthPlace),
+    phone: getBoolean('phone', DEFAULT_PUBLIC_WHITELIST.phone),
+    email: getBoolean('email', DEFAULT_PUBLIC_WHITELIST.email),
   };
 }
 
