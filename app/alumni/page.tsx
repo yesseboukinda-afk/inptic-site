@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '@/lib/auth-client';
+import { isSuperAdminRole } from '@/lib/roles';
 
 type Alumni = {
   id: string;
@@ -22,6 +23,7 @@ type AlumniDraft = Omit<Alumni, 'id' | 'isOwner'>;
 type AuthUser = {
   id: string;
   email?: string;
+  role: string;
 };
 
 const EMPTY_FORM = {
@@ -46,6 +48,7 @@ export default function Alumni() {
   const [loadError, setLoadError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [localDraft, setLocalDraft] = useState<AlumniDraft | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
@@ -55,9 +58,11 @@ export default function Alumni() {
       setAuthUser(session?.user ? {
         id: session.user.id,
         email: session.user.email,
+        role: typeof session.user.app_metadata?.role === 'string' ? session.user.app_metadata.role : '',
       } : null);
       setAuthLoading(false);
       setIsEditing(false);
+      setEditingProfileId(null);
     });
 
     return () => subscription.unsubscribe();
@@ -127,6 +132,8 @@ export default function Alumni() {
     }
   }, [alumni, authUser, loadingAlumni]);
 
+  const isSuperAdmin = isSuperAdminRole(authUser?.role);
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -190,7 +197,10 @@ export default function Alumni() {
       const response = await fetch('/api/alumni', {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(alumniInput),
+        body: JSON.stringify({
+          ...alumniInput,
+          ...(isEditing && editingProfileId ? { id: editingProfileId } : {}),
+        }),
       });
       const payload = await response.json() as { data?: Alumni; error?: string };
       if (!response.ok) throw new Error(payload.error || 'Impossible d’enregistrer le profil Alumni.');
@@ -198,11 +208,12 @@ export default function Alumni() {
       if (!savedProfile?.id) throw new Error('Le serveur n’a pas confirmé l’enregistrement du profil.');
 
       setAlumni((previous) => isEditing
-        ? previous.map((person) => person.isOwner ? savedProfile : person)
+        ? previous.map((person) => person.id === editingProfileId || (!editingProfileId && person.isOwner) ? savedProfile : person)
         : [savedProfile, ...previous]);
       setLocalDraft(null);
       setForm(EMPTY_FORM);
       setIsEditing(false);
+      setEditingProfileId(null);
       setSubmitted(true);
       window.setTimeout(() => setSubmitted(false), 5000);
       window.setTimeout(() => {
@@ -227,9 +238,42 @@ export default function Alumni() {
       photo: person.photo,
     });
     setIsEditing(true);
+    setEditingProfileId(person.id);
     setSubmitted(false);
     setSubmitError('');
     document.getElementById('rejoindre')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const startNewProfile = () => {
+    setForm(EMPTY_FORM);
+    setIsEditing(false);
+    setEditingProfileId(null);
+    setSubmitError('');
+    setSubmitted(false);
+    document.getElementById('rejoindre')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const deleteProfile = async (person: Alumni) => {
+    if (!window.confirm(`Supprimer définitivement le profil de ${person.prenom} ${person.nom} ?`)) return;
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/alumni', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: person.id }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Impossible de supprimer ce profil Alumni.');
+      setAlumni((previous) => previous.filter((entry) => entry.id !== person.id));
+      if (editingProfileId === person.id) {
+        setForm(EMPTY_FORM);
+        setIsEditing(false);
+        setEditingProfileId(null);
+      }
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Impossible de supprimer ce profil Alumni.');
+      document.getElementById('rejoindre')?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -492,7 +536,7 @@ export default function Alumni() {
               <p className="text-center text-slate-600" role="status">
                 Chargement de votre profil…
               </p>
-            ) : alumni.some((person) => person.isOwner) && !isEditing ? (
+            ) : !isSuperAdmin && alumni.some((person) => person.isOwner) && !isEditing ? (
               <div className="text-center">
                 <p className="leading-7 text-slate-700">
                   Votre profil est publié dans l’annuaire. Utilisez le bouton « Modifier mon profil »
@@ -501,6 +545,24 @@ export default function Alumni() {
               </div>
             ) : (
               <>
+              {isSuperAdmin && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4">
+                  <p className="text-sm font-semibold text-violet-900">
+                    Administration de l’annuaire Alumni
+                    {isEditing ? ' — modification d’un profil' : ' — création d’un profil'}
+                  </p>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={startNewProfile}
+                      className="rounded-lg border border-violet-300 px-3 py-2 text-sm font-semibold text-violet-800 transition hover:bg-violet-100"
+                    >
+                      Créer un autre profil
+                    </button>
+                  )}
+                </div>
+              )}
+
               {localDraft && !isEditing && (
                 <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                   <p>
@@ -1013,6 +1075,25 @@ export default function Alumni() {
                       >
                         Modifier mon profil
                       </button>
+                    )}
+
+                    {isSuperAdmin && (
+                      <div className="mt-6 flex gap-3 border-t border-slate-100 pt-5">
+                        <button
+                          type="button"
+                          onClick={() => editProfile(person)}
+                          className="flex-1 rounded-lg border border-violet-200 px-4 py-2.5 text-sm font-semibold text-violet-800 transition hover:bg-violet-50"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteProfile(person)}
+                          className="flex-1 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
                     )}
 
                   </div>
