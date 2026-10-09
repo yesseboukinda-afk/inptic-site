@@ -155,7 +155,7 @@ export default function AnnouncementsCarousel() {
   const current = announcements[currentIndex];
 
   return (
-    <div className="container-x my-4 px-4 md:px-0 relative z-[1000]">
+    <div className="container-x my-4 px-4 md:px-0 relative z-10">
       <div className="relative overflow-hidden rounded-2xl border-2 border-[#D4AF37]/80 bg-gradient-to-r from-slate-950 via-[#14306b] to-slate-950 p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(212,175,55,0.35)] ring-2 ring-[#D4AF37]/25">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-[#D4AF37]/20 blur-3xl pointer-events-none" />
 

@@ -309,8 +309,8 @@ export default function Footer() {
             <InstallPWA />
           </div>
 
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            {/* Copyright + liens + réseaux */}
+          <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-[1fr_auto_1fr]">
+            {/* Copyright + liens */}
             <div className="flex flex-wrap items-center justify-center gap-3 text-center text-xs text-slate-400 md:justify-start md:text-sm">
               <span>
                 © {currentYear} INPTIC Gabon.{" "}
@@ -345,62 +345,71 @@ export default function Footer() {
                 )}
               </a>
 
-              <span className="hidden text-slate-600 md:inline-block">
-                |
-              </span>
-
-              {/* Réseaux sociaux */}
-              <div className="flex items-center gap-2">
-                <a
-                  href="https://www.facebook.com/share/1JiVyPnGRj/?mibextid=wwXIfr"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Facebook INPTIGabon"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
-                >
-                  <img
-                    src="/connexion/facebook_icon.svg"
-                    alt="Facebook"
-                    className="h-4 w-4"
-                  />
-                </a>
-
-                <a
-                  href="https://whatsapp.com/channel/0029VagrNh3KQuJBA9v3Zc3i"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="WhatsApp INPTIGabon"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
-                >
-                  <img
-                    src="/connexion/whatsapp.svg"
-                    alt="WhatsApp"
-                    className="h-4 w-4"
-                  />
-                </a>
-
-                <a
-                  href="https://www.youtube.com/@INPTICGabonOfficiel"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="YouTube INPTICGabonOfficiel"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
-                >
-                  <img
-                    src="/connexion/youtube.svg"
-                    alt="YouTube"
-                    className="h-4 w-4"
-                  />
-                </a>
-              </div>
             </div>
 
-            {/* Version + développeur */}
-            <div className="flex items-center justify-center gap-4 text-xs text-slate-400 md:justify-end md:text-sm">
-              <span>v1.8.0</span>
+            {/* Réseaux sociaux */}
+            <div className="flex items-center justify-center gap-2">
+              <a
+                href="https://www.facebook.com/share/1JiVyPnGRj/?mibextid=wwXIfr"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Facebook INPTIGabon"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
+              >
+                <img
+                  src="/connexion/facebook_icon.svg"
+                  alt="Facebook"
+                  className="h-4 w-4"
+                />
+              </a>
 
-              <div className="flex items-center gap-2">
-                <span>dev by :</span>
+              <a
+                href="https://whatsapp.com/channel/0029VagrNh3KQuJBA9v3Zc3i"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="WhatsApp INPTIGabon"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
+              >
+                <img
+                  src="/connexion/whatsapp.svg"
+                  alt="WhatsApp"
+                  className="h-4 w-4"
+                />
+              </a>
+
+              <a
+                href="https://www.youtube.com/@INPTICGabonOfficiel"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="YouTube INPTICGabonOfficiel"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
+              >
+                <img
+                  src="/connexion/youtube.svg"
+                  alt="YouTube"
+                  className="h-4 w-4"
+                />
+              </a>
+
+              <a
+                href="https://www.tiktok.com/@inptic.gabon.offi"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="TikTok Inptic Gabon Officiel"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
+              >
+                <img
+                  src="/connexion/tiktok-icon.svg"
+                  alt="TikTok"
+                  className="h-4 w-4"
+                />
+              </a>
+            </div>
+
+            {/* Développeur */}
+            <div className="flex items-center justify-center gap-4 text-xs text-slate-400 md:justify-end md:text-sm">
+             <div className="flex items-center gap-2">
+                <span>by :</span>
 
                 <a
                   href="https://github.com/yesseboukinda-afk/"

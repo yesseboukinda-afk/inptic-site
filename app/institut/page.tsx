@@ -54,7 +54,7 @@ export default function Institut() {
             <p className="mt-5 leading-7 text-slate-600">
               {t('institute.missionText')}
             </p>
-            <div className="mt-8 rounded-2xl bg-blue-50 p-5">
+            <div className="director-message mt-8 rounded-2xl bg-blue-50 p-5">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">{t('institute.directorMessage')}</p>
               <blockquote className="mt-4 text-lg leading-8 text-slate-800">
                 « {t('institute.quote')} »

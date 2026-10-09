@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const storedState = request.cookies.get('inptic_oauth_state')?.value || '';
   const [provider, state] = storedState.split(':', 2);
 
-  if (callbackError || !code || !provider || !state || !safeEqual(state, returnedState)) {
+  if (callbackError || !code || provider !== 'google' || !state || !safeEqual(state, returnedState)) {
     return redirectWithError(siteUrl, 'oauth-failed');
   }
 

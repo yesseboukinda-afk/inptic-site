@@ -51,11 +51,11 @@ Avant d'activer le parcours :
 2. Configurer côté serveur `DATABASE_URL`, `AUTH_SITE_URL` (origine HTTPS du site),
    `RESEND_API_KEY` et `AUTH_FROM_EMAIL`. L'expéditeur doit être vérifié dans
    Resend. Ces secrets ne doivent pas avoir le préfixe `NEXT_PUBLIC_`.
-3. Dans Google/Facebook Developer Console, ajouter comme URI de callback
+3. Pour activer la connexion Google, créer un client OAuth de type application
+   Web dans Google Cloud Console, ajouter comme URI de callback
    `https://votre-domaine.tld/api/auth/oauth/callback`, puis configurer les
-   identifiants serveur `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
-   `FACEBOOK_APP_ID` et `FACEBOOK_APP_SECRET` selon les fournisseurs activés.
-   L'authentification sociale est facultative.
+   identifiants serveur `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`.
+   La connexion Google est facultative.
 4. Depuis la racine du projet, construire avec `npm run build:next`, puis
    redémarrer l'application Node.js LWS. Cette commande génère les types de
    routes, lance `tsc --noEmit`, puis construit avec Webpack. Le contrôle de

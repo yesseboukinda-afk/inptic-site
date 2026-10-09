@@ -96,10 +96,7 @@ export const authClient = {
       }
     },
 
-    async signInWithOAuth(input: { provider: string; options?: { redirectTo?: string } }): Promise<{ error: Error | null }> {
-      if (!['google', 'facebook'].includes(input.provider)) {
-        return { error: new Error('Ce fournisseur de connexion n’est pas pris en charge.') };
-      }
+    async signInWithOAuth(input: { provider: 'google'; options?: { redirectTo?: string } }): Promise<{ error: Error | null }> {
       window.location.assign(`/api/auth/oauth?provider=${encodeURIComponent(input.provider)}`);
       return { error: null };
     },

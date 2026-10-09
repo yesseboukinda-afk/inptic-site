@@ -12,8 +12,7 @@ import { getCandidateJourneyPath } from '@/lib/admissionsWorkflow';
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
 const socialProviders = [
-  { name: 'Google', icon: '/connexion/google_icon.svg' },
-  { name: 'Facebook', icon: '/connexion/facebook_icon.svg' },
+  { provider: 'google', name: 'Google', icon: '/connexion/google_icon.svg' },
 ] as const;
 
 const addNotification = (
@@ -135,7 +134,7 @@ const buildAuthProfile = (user: any, fallbackName = 'Étudiant') => {
   };
 };
 
-function SocialAuthButtons({ onClick, t }: { onClick: (provider: (typeof socialProviders)[number]['name']) => void; t: (key: string, options?: Record<string, string>) => string }) {
+function SocialAuthButtons({ onClick, t }: { onClick: (provider: (typeof socialProviders)[number]['provider']) => void; t: (key: string, options?: Record<string, string>) => string }) {
   return (
     <div className="mt-6">
       <div className="mb-3 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">
@@ -145,11 +144,11 @@ function SocialAuthButtons({ onClick, t }: { onClick: (provider: (typeof socialP
       </div>
 
       <div className="flex justify-center">
-        {socialProviders.map(({ name, icon }) => (
+        {socialProviders.map(({ provider, name, icon }) => (
           <button
-            key={name}
+            key={provider}
             type="button"
-            onClick={() => onClick(name)}
+            onClick={() => onClick(provider)}
             className="flex appearance-none items-center justify-center rounded-xl border-0 bg-transparent p-2 text-slate-700 shadow-none transition duration-200 hover:scale-110 hover:bg-transparent hover:text-blue-700 focus:outline-none focus:ring-0 focus-visible:outline-none"
             aria-label={t('candidate.socialLogin', { provider: name })}
             title={t('candidate.socialLogin', { provider: name })}
@@ -171,14 +170,15 @@ export default function Candidat() {
   const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false);
   const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
 
-  const handleSocialAuth = async (provider: (typeof socialProviders)[number]['name']) => {
+  const handleSocialAuth = async (provider: (typeof socialProviders)[number]['provider']) => {
+    const providerName = socialProviders.find((item) => item.provider === provider)?.name ?? provider;
     try {
-      const { error } = await authClient.auth.signInWithOAuth({ provider: provider.toLowerCase() });
+      const { error } = await authClient.auth.signInWithOAuth({ provider });
       if (error) {
-        setMsg(error.message || `La connexion avec ${provider} a échoué.`);
+        setMsg(error.message || `La connexion avec ${providerName} a échoué.`);
       }
     } catch (error) {
-      setMsg(error instanceof Error ? error.message : `La connexion avec ${provider} a échoué.`);
+      setMsg(error instanceof Error ? error.message : `La connexion avec ${providerName} a échoué.`);
     }
   };
 
