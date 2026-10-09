@@ -523,6 +523,7 @@ export default function AdminRHPage() {
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
   const [importReport, setImportReport] = useState<{ success: number; errors: string[] } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Formulaire Employé
   const [formMatricule, setFormMatricule] = useState('');
@@ -1073,42 +1074,55 @@ export default function AdminRHPage() {
     const rawHeaders = rows[0].map((header) =>
       header.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase(),
     );
-
-    const colIndex = {
-      matricule: rawHeaders.findIndex((h) => h.includes('matricule')),
-      nom: rawHeaders.findIndex((h) => h.includes('nom')),
-      prenom: rawHeaders.findIndex((h) => h.includes('prenom')),
-      direction: rawHeaders.findIndex((h) => h.includes('direction') || h.includes('service')),
-      fonction: rawHeaders.findIndex((h) => h.includes('fonction') || h.includes('poste')),
-      email: rawHeaders.findIndex((h) => h.includes('email') || h.includes('courriel')),
-      telephone: rawHeaders.findIndex((h) => h.includes('tel') || h.includes('phone')),
+    const findColumn = (exact: string[], partial: string[] = exact) => {
+      const exactIndex = rawHeaders.findIndex((header) => exact.includes(header));
+      return exactIndex !== -1
+        ? exactIndex
+        : rawHeaders.findIndex((header) => partial.some((alias) => header.includes(alias)));
     };
 
-    if (colIndex.nom === -1 || colIndex.direction === -1 || colIndex.fonction === -1) {
-      setImportReport({
-        success: 0,
-        errors: ["Colonnes obligatoires manquantes dans l'en-tête (Nom, Direction/Service, Fonction)."],
-      });
-      return;
-    }
+    const colIndex = {
+      matricule: findColumn(['matricule']),
+      nom: findColumn(['nom'], ['nom complet', 'name']),
+      prenom: findColumn(['prenom'], ['prenom', 'first name']),
+      direction: findColumn(['direction', 'service']),
+      fonction: findColumn(['fonction', 'poste']),
+      email: findColumn(['email', 'courriel']),
+      telephone: findColumn(['telephone', 'tel', 'phone']),
+    };
 
     let successCount = 0;
     const errors: string[] = [];
+    const matriculesInFile = new Set<string>();
+    const generatedMatriculePrefix = `INPTIC-IMP-${crypto.randomUUID()}`;
 
+    setIsImporting(true);
     for (let i = 1; i < rows.length; i++) {
       const parts = rows[i];
-      const nom = parts[colIndex.nom];
-      const prenom = colIndex.prenom !== -1 ? parts[colIndex.prenom] : 'Agent';
-      const direction = parts[colIndex.direction];
-      const fonction = parts[colIndex.fonction];
-      const matricule = colIndex.matricule !== -1 && parts[colIndex.matricule] ? parts[colIndex.matricule] : `INPTIC-IMP-${Date.now().toString(36).slice(-4)}-${i}`;
-      const email = colIndex.email !== -1 ? parts[colIndex.email] : '';
-      const telephone = colIndex.telephone !== -1 ? parts[colIndex.telephone] : '';
+      const getCell = (column: number) => {
+        const value = ((column !== -1 ? parts[column] : '') ?? '').trim();
+        return value === '-' ? '' : value;
+      };
+      const nom = getCell(colIndex.nom);
+      const prenom = getCell(colIndex.prenom);
+      const direction = getCell(colIndex.direction);
+      const fonction = getCell(colIndex.fonction);
+      const suppliedMatricule = getCell(colIndex.matricule);
+      const matricule =
+        suppliedMatricule || `${generatedMatriculePrefix}-${i}`;
+      const email = getCell(colIndex.email);
+      const telephone = getCell(colIndex.telephone);
 
-      if (!nom || !direction || !fonction) {
-        errors.push(`Ligne ${i + 1} ignorée : nom, direction ou fonction manquant.`);
+      if (![nom, prenom, direction, fonction, suppliedMatricule, email, telephone].some(Boolean)) {
         continue;
       }
+
+      const matriculeKey = matricule.toLocaleUpperCase();
+      if (matriculesInFile.has(matriculeKey)) {
+        errors.push(`Ligne ${i + 1} (${nom}) ignorée : le matricule « ${matricule} » apparaît plusieurs fois dans le fichier.`);
+        continue;
+      }
+      matriculesInFile.add(matriculeKey);
 
       try {
         const res = await fetch('/api/rh/profiles', {
@@ -1125,22 +1139,40 @@ export default function AdminRHPage() {
             position: fonction,
             email,
             phone: telephone,
+            allowIncomplete: true,
             status: 'contractuel',
             contractType: 'CDI',
           }),
         });
 
+        const json = await res.json().catch(() => null);
         if (res.ok) {
           successCount++;
         } else {
-          const json = await res.json();
-          errors.push(`Ligne ${i + 1} (${nom}) : ${json.error || 'Erreur insertion'}`);
+          errors.push(
+            `Ligne ${i + 1} (${nom}) : ${
+              typeof json?.error === 'string' ? json.error : `Erreur serveur (${res.status})`
+            }`,
+          );
         }
-      } catch (err: any) {
-        errors.push(`Ligne ${i + 1} (${nom}) : ${err.message}`);
+      } catch (error) {
+        const message =
+          error instanceof TypeError
+            ? 'Connexion au serveur RH impossible.'
+            : error instanceof Error
+              ? error.message
+              : 'Erreur réseau inconnue.';
+        const remainingRows = rows.length - i - 1;
+        errors.push(
+          `Ligne ${i + 1} (${nom}) : ${message} L'import est interrompu${
+            remainingRows > 0 ? ` ; ${remainingRows} ligne(s) restante(s) non traitée(s)` : ''
+          }.`,
+        );
+        break;
       }
     }
 
+    setIsImporting(false);
     setImportReport({ success: successCount, errors });
     await loadProfiles();
     await loadAuditLogs();
@@ -2503,9 +2535,10 @@ export default function AdminRHPage() {
               </button>
               <button
                 onClick={handleExecuteImport}
-                className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                disabled={isImporting || !importText.trim()}
+                className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Lancer l&apos;importation
+                {isImporting ? 'Importation en cours…' : "Lancer l'importation"}
               </button>
             </div>
           </div>

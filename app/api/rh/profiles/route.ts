@@ -387,21 +387,31 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
 
   const body = await request.json().catch(() => null);
+  const allowIncomplete = body?.allowIncomplete === true;
   if (
     !body ||
-    typeof body.firstName !== 'string' ||
-    typeof body.lastName !== 'string' ||
     typeof body.matricule !== 'string' ||
-    typeof body.department !== 'string' ||
-    typeof body.position !== 'string' ||
-    !body.firstName.trim() ||
-    !body.lastName.trim() ||
     !body.matricule.trim() ||
-    !body.department.trim() ||
-    !body.position.trim()
+    (!allowIncomplete &&
+      (typeof body.firstName !== 'string' ||
+        typeof body.lastName !== 'string' ||
+        typeof body.department !== 'string' ||
+        typeof body.position !== 'string' ||
+        !body.firstName.trim() ||
+        !body.lastName.trim() ||
+        !body.department.trim() ||
+        !body.position.trim())) ||
+    (allowIncomplete &&
+      [body.firstName, body.lastName, body.department, body.position, body.email, body.phone].some(
+        (value) => value !== undefined && typeof value !== 'string',
+      ))
   ) {
     return NextResponse.json(
-      { error: 'Nom, prénom, matricule, direction et fonction sont obligatoires.' },
+      {
+        error: allowIncomplete
+          ? 'Le matricule est obligatoire et les autres champs doivent être du texte.'
+          : 'Nom, prénom, matricule, direction et fonction sont obligatoires.',
+      },
       { status: 400 }
     );
   }
@@ -419,16 +429,16 @@ export async function POST(request: NextRequest) {
   const newProfile: RHProfile = {
     id: `prof-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     matricule: body.matricule.trim().toUpperCase(),
-    firstName: body.firstName.trim(),
-    lastName: body.lastName.trim().toUpperCase(),
+    firstName: typeof body.firstName === 'string' ? body.firstName.trim() : '',
+    lastName: typeof body.lastName === 'string' ? body.lastName.trim().toUpperCase() : '',
     gender: body.gender === 'F' ? 'F' : 'M',
     birthDate: body.birthDate || '1995-01-01',
     birthPlace: body.birthPlace || '',
     phone: body.phone || '',
     email: body.email || '',
     photoUrl: body.photoUrl || '',
-    department: body.department,
-    position: body.position,
+    department: typeof body.department === 'string' ? body.department.trim() : '',
+    position: typeof body.position === 'string' ? body.position.trim() : '',
     status: body.status || 'contractuel',
     contractType: body.contractType || 'CDI',
     hireDate: body.hireDate || now.slice(0, 10),
@@ -618,6 +628,12 @@ export async function PATCH(request: NextRequest) {
     };
   } else {
     // Modification standard
+    if (body.matricule !== undefined) {
+      if (typeof body.matricule !== 'string' || !body.matricule.trim()) {
+        return NextResponse.json({ error: 'Le matricule est obligatoire.' }, { status: 400 });
+      }
+      updates.matricule = body.matricule.trim().toUpperCase();
+    }
     if (body.firstName) updates.firstName = body.firstName.trim();
     if (body.lastName) updates.lastName = body.lastName.trim().toUpperCase();
     if (body.gender) updates.gender = body.gender;
@@ -649,6 +665,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const columns: Record<string, string> = {
+    matricule: 'matricule',
     firstName: 'first_name',
     lastName: 'last_name',
     gender: 'gender',
@@ -715,6 +732,16 @@ export async function PATCH(request: NextRequest) {
     await client.query('ROLLBACK').catch((rollbackError) => {
       console.error('Erreur lors de l’annulation de la mise à jour RH:', rollbackError instanceof Error ? rollbackError.message : 'UNKNOWN_ERROR');
     });
+    const databaseError =
+      error && typeof error === 'object'
+        ? (error as { code?: string; constraint?: string })
+        : {};
+    if (databaseError.code === '23505' && databaseError.constraint?.includes('matricule')) {
+      return NextResponse.json(
+        { error: 'Ce matricule est déjà attribué à un autre profil. Chaque profil doit avoir un matricule unique.' },
+        { status: 409 },
+      );
+    }
     console.error('Erreur PostgreSQL lors de la mise à jour du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible de mettre à jour le profil RH.' }, { status: 503 });
   } finally {
