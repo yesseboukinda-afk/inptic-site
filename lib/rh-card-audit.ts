@@ -4,6 +4,7 @@ type RHCardScanProfile = {
   id: string | number;
   first_name: string;
   last_name: string;
+  position?: string | null;
   qr_status: string;
   is_archived: boolean;
 };
@@ -31,7 +32,7 @@ export async function logRHCardScan(
       'SCAN_CARD',
       String(profile.id),
       targetName,
-      `Scan du QR Code : carte ${cardStatus}.`,
+      `Scan du QR Code : carte ${cardStatus}. Fonction : ${profile.position?.trim() || 'non renseignée'}.`,
       ipAddress || null,
     ],
   );

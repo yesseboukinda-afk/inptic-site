@@ -69,6 +69,8 @@ import {
   RHAuditLog,
   RH_DEPARTMENTS,
   RHPublicWhitelist,
+  RH_PUBLIC_WHITELIST_FIELDS,
+  normalizeRHPublicWhitelist,
 } from '@/types/rh';
 import { generateQRCodeSVG } from '@/lib/qrcode';
 
@@ -499,6 +501,7 @@ export default function AdminRHPage() {
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
   const [profilesError, setProfilesError] = useState('');
   const [auditLogsError, setAuditLogsError] = useState('');
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Filtres
@@ -609,6 +612,20 @@ export default function AdminRHPage() {
 
   const isReadOnly = userRole === 'rh_consultation';
 
+  const updatePublicWhitelist = (field: keyof RHPublicWhitelist, checked: boolean) => {
+    setFormWhitelist((current) => ({ ...current, [field]: checked }));
+  };
+
+  const setAllPublicWhitelistFields = (checked: boolean) => {
+    setFormWhitelist((current) => {
+      const next = { ...current };
+      for (const { key } of RH_PUBLIC_WHITELIST_FIELDS) {
+        next[key] = checked;
+      }
+      return next;
+    });
+  };
+
   // Chargement des profils
   const loadProfiles = async () => {
     if (!token) return;
@@ -633,8 +650,10 @@ export default function AdminRHPage() {
   // Chargement du journal d'audit
   const loadAuditLogs = async () => {
     if (!token) return;
+    setAuditLogsLoading(true);
     try {
       const res = await fetch('/api/rh/profiles?logs=1', {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json().catch(() => ({}));
@@ -645,6 +664,8 @@ export default function AdminRHPage() {
     } catch (err) {
       console.error('Erreur chargement logs:', err);
       setAuditLogsError(err instanceof Error ? err.message : 'Journal RH indisponible.');
+    } finally {
+      setAuditLogsLoading(false);
     }
   };
 
@@ -797,7 +818,7 @@ export default function AdminRHPage() {
     setFormContract(p.contractType);
     setFormHireDate(p.hireDate ? p.hireDate.slice(0, 10) : '');
     setFormJobDescription(p.jobDescription || '');
-    setFormWhitelist(p.publicWhitelist || DEFAULT_PUBLIC_WHITELIST);
+    setFormWhitelist(normalizeRHPublicWhitelist(p.publicWhitelist));
     setFormError('');
     setShowCreateModal(true);
   };
@@ -1219,7 +1240,10 @@ export default function AdminRHPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('audit')}
+              onClick={() => {
+                setActiveTab('audit');
+                void loadAuditLogs();
+              }}
               className={`flex items-center gap-2 border-b-2 px-5 py-3 transition ${
                 activeTab === 'audit'
                   ? 'border-cyan-400 text-cyan-400'
@@ -1866,12 +1890,25 @@ export default function AdminRHPage() {
       {activeTab === 'audit' && (
         <section className="container-x mt-6 px-4 md:px-0">
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
-            <h2 className="text-base font-black text-slate-900">
-              Journal d&apos;Audit des Opérations RH &amp; Accès
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">
+                  Journal d&apos;Audit des Opérations RH &amp; Accès
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadAuditLogs()}
+                disabled={auditLogsLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+              >
+                <RefreshCw size={14} className={auditLogsLoading ? 'animate-spin' : ''} />
+                {auditLogsLoading ? 'Actualisation…' : 'Actualiser'}
+              </button>
+            </div>
 
             <div className="mt-6 overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -1885,7 +1922,13 @@ export default function AdminRHPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {auditLogsError ? (
+                  {auditLogsLoading && auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500">
+                        Chargement du journal d&apos;audit…
+                      </td>
+                    </tr>
+                  ) : auditLogsError ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-red-700">
                         Impossible de charger le journal : {auditLogsError}
@@ -2203,103 +2246,42 @@ export default function AdminRHPage() {
                   Par défaut prudent : seules photo, nom, prénom, fonction, direction et statut sont exposés. Cochez pour autoriser l&apos;exposition des données sensibles.
                 </p>
 
-                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.photo}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, photo: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Photo</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.lastName && formWhitelist.firstName}
-                      onChange={(e) =>
-                        setFormWhitelist({
-                          ...formWhitelist,
-                          lastName: e.target.checked,
-                          firstName: e.target.checked,
-                        })
-                      }
-                      className="rounded text-blue-600"
-                    />
-                    <span>Nom / Prénom</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.position}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, position: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Fonction</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.department}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, department: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Direction</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.status}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, status: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Statut</span>
-                  </label>
-                  <label className="flex items-center gap-2 font-semibold text-amber-900">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.gender}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, gender: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Genre</span>
-                  </label>
-                  <label className="flex items-center gap-2 font-semibold text-amber-900">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.birthDate}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, birthDate: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Date de naissance</span>
-                  </label>
-                  <label className="flex items-center gap-2 font-semibold text-amber-900">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.birthPlace}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, birthPlace: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Lieu de naissance</span>
-                  </label>
-                  <label className="flex items-center gap-2 font-semibold text-amber-900">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.email}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, email: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Courriel</span>
-                  </label>
-                  <label className="flex items-center gap-2 font-semibold text-amber-900">
-                    <input
-                      type="checkbox"
-                      checked={formWhitelist.phone}
-                      onChange={(e) => setFormWhitelist({ ...formWhitelist, phone: e.target.checked })}
-                      className="rounded text-blue-600"
-                    />
-                    <span>Téléphone</span>
-                  </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAllPublicWhitelistFields(true)}
+                    className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-bold text-blue-700 transition hover:bg-blue-100"
+                  >
+                    Tout cocher
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllPublicWhitelistFields(false)}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-100"
+                  >
+                    Tout décocher
+                  </button>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
+                  {RH_PUBLIC_WHITELIST_FIELDS.map(({ key, label }) => (
+                    <label
+                      key={key}
+                      className={`flex min-h-9 items-center gap-2 rounded-lg border bg-white px-2.5 py-2 ${
+                        ['gender', 'birthDate', 'birthPlace', 'email', 'phone'].includes(key)
+                          ? 'border-amber-200 font-semibold text-amber-900'
+                          : 'border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formWhitelist[key]}
+                        onChange={(event) => updatePublicWhitelist(key, event.target.checked)}
+                        className="rounded text-blue-600"
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 

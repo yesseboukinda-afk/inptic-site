@@ -16,6 +16,8 @@ import {
   RHContractType,
   RHGender,
   RHQRStatus,
+  RH_PUBLIC_WHITELIST_FIELDS,
+  normalizeRHPublicWhitelist,
 } from '@/types/rh';
 
 // Graine de profils du personnel INPTIC Gabon issue de l'organigramme officiel
@@ -293,7 +295,7 @@ function mapRHProfile(d: any): RHProfile {
     qrStatus: d.qr_status,
     qrGeneratedAt: d.qr_generated_at,
     qrRevokedAt: d.qr_revoked_at,
-    publicWhitelist: d.public_whitelist || DEFAULT_PUBLIC_WHITELIST,
+    publicWhitelist: normalizeRHPublicWhitelist(d.public_whitelist),
     history: Array.isArray(d.history) ? d.history : [],
     createdAt: d.created_at,
     updatedAt: d.updated_at,
@@ -331,6 +333,11 @@ export async function GET(request: NextRequest) {
           details: row.details,
           ipAddress: row.ip_address,
         })),
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Robots-Tag': 'noindex, nofollow',
+        },
       });
     } catch (error) {
       console.error('Erreur PostgreSQL de lecture du journal RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
@@ -430,7 +437,9 @@ export async function POST(request: NextRequest) {
     qrToken,
     qrStatus: 'actif',
     qrGeneratedAt: now,
-    publicWhitelist: body.publicWhitelist || DEFAULT_PUBLIC_WHITELIST,
+    publicWhitelist: body.publicWhitelist === undefined
+      ? DEFAULT_PUBLIC_WHITELIST
+      : normalizeRHPublicWhitelist(body.publicWhitelist),
     history: [
       {
         id: `hist-${Date.now()}`,
@@ -472,7 +481,12 @@ export async function POST(request: NextRequest) {
       'CREATE_PROFILE',
       newProfile.id,
       `${newProfile.firstName} ${newProfile.lastName} (${newProfile.matricule})`,
-      'Création du profil avec attribution du QR Code initial.',
+      `Création du profil avec attribution du QR Code initial. Informations visibles au scan : ${
+        RH_PUBLIC_WHITELIST_FIELDS
+          .filter(({ key }) => newProfile.publicWhitelist[key])
+          .map(({ label }) => label)
+          .join(', ') || 'aucune'
+      }.`,
       undefined,
       client,
     );
@@ -618,7 +632,20 @@ export async function PATCH(request: NextRequest) {
     if (body.contractType) updates.contractType = body.contractType;
     if (body.hireDate) updates.hireDate = body.hireDate;
     if (body.jobDescription !== undefined) updates.jobDescription = body.jobDescription;
-    if (body.publicWhitelist) updates.publicWhitelist = body.publicWhitelist;
+    if (body.publicWhitelist !== undefined) {
+      const nextWhitelist = normalizeRHPublicWhitelist(body.publicWhitelist);
+      const visibilityChanges = RH_PUBLIC_WHITELIST_FIELDS
+        .filter(({ key }) => profile.publicWhitelist[key] !== nextWhitelist[key])
+        .map(({ key, label }) => `${label} ${nextWhitelist[key] ? 'visible' : 'masqué'}`);
+
+      updates.publicWhitelist = nextWhitelist;
+      if (visibilityChanges.length > 0) {
+        historyEntry = {
+          ...historyEntry,
+          details: `${historyEntry.details} Visibilité du badge modifiée : ${visibilityChanges.join(', ')}.`,
+        };
+      }
+    }
   }
 
   const columns: Record<string, string> = {

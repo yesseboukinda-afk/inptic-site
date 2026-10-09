@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
-import { DEFAULT_PUBLIC_WHITELIST, RHPublicWhitelist } from '@/types/rh';
+import { normalizeRHPublicWhitelist, RHPublicWhitelist } from '@/types/rh';
 import { logRHCardScan } from '@/lib/rh-card-audit';
 
 // Rate limiting simple en mémoire par IP (max 30 requêtes par minute)
@@ -87,7 +87,20 @@ export async function GET(
   try {
     await logRHCardScan(profileData, request.headers);
   } catch (error) {
-    console.error('Erreur PostgreSQL lors de la journalisation du scan de carte RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    console.error('Erreur PostgreSQL lors de la journalisation du scan de carte RH:', {
+      profileId: String(profileData.id),
+      code: error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN_ERROR',
+    });
+    return NextResponse.json(
+      { error: 'Le scan ne peut pas être confirmé, car son enregistrement dans le journal RH a échoué.' },
+      {
+        status: 503,
+        headers: {
+          'X-Robots-Tag': 'noindex, nofollow',
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      },
+    );
   }
 
   // Profil révoqué, inactif ou archivé
@@ -110,17 +123,16 @@ export async function GET(
   }
 
   // Application stricte de la liste blanche de confidentialité (DRTI-CDC-2026-001)
-  const whitelist: RHPublicWhitelist =
-    profileData.public_whitelist || DEFAULT_PUBLIC_WHITELIST;
+  const whitelist: RHPublicWhitelist = normalizeRHPublicWhitelist(profileData.public_whitelist);
 
   const publicData: Record<string, any> = {
     status: 'valide',
     verifiedAt: new Date().toISOString(),
     institution: 'Institut National de la Poste, des Technologies de l’Information et de la Communication (INPTIC Gabon)',
-    matricule: profileData.matricule,
   };
 
   if (whitelist.photo) publicData.photoUrl = profileData.photo_url || '';
+  if (whitelist.matricule) publicData.matricule = profileData.matricule;
   if (whitelist.lastName) publicData.lastName = profileData.last_name;
   if (whitelist.firstName) publicData.firstName = profileData.first_name;
   if (whitelist.position) publicData.position = profileData.position;

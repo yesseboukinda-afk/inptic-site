@@ -20,6 +20,7 @@ export type RHQRStatus = 'actif' | 'revoque' | 'inactif';
 
 export type RHPublicWhitelist = {
   photo: boolean;
+  matricule: boolean;
   lastName: boolean;
   firstName: boolean;
   position: boolean;
@@ -31,6 +32,43 @@ export type RHPublicWhitelist = {
   phone: boolean;
   email: boolean;
 };
+
+export const RH_PUBLIC_WHITELIST_FIELDS = [
+  { key: 'photo', label: 'Photo' },
+  { key: 'matricule', label: 'Matricule' },
+  { key: 'lastName', label: 'Nom' },
+  { key: 'firstName', label: 'Prénom' },
+  { key: 'position', label: 'Fonction' },
+  { key: 'department', label: 'Direction' },
+  { key: 'status', label: 'Statut professionnel' },
+  { key: 'gender', label: 'Genre' },
+  { key: 'birthDate', label: 'Date de naissance' },
+  { key: 'birthPlace', label: 'Lieu de naissance' },
+  { key: 'email', label: 'Courriel' },
+  { key: 'phone', label: 'Téléphone' },
+] as const satisfies ReadonlyArray<{ key: keyof RHPublicWhitelist; label: string }>;
+
+export function normalizeRHPublicWhitelist(value: unknown): RHPublicWhitelist {
+  const whitelist =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+
+  return {
+    photo: whitelist.photo === true,
+    matricule: typeof whitelist.matricule === 'boolean' ? whitelist.matricule : true,
+    lastName: whitelist.lastName === true,
+    firstName: whitelist.firstName === true,
+    position: whitelist.position === true,
+    department: whitelist.department === true,
+    status: whitelist.status === true,
+    gender: whitelist.gender === true,
+    birthDate: whitelist.birthDate === true,
+    birthPlace: whitelist.birthPlace === true,
+    phone: whitelist.phone === true,
+    email: whitelist.email === true,
+  };
+}
 
 export type RHProfileHistoryEntry = {
   id: string;
@@ -114,6 +152,7 @@ export const RH_DEPARTMENTS = [
 
 export const DEFAULT_PUBLIC_WHITELIST: RHPublicWhitelist = {
   photo: true,
+  matricule: true,
   lastName: true,
   firstName: true,
   position: true,
