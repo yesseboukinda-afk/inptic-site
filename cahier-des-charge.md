@@ -53,6 +53,10 @@ scientifique, la vie étudiante, les entreprises, les alumni, les textes et lois
 les contacts et une visite 3D. Les visiteurs peuvent rechercher des contenus,
 consulter les pages et utiliser les fonctions de partage disponibles.
 
+L'annuaire Alumni présente les profils sous forme de cartes avec portrait et
+informations de parcours. Il permet la recherche par nom, filière, poste,
+entreprise et promotion, ainsi que le tri des résultats.
+
 ### 4.2 Comptes et admissions
 
 - Inscription et connexion des candidats et du personnel, avec
@@ -82,7 +86,16 @@ appliquées avant l'utilisation en production.
   compte proposés.
 - **Ressources humaines** : rechercher et gérer les profils, importer ou
   exporter des données, gérer les cartes/QR codes et consulter les statistiques
-  et le journal d'audit, selon les permissions.
+  et le journal d'audit, selon les permissions. Les cartes professionnelles
+  imprimables sont recto-verso au format 55 × 85 mm. Le badge numérique reprend
+  le style de la carte et affiche uniquement les champs autorisés dans la liste
+  de visibilité du profil. Les réglages peuvent être cochés ou décochés
+  individuellement ou en une fois; les changements sont enregistrés avec le
+  profil et appliqués à la prochaine vérification du QR.
+- **Alumni** : un Alumni connecté peut modifier son propre profil; le
+  Superadmin peut créer, modifier et supprimer les profils. Les modifications
+  enregistrées sont stockées dans la base partagée, et non uniquement sur
+  l'appareil utilisé.
 - **Catalogue et recherche** : gérer les ressources de formation et les
   publications scientifiques pour les comptes disposant des droits requis.
 
@@ -122,7 +135,14 @@ pas partie du périmètre décrit.
   avant de considérer un paiement comme réussi et prévenir les relances
   involontaires.
 - **Traçabilité RH** : conserver les événements d'audit disponibles pour les
-  opérations RH sensibles.
+  opérations RH sensibles. Chaque scan d'un QR existant doit être journalisé
+  avec le titulaire, sa fonction lorsqu'elle est renseignée, le résultat de la
+  vérification et l'adresse IP lorsqu'elle est disponible. Un scan ne doit pas
+  être présenté comme confirmé si son journal ne peut pas être écrit.
+- **Confidentialité du badge RH** : les informations publiques doivent être
+  filtrées côté serveur selon la liste de visibilité du profil. Les cases
+  décochées ne doivent pas être retournées par la page de vérification ni par
+  son API; les valeurs absentes du profil ne sont pas affichées.
 - **Clarté** : présenter les états d'attente, d'erreur, de succès et les étapes
   à suivre sans assimiler une donnée de secours à une source vérifiée.
 - **Maintenabilité** : centraliser les règles réutilisées, notamment les rôles,
@@ -339,6 +359,16 @@ réussissent dans l'environnement cible :
 - un paiement n'est indiqué comme confirmé qu'après confirmation du fournisseur;
 - un compte autorisé peut accéder aux actions correspondant à son rôle, tandis
   qu'un compte sans droit ne peut pas les exécuter;
+- un profil RH peut régler la visibilité de chaque champ de badge, et seule la
+  sélection enregistrée est renvoyée et affichée après un nouveau scan;
+- chaque scan d'un QR existant crée une entrée d'audit contenant le nom du
+  titulaire et sa fonction lorsqu'elle est renseignée; une panne d'écriture du
+  journal empêche de confirmer le scan;
+- l'impression d'une carte professionnelle produit les deux faces au format
+  55 × 85 mm et le badge numérique utilise les champs de visibilité autorisés;
+- l'annuaire Alumni peut être recherché et trié, un compte Alumni ne peut
+  modifier que son profil, et le Superadmin peut administrer l'ensemble des
+  profils;
 - les contenus publiés dans le CMS sont consultables depuis le site;
 - les fonctions qui dépendent d'une intégration absente indiquent leur
   indisponibilité sans simuler une réussite;

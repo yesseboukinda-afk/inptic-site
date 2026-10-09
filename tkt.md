@@ -238,15 +238,24 @@ Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un compte Adm
 **QR codes et cartes professionnelles**
 
 - Choisir **QR Dynamiques & Cartes**, puis sélectionner un agent.
-- **Voir Carte** affiche la carte; **Imprimer** lance son impression. **SVG** télécharge le QR code.
+- **Voir Carte** affiche les deux faces; **Imprimer** lance l'impression au format carte professionnelle de 55 × 85 mm, avec le recto personnalisé et le verso commun. Pour une impression recto-verso, choisir le retournement sur le bord court et l'échelle 100 %.
+- Dans le formulaire de création ou de modification, la liste **Champs publics exposés au scan du QR Code** permet de choisir les informations présentées sur le badge numérique. Chaque champ se règle séparément; **Tout cocher** et **Tout décocher** règlent l'ensemble. Les champs sans valeur dans le profil ne peuvent pas être affichés.
+- Après avoir modifié ces choix, cliquer sur **Enregistrer** et attendre la confirmation. Scanner de nouveau le QR (ou recharger la page `/agent/<token>`) pour vérifier le résultat; la page est générée à partir des dernières données enregistrées. Si un champ autorisé reste absent, vérifier qu'il est renseigné dans le profil et que la sauvegarde a abouti.
 - Un administrateur peut **Régénérer** un QR (l'ancien est alors révoqué), **Révoquer** ou **Réactiver** son accès. Confirmer ces opérations avec attention : elles changent la validité du lien public de la carte.
-- Dans la fiche du personnel, vérifier la liste des champs autorisés en public (nom, fonction, direction, statut, photo, téléphone, e-mail et données personnelles disponibles). Ne publier que les champs nécessaires; les informations personnelles sont désactivées par défaut quand elles ne sont pas autorisées.
-- Pour vérifier une carte, scanner le QR ou ouvrir son URL `/agent/<token>`. La page indique si le QR est valide, inconnu ou révoqué et n'affiche que les champs autorisés. Un QR révoqué ou associé à un profil archivé n'est plus valide. Ne diffusez pas le token du QR séparément de la carte.
+- Pour vérifier une carte, scanner le QR ou ouvrir son URL `/agent/<token>`. La page indique si le QR est valide, inconnu ou révoqué et n'affiche que les champs autorisés. Chaque scan valide ou invalide d'un profil existant est inscrit dans le journal RH avec le nom du titulaire et sa fonction lorsqu'elle est renseignée. Si le scan ne peut pas être inscrit, la vérification n'est pas confirmée.
+- Un QR révoqué ou associé à un profil archivé n'est plus valide. Ne diffusez pas le token du QR séparément de la carte.
 
 **Statistiques et audit**
 
 - **Tableau de Bord & Stats** présente effectifs, répartition par genre, statut, direction/service, tranches d'âge, ancienneté et QR actifs.
-- **Journal d'Audit** retrace les opérations RH, notamment créations, modifications, archivages et actions QR. Utiliser ce journal pour vérifier une modification ou une révocation.
+- **Journal d'Audit** retrace les opérations RH, notamment créations, modifications, archivages et actions QR, ainsi que les scans de badge avec le titulaire, sa fonction et l'adresse IP disponible. Ouvrir l'onglet pour actualiser les entrées ou utiliser **Actualiser**; la liste se rafraîchit aussi périodiquement.
+
+### 7.8 Réseau Alumni
+
+- La page [Alumni](https://inptic-site.vercel.app/alumni) présente les profils sous forme de portraits carrés en grille. La recherche peut porter sur tous les champs ou être limitée au nom, à la filière, au poste, à l'entreprise ou à la promotion.
+- Choisir un champ de tri et un sens croissant ou décroissant pour réordonner les profils; **Réinitialiser** efface la recherche et les critères de tri.
+- Un Alumni connecté peut modifier son propre profil depuis sa fiche. Le Superadmin peut également créer, modifier et supprimer des profils depuis l'annuaire.
+- Une modification enregistrée est partagée avec les autres visiteurs via la base de données; un brouillon local non synchronisé n'est pas publié dans l'annuaire.
 
 ## 8. Problèmes courants
 
