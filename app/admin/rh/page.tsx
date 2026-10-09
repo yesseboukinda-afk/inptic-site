@@ -1658,7 +1658,7 @@ export default function AdminRHPage() {
                               height={962}
                               className="h-[80%] w-[58%] object-contain object-left"
                             />
-                            <img src="/rh/gabon-emblem.png" alt="Emblème gabonais" className="h-[76%] w-[28%] object-cover" />
+                            <img src="/rh/gabon-emblem.png" alt="Emblème gabonais" className="h-[76%] w-[28%] bg-white object-contain" />
                           </div>
                           <h4 className="mt-[1%] text-[7px] font-black leading-none text-neutral-900">CARTE PROFESSIONNELLE</h4>
                           <div className="mx-auto mt-[2%] h-[29%] w-[29%] overflow-hidden rounded-full border-2 border-[#293b9d] bg-slate-100">
