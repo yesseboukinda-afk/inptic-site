@@ -67,14 +67,14 @@ export function withSiteAudit<T extends (request: NextRequest) => Promise<NextRe
   isSuccessfulResponse: (response: NextResponse) => boolean = (response) => response.status < 400,
 ): T {
   const audited = async (request: NextRequest): Promise<NextResponse> => {
-    const user = request.cookies.get(AUTH_COOKIE_NAME)?.value
-      ? await getAuthenticatedUser(request)
-      : null;
-    const actor = actorSnapshot(user);
     const path = new URL(request.url).pathname;
     const method = request.method.toUpperCase();
     let logId: string | null = null;
     try {
+      const user = request.cookies.get(AUTH_COOKIE_NAME)?.value
+        ? await getAuthenticatedUser(request)
+        : null;
+      const actor = actorSnapshot(user);
       const { rows } = await getPostgresPool().query<{ id: string }>(
         `INSERT INTO public.site_audit_logs
            (actor_id, actor_email, actor_name, actor_role, service, direction,
