@@ -73,54 +73,66 @@ export function withSiteAudit<T extends (request: NextRequest) => Promise<NextRe
     const actor = actorSnapshot(user);
     const path = new URL(request.url).pathname;
     const method = request.method.toUpperCase();
-    const { rows } = await getPostgresPool().query<{ id: string }>(
-      `INSERT INTO public.site_audit_logs
-         (actor_id, actor_email, actor_name, actor_role, service, direction,
-          action, http_method, route, outcome)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'en_cours')
-       RETURNING id`,
-      [actor.id, actor.email, actor.name, actor.role, actor.service, actor.direction, action, method, path],
-    );
-    const logId = rows[0]?.id;
-    if (!logId) throw new Error('Impossible de créer le journal de traçabilité.');
+    let logId: string | null = null;
+    try {
+      const { rows } = await getPostgresPool().query<{ id: string }>(
+        `INSERT INTO public.site_audit_logs
+           (actor_id, actor_email, actor_name, actor_role, service, direction,
+            action, http_method, route, outcome)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'en_cours')
+         RETURNING id`,
+        [actor.id, actor.email, actor.name, actor.role, actor.service, actor.direction, action, method, path],
+      );
+      logId = rows[0]?.id ?? null;
+      if (!logId) throw new Error('Aucun identifiant retourné pour le journal de traçabilité.');
+    } catch (error) {
+      console.error(
+        `[Site audit] Impossible de créer l’entrée pour ${method} ${path}; la requête continue sans journal:`,
+        error,
+      );
+    }
 
     try {
       const response = await handler(request);
-      try {
-        const responseActor = await actorFromSessionResponse(response);
-        await getPostgresPool().query(
-          `UPDATE public.site_audit_logs
-           SET outcome = $2, response_status = $3, completed_at = NOW(),
-               actor_id = COALESCE($4, actor_id), actor_email = COALESCE($5, actor_email),
-               actor_name = COALESCE($6, actor_name), actor_role = COALESCE($7, actor_role),
-               service = COALESCE($8, service), direction = COALESCE($9, direction)
-           WHERE id = $1`,
-          [
-            logId,
-            isSuccessfulResponse(response) ? 'succes' : 'echec',
-            response.status,
-            responseActor?.id ?? null,
-            responseActor?.email ?? null,
-            responseActor?.name ?? null,
-            responseActor?.role ?? null,
-            responseActor?.service ?? null,
-            responseActor?.direction ?? null,
-          ],
-        );
-      } catch (error) {
-        console.error('[Site audit] Impossible de finaliser une entrée de traçabilité:', error);
+      if (logId) {
+        try {
+          const responseActor = await actorFromSessionResponse(response);
+          await getPostgresPool().query(
+            `UPDATE public.site_audit_logs
+             SET outcome = $2, response_status = $3, completed_at = NOW(),
+                 actor_id = COALESCE($4, actor_id), actor_email = COALESCE($5, actor_email),
+                 actor_name = COALESCE($6, actor_name), actor_role = COALESCE($7, actor_role),
+                 service = COALESCE($8, service), direction = COALESCE($9, direction)
+             WHERE id = $1`,
+            [
+              logId,
+              isSuccessfulResponse(response) ? 'succes' : 'echec',
+              response.status,
+              responseActor?.id ?? null,
+              responseActor?.email ?? null,
+              responseActor?.name ?? null,
+              responseActor?.role ?? null,
+              responseActor?.service ?? null,
+              responseActor?.direction ?? null,
+            ],
+          );
+        } catch (error) {
+          console.error('[Site audit] Impossible de finaliser une entrée de traçabilité:', error);
+        }
       }
       return response;
     } catch (error) {
-      try {
-        await getPostgresPool().query(
-          `UPDATE public.site_audit_logs
-           SET outcome = 'echec', completed_at = NOW()
-           WHERE id = $1`,
-          [logId],
-        );
-      } catch (auditError) {
-        console.error('[Site audit] Impossible de marquer une action en échec:', auditError);
+      if (logId) {
+        try {
+          await getPostgresPool().query(
+            `UPDATE public.site_audit_logs
+             SET outcome = 'echec', completed_at = NOW()
+             WHERE id = $1`,
+            [logId],
+          );
+        } catch (auditError) {
+          console.error('[Site audit] Impossible de marquer une action en échec:', auditError);
+        }
       }
       throw error;
     }
