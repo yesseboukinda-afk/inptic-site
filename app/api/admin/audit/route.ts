@@ -72,7 +72,17 @@ export async function GET(request: NextRequest) {
       offset,
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    console.error('[Admin audit GET] PostgreSQL error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Impossible de charger le journal de traçabilité.' }, { status: 503 });
+    const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : 'UNKNOWN_ERROR';
+    console.error(
+      '[Admin audit GET] PostgreSQL error:',
+      code,
+      error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+    );
+    return NextResponse.json(
+      { error: `Impossible de charger le journal de traçabilité (PostgreSQL ${code}).` },
+      { status: 503 },
+    );
   }
 }
