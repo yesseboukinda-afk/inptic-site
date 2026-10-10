@@ -75,13 +75,48 @@ export async function GET(request: NextRequest) {
     const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
       ? error.code
       : 'UNKNOWN_ERROR';
+    let runtimeContext = '';
+    try {
+      const { rows } = await getPostgresPool().query<{
+        database_name: string;
+        database_role: string;
+        public_schema_usage: boolean;
+        audit_select: boolean;
+        audit_insert: boolean;
+        audit_update: boolean;
+      }>(
+        `SELECT current_database() AS database_name,
+                current_user AS database_role,
+                has_schema_privilege(current_user, 'public', 'USAGE') AS public_schema_usage,
+                CASE WHEN to_regclass('public.site_audit_logs') IS NULL THEN FALSE
+                     ELSE has_table_privilege(current_user, to_regclass('public.site_audit_logs'), 'SELECT')
+                END AS audit_select,
+                CASE WHEN to_regclass('public.site_audit_logs') IS NULL THEN FALSE
+                     ELSE has_table_privilege(current_user, to_regclass('public.site_audit_logs'), 'INSERT')
+                END AS audit_insert,
+                CASE WHEN to_regclass('public.site_audit_logs') IS NULL THEN FALSE
+                     ELSE has_table_privilege(current_user, to_regclass('public.site_audit_logs'), 'UPDATE')
+                END AS audit_update`,
+      );
+      const context = rows[0];
+      if (context) {
+        runtimeContext = ` Base ${context.database_name}, rôle ${context.database_role}; ` +
+          `public USAGE=${context.public_schema_usage}, ` +
+          `site_audit_logs SELECT=${context.audit_select}/INSERT=${context.audit_insert}/UPDATE=${context.audit_update}.`;
+      }
+    } catch (diagnosticError) {
+      console.error(
+        '[Admin audit GET] PostgreSQL diagnostics failed:',
+        diagnosticError instanceof Error ? diagnosticError.message : 'UNKNOWN_ERROR',
+      );
+    }
     console.error(
       '[Admin audit GET] PostgreSQL error:',
       code,
       error instanceof Error ? error.message : 'UNKNOWN_ERROR',
     );
     return NextResponse.json(
-      { error: `Impossible de charger le journal de traçabilité (PostgreSQL ${code}).` },
+      { error: `Impossible de charger le journal de traçabilité (PostgreSQL ${code}).${runtimeContext}` },
       { status: 503 },
     );
   }
