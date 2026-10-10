@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Eye,
   EyeOff,
+  History,
   Megaphone,
   Plus,
   Search,
@@ -42,6 +43,13 @@ const roleLabels = Object.fromEntries(staffRoles.map(({ value, label }) => [valu
 const serviceLabels = Object.fromEntries(STAFF_SERVICE_OPTIONS.map(({ value, label }) => [value, label]));
 
 const managementAreas = [
+  {
+    title: 'Journal de traçabilité',
+    description: 'Consulter les actions enregistrées avec leur auteur, leur service et leur date.',
+    href: '/admin/journal',
+    icon: History,
+    color: 'violet',
+  },
   {
     title: 'Admissions et dossiers étudiants',
     description: 'Consulter et gérer les dossiers, documents et étapes de suivi des candidats.',

@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
@@ -7,7 +8,7 @@ export const runtime = 'nodejs';
 
 type OAuthIdentity = { email: string; name: string; picture: string };
 
-export async function GET(request: NextRequest) {
+async function siteAuditedGET(request: NextRequest) {
   const siteUrl = getAuthSiteUrl(request);
   const callbackError = request.nextUrl.searchParams.get('error');
   const code = request.nextUrl.searchParams.get('code');
@@ -134,3 +135,12 @@ function redirectWithError(siteUrl: string, code: string) {
   });
   return response;
 }
+
+export const GET = withSiteAudit(
+  'Retour de connexion OAuth',
+  siteAuditedGET,
+  (response) => {
+    const location = response.headers.get('location');
+    return Boolean(location && new URL(location).searchParams.get('oauth') === 'success');
+  },
+);

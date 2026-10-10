@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { canAccessStaffService } from '@/lib/roles';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
@@ -93,7 +94,7 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function siteAuditedPUT(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
 
@@ -141,3 +142,5 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+
+export const PUT = withSiteAudit("Modification du message de la Direction", siteAuditedPUT);

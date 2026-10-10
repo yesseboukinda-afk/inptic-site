@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendAuthEmail } from '@/lib/auth-email';
@@ -6,7 +7,7 @@ import { getAuthSiteUrl, hashOpaqueToken } from '@/lib/postgres-auth';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!process.env.RESEND_API_KEY || !(process.env.AUTH_FROM_EMAIL || process.env.NEWSLETTER_FROM_EMAIL)) {
     return NextResponse.json({ error: 'Le service de réinitialisation par e-mail n’est pas configuré.' }, { status: 503 });
   }
@@ -60,3 +61,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ message: 'Si un compte vérifié existe avec cette adresse, un lien sera envoyé.' });
 }
+
+export const POST = withSiteAudit("Demande de réinitialisation du mot de passe", siteAuditedPOST);

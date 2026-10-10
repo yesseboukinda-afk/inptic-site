@@ -69,8 +69,6 @@ import {
   RHAuditLog,
   RH_DEPARTMENTS,
   RHPublicWhitelist,
-  RH_PUBLIC_WHITELIST_FIELDS,
-  normalizeRHPublicWhitelist,
 } from '@/types/rh';
 import { generateQRCodeSVG } from '@/lib/qrcode';
 
@@ -100,7 +98,7 @@ const getProfileFileName = (profile: RHProfile) =>
 
 const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
   const qrSvg = generateQRCodeSVG(`${origin}/agent/${profile.qrToken || profile.id}`, {
-    size: 240,
+    size: 140,
     margin: 1,
   });
   const photo = profile.photoUrl
@@ -108,32 +106,21 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
     : '<div class="photo photo-placeholder">PHOTO</div>';
 
   return `
-    <section class="card-face card-front">
-      <div class="front-band">
-        <span>MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE<br />DE LA DIGITALISATION ET DE L’INNOVATION</span>
-        <i aria-hidden="true"></i>
-      </div>
-      <div class="brand-row">
+    <div class="card">
+      <div class="top-header">
         <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
-        <img src="${origin}/rh/gabon-emblem.png" class="state-emblem" alt="Emblème de la République gabonaise" />
       </div>
-      <h1>CARTE PROFESSIONNELLE</h1>
       <div class="photo-wrapper">${photo}</div>
-      <div class="identity">
-        <strong class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</strong>
-        <span class="position">${escapeHtml(profile.position)}</span>
-        <span class="department">${escapeHtml(profile.department)}</span>
-        <span class="matr">MATRICULE : ${escapeHtml(profile.matricule)}</span>
-      </div>
-      <div class="front-footer">
+      <div class="body">
+        <div>
+          <div class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</div>
+          <div class="position">${escapeHtml(profile.position)}</div>
+          <div class="matr">MATR: ${escapeHtml(profile.matricule)}</div>
+        </div>
         <div class="qr-box">${qrSvg}</div>
-        <span>www.inptic-ga.org</span>
-        <i aria-hidden="true"></i>
+        <div class="footer">CARTE PROFESSIONNELLE OFFICIELLE</div>
       </div>
-    </section>
-    <section class="card-face card-back">
-      <img src="${origin}/rh/carte-professionnelle-verso.png" alt="Conditions d’utilisation de la carte professionnelle INPTIC" />
-    </section>
+    </div>
   `;
 };
 
@@ -144,219 +131,109 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       <meta charset="utf-8" />
       <title>Cartes professionnelles INPTIC</title>
       <style>
-        @page { size: 55mm 85mm; margin: 0; }
-        * { box-sizing: border-box; }
+        @page { size: 53.98mm 85.6mm; margin: 0; }
         html, body {
-          width: 55mm;
+          width: 53.98mm;
           margin: 0;
           padding: 0;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        .card-face {
-          position: relative;
-          width: 55mm;
-          height: 85mm;
-          margin: 0;
+        .card {
+          width: 53.98mm;
+          height: 85.6mm;
+          margin: 0 auto;
+          background: #ffffff;
+          border-radius: 4mm;
           overflow: hidden;
-          background: #fff;
-          break-after: page;
-          page-break-after: always;
-        }
-        .card-face:last-child { break-after: auto; page-break-after: auto; }
-        .card-front {
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
-          color: #111827;
-          background:
-            linear-gradient(135deg, transparent 72%, #eef9fd 72%),
-            #fff;
+          border: 1px solid #cbd5e1;
+          break-after: page;
+          page-break-after: always;
         }
-        .front-band {
-          position: relative;
-          display: flex;
-          align-items: center;
+        .card:last-child { break-after: auto; page-break-after: auto; }
+        .top-header {
           width: 100%;
-          height: 13mm;
-          flex: 0 0 13mm;
-          padding: 0 2mm;
-          overflow: hidden;
-          color: #fff;
-          background: #55afe0;
-          text-align: left;
-          font-size: 4pt;
-          font-weight: 700;
-          line-height: 1.35;
-        }
-        .front-band i {
-          position: absolute;
-          top: 0;
-          right: -1mm;
-          width: 17mm;
-          height: 13mm;
-          background: #383e9e;
-          clip-path: polygon(100% 0, 100% 100%, 0 100%);
-        }
-        .brand-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          height: 10mm;
-          padding: 1mm 2mm 0;
+          background: #1e3a8a;
+          padding: 2mm;
+          box-sizing: border-box;
         }
         .company-logo {
           display: block;
-          width: 27mm;
-          height: 8mm;
-          object-fit: contain;
-          object-position: left center;
+          width: 30mm;
+          height: auto;
+          margin: 0 auto;
+          padding: 0.5mm;
+          box-sizing: content-box;
+          background: #ffffff;
+          border-radius: 1mm;
         }
-        .state-emblem {
-          display: block;
-          width: 13mm;
-          height: 8mm;
-          object-fit: cover;
-          border: 0.25mm solid #e5e7eb;
-        }
-        .card-front h1 {
-          margin: 0.5mm 0 0;
-          color: #171717;
-          font-size: 8pt;
-          font-weight: 900;
-          line-height: 1.1;
-        }
-        .photo-wrapper {
-          position: relative;
-          z-index: 1;
-          width: 25mm;
-          height: 25mm;
-          flex: 0 0 25mm;
-          margin-top: 1mm;
-          overflow: hidden;
-          border: 0.7mm solid #26399b;
-          border-radius: 50%;
-          background: #f1f5f9;
-        }
+        .photo-wrapper { margin-top: 2mm; position: relative; z-index: 1; }
         .photo {
-          display: block;
-          width: 100%;
-          height: 100%;
+          width: 22mm;
+          height: 22mm;
+          border-radius: 50%;
+          border: 2mm solid #0ea5e9;
           object-fit: cover;
-          object-position: center 25%;
+          background: #0f172a;
         }
         .photo-placeholder {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #fff;
-          background: #172554;
+          color: white;
           font-size: 7pt;
-          font-weight: 800;
+          font-weight: bold;
         }
-        .identity {
+        .body {
+          padding: 1.5mm 3mm 2mm;
           display: flex;
           flex-direction: column;
           align-items: center;
+          flex: 1;
+          justify-content: space-between;
           width: 100%;
-          padding: 1mm 2mm 0;
-          line-height: 1.15;
+          box-sizing: border-box;
         }
         .name {
-          max-width: 100%;
-          overflow: hidden;
-          color: #1b1b1b;
-          font-size: 8.5pt;
+          font-size: 9pt;
           font-weight: 900;
-          line-height: 1.15;
-          text-overflow: ellipsis;
+          color: #0f172a;
+          line-height: 1.1;
           text-transform: uppercase;
-          white-space: nowrap;
         }
         .position {
-          max-width: 100%;
-          overflow: hidden;
-          margin-top: 0.5mm;
-          color: #262626;
           font-size: 6.5pt;
           font-weight: 700;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .department {
-          max-width: 100%;
-          overflow: hidden;
-          margin-top: 0.35mm;
-          color: #4b5563;
-          font-size: 5.5pt;
-          font-weight: 600;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          color: #0284c7;
+          margin-top: 0.5mm;
         }
         .matr {
-          margin-top: 0.6mm;
-          color: #26399b;
-          font-family: monospace;
           font-size: 5.5pt;
+          font-family: monospace;
+          color: #d4af37;
           font-weight: 800;
-        }
-        .front-footer {
-          position: absolute;
-          right: 0;
-          bottom: 0;
-          left: 0;
-          display: flex;
-          align-items: flex-end;
-          justify-content: flex-end;
-          width: 100%;
-          height: 13mm;
-          padding: 0 2mm 2mm;
-          color: #fff;
-          background: #55afe0;
-          font-size: 6.5pt;
-          font-weight: 700;
-        }
-        .front-footer > span {
-          position: relative;
-          z-index: 1;
-          padding-bottom: 1mm;
-        }
-        .front-footer i {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 10mm;
-          height: 13mm;
-          background: #383e9e;
-          clip-path: polygon(0 0, 100% 100%, 0 100%);
+          margin-top: 0.5mm;
         }
         .qr-box {
-          position: absolute;
-          z-index: 2;
-          bottom: 1mm;
-          left: 2mm;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 18mm;
-          height: 18mm;
-          padding: 0.7mm;
-          background: #fff;
+          width: 20mm;
+          height: 20mm;
+          background: #ffffff;
+          padding: 0.5mm;
+          border: 1px solid #e2e8f0;
+          border-radius: 1.5mm;
+          margin-top: 0.5mm;
         }
-        .qr-box svg { display: block; width: 100%; height: 100%; }
-        .card-back img {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: fill;
-        }
+        .qr-box svg { width: 100%; height: 100%; }
+        .footer { font-size: 4.5pt; color: #64748b; font-weight: 600; }
         @media screen {
-          html, body { width: auto; }
-          body { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #e2e8f0; }
-          .card-face { box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
+          body { background: #e2e8f0; }
+          .card { margin-bottom: 12px; }
         }
       </style>
     </head>
@@ -364,7 +241,7 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       ${profiles.map((profile) => getPrintableCardMarkup(profile, origin)).join('')}
       <script>
         window.onload = () => {
-          setTimeout(() => window.print(), 500);
+          setTimeout(() => window.print(), 250);
         };
       </script>
     </body>
@@ -500,8 +377,6 @@ export default function AdminRHPage() {
   const [profiles, setProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
   const [profilesError, setProfilesError] = useState('');
-  const [auditLogsError, setAuditLogsError] = useState('');
-  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Filtres
@@ -544,6 +419,7 @@ export default function AdminRHPage() {
   const [formWhitelist, setFormWhitelist] = useState<RHPublicWhitelist>(DEFAULT_PUBLIC_WHITELIST);
   const [formError, setFormError] = useState('');
   const [formSaving, setFormSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [formSaveStep, setFormSaveStep] = useState<1 | 2>(1);
 
   // Vérification de la session
@@ -564,7 +440,6 @@ export default function AdminRHPage() {
           router.replace(getRolePath(normRole, session.user?.email, assignedService));
           return;
         }
-        setSelectedDept('all');
 
         if (isSuperAdminRole(normRole) || isStandardAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
@@ -594,7 +469,6 @@ export default function AdminRHPage() {
           router.replace(getRolePath(normRole, session.user?.email, assignedService));
           return;
         }
-        setSelectedDept('all');
         if (isSuperAdminRole(normRole) || isStandardAdminRole(normRole) || ['rh', 'drh', 'rh_admin'].includes(normRole)) {
           setUserRole('rh_admin');
         } else if (normRole === 'rh_gestionnaire') {
@@ -613,33 +487,20 @@ export default function AdminRHPage() {
 
   const isReadOnly = userRole === 'rh_consultation';
 
-  const updatePublicWhitelist = (field: keyof RHPublicWhitelist, checked: boolean) => {
-    setFormWhitelist((current) => ({ ...current, [field]: checked }));
-  };
-
-  const setAllPublicWhitelistFields = (checked: boolean) => {
-    setFormWhitelist((current) => {
-      const next = { ...current };
-      for (const { key } of RH_PUBLIC_WHITELIST_FIELDS) {
-        next[key] = checked;
-      }
-      return next;
-    });
-  };
-
   // Chargement des profils
   const loadProfiles = async () => {
     if (!token) return;
     setLoading(true);
+    setProfilesError('');
     try {
       const res = await fetch(`/api/rh/profiles?archived=${showArchived ? '1' : '0'}`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Chargement RH impossible (${res.status}).`);
       if (!Array.isArray(json.data)) throw new Error('Réponse invalide lors du chargement des employés.');
       setProfiles(json.data);
-      setProfilesError('');
     } catch (err) {
       console.error('Erreur chargement profils:', err);
       setProfilesError(err instanceof Error ? err.message : 'Impossible de charger la liste des employés.');
@@ -651,22 +512,16 @@ export default function AdminRHPage() {
   // Chargement du journal d'audit
   const loadAuditLogs = async () => {
     if (!token) return;
-    setAuditLogsLoading(true);
     try {
       const res = await fetch('/api/rh/profiles?logs=1', {
-        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Journal RH indisponible.');
-      if (!Array.isArray(json.logs)) throw new Error('Réponse invalide lors du chargement du journal RH.');
-      setAuditLogs(json.logs);
-      setAuditLogsError('');
+      const json = await res.json();
+      if (json.logs && Array.isArray(json.logs)) {
+        setAuditLogs(json.logs);
+      }
     } catch (err) {
       console.error('Erreur chargement logs:', err);
-      setAuditLogsError(err instanceof Error ? err.message : 'Journal RH indisponible.');
-    } finally {
-      setAuditLogsLoading(false);
     }
   };
 
@@ -819,9 +674,47 @@ export default function AdminRHPage() {
     setFormContract(p.contractType);
     setFormHireDate(p.hireDate ? p.hireDate.slice(0, 10) : '');
     setFormJobDescription(p.jobDescription || '');
-    setFormWhitelist(normalizeRHPublicWhitelist(p.publicWhitelist));
+    setFormWhitelist(p.publicWhitelist || DEFAULT_PUBLIC_WHITELIST);
     setFormError('');
     setShowCreateModal(true);
+  };
+
+  const handlePhotoSelection = (file: File | undefined) => {
+    if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const photoTypes: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      gif: 'image/gif',
+    };
+    const expectedType = extension ? photoTypes[extension] : undefined;
+    if (!expectedType || (file.type && file.type !== expectedType)) {
+      setFormError('Formats photo acceptés : JPG, PNG, WebP ou GIF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('La photo ne doit pas dépasser 10 Mo.');
+      return;
+    }
+
+    setPhotoUploading(true);
+    setFormError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string' && reader.result.startsWith('data:image/')) {
+        setFormPhotoUrl(reader.result);
+      } else {
+        setFormError('Impossible de lire la photo sélectionnée.');
+      }
+      setPhotoUploading(false);
+    };
+    reader.onerror = () => {
+      setFormError('Impossible de lire la photo sélectionnée.');
+      setPhotoUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Sauvegarde de l’employé dans PostgreSQL
@@ -868,6 +761,10 @@ export default function AdminRHPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde dans PostgreSQL.');
 
+      if (editingProfile && json.data?.id === editingProfile.id) {
+        setSelectedForCard((current) => current?.id === editingProfile.id ? json.data : current);
+        setViewingProfile((current) => current?.id === editingProfile.id ? json.data : current);
+      }
       setFormSaveStep(2);
       await Promise.all([loadProfiles(), loadAuditLogs()]);
       setShowCreateModal(false);
@@ -1272,10 +1169,7 @@ export default function AdminRHPage() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab('audit');
-                void loadAuditLogs();
-              }}
+              onClick={() => setActiveTab('audit')}
               className={`flex items-center gap-2 border-b-2 px-5 py-3 transition ${
                 activeTab === 'audit'
                   ? 'border-cyan-400 text-cyan-400'
@@ -1405,7 +1299,7 @@ export default function AdminRHPage() {
                     </tr>
                   ) : profilesError ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-red-700">
+                      <td colSpan={6} className="py-12 text-center text-red-700">
                         {profilesError}
                       </td>
                     </tr>
@@ -1582,13 +1476,12 @@ export default function AdminRHPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Printer size={15} />
-                  Imprimer toutes les cartes recto-verso ({exportableProfiles.length})
+                  Exporter toutes les cartes en PDF ({exportableProfiles.length})
                 </button>
               </div>
               <p className="mt-2 text-[11px] text-slate-500">
                 Les exports groupés suivent les filtres de la liste et incluent les profils actifs uniquement.
-                Chaque carte ouvre deux pages à imprimer recto-verso, avec retournement sur le bord court, au format 55 × 85 mm.
-                Choisissez « Enregistrer au format PDF » pour obtenir le document.
+                Les cartes s&apos;ouvrent dans la fenêtre d&apos;impression : choisissez « Enregistrer au format PDF » pour les télécharger ensemble.
               </p>
 
               <div className="mt-4 divide-y divide-slate-100">
@@ -1680,7 +1573,7 @@ export default function AdminRHPage() {
             <div>
               <div className="sticky top-20 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-900">Aperçu de la carte recto-verso</h3>
+                  <h3 className="text-sm font-black text-slate-900">Carte Professionnelle Imprimable</h3>
                   {selectedForCard && (
                     <button
                       onClick={() => handlePrintCard(selectedForCard)}
@@ -1694,67 +1587,64 @@ export default function AdminRHPage() {
 
                 {selectedForCard ? (
                   <div className="mt-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Recto</p>
-                        <div
-                          className="relative mx-auto w-full overflow-hidden border border-slate-300 bg-white text-center shadow-lg"
-                          style={{ aspectRatio: '55/85' }}
-                        >
-                          <div className="relative flex h-[15%] items-center overflow-hidden bg-[#55afe0] px-[4%] text-left text-[5px] font-bold leading-tight text-white">
-                            MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE<br />
-                            DE LA DIGITALISATION ET DE L’INNOVATION
-                            <span className="absolute -right-1 top-0 h-full w-[30%] bg-[#383e9e]" style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }} />
-                          </div>
-                          <div className="flex h-[11%] items-center justify-between px-[5%]">
-                            <Image
-                              src="/logoinptic.png"
-                              alt="Logo INPTIC"
-                              width={1698}
-                              height={962}
-                              className="h-[80%] w-[58%] object-contain object-left"
-                            />
-                            <img src="/rh/gabon-emblem.png" alt="Emblème gabonais" className="h-[76%] w-[28%] bg-white object-contain" />
-                          </div>
-                          <h4 className="mt-[1%] text-[7px] font-black leading-none text-neutral-900">CARTE PROFESSIONNELLE</h4>
-                          <div className="mx-auto mt-[2%] h-[29%] w-[29%] overflow-hidden rounded-full border-2 border-[#293b9d] bg-slate-100">
-                            {selectedForCard.photoUrl ? (
-                              <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover object-[center_25%]" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center bg-blue-950 text-[7px] font-bold text-blue-100">PHOTO</div>
-                            )}
-                          </div>
-                          <div className="relative z-10 mx-auto flex w-[94%] flex-col items-center px-1 pt-[2%] leading-tight">
-                            <p className="w-full truncate text-[9px] font-black uppercase text-neutral-900">
-                              {selectedForCard.firstName} {selectedForCard.lastName}
-                            </p>
-                            <p className="w-full truncate text-[7px] font-bold text-neutral-800">{selectedForCard.position}</p>
-                            <p className="w-full truncate text-[6px] font-semibold text-slate-600">{selectedForCard.department}</p>
-                            <p className="mt-[1%] text-[6px] font-mono font-bold text-[#293b9d]">MATRICULE : {selectedForCard.matricule}</p>
-                          </div>
-                          <div className="absolute inset-x-0 bottom-0 flex h-[15%] items-end justify-end bg-[#55afe0] px-[4%] pb-[3%] text-[7px] font-bold text-white">
-                            www.inptic-ga.org
-                            <span className="absolute bottom-0 left-0 h-full w-[22%] bg-[#383e9e]" style={{ clipPath: 'polygon(0 0, 100% 100%, 0 100%)' }} />
-                          </div>
-                          <div
-                            className="absolute bottom-[1%] left-[3%] z-10 flex h-[22%] w-[33%] items-center justify-center bg-white p-[1%]"
-                            dangerouslySetInnerHTML={{
-                              __html: generateQRCodeSVG(
-                                `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic-ga.org'}/agent/${selectedForCard.qrToken || selectedForCard.id}`,
-                                { size: 100, margin: 1 }
-                              ),
-                            }}
-                          />
+                    {/* Carte Verticale Style Modèle Référence */}
+                    <div
+                      id="printable-card"
+                      className="relative mx-auto w-full max-w-[270px] overflow-hidden rounded-3xl border border-slate-300 bg-white text-slate-900 shadow-2xl flex flex-col items-center text-center"
+                      style={{ aspectRatio: '53.98/85.6' }}
+                    >
+                      {/* En-tête avec le logo officiel */}
+                      <div className="w-full bg-blue-900 px-2 py-2 relative">
+                        <Image
+                          src="/logoinptic.png"
+                          alt="Logo INPTIC"
+                          width={1698}
+                          height={962}
+                          className="mx-auto h-auto w-[56%] max-w-full rounded-md bg-white p-1 object-contain"
+                        />
+                      </div>
+
+                      {/* Photo circulaire avec anneau cyan */}
+                      <div className="mt-2 relative z-10">
+                        <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-cyan-500 bg-slate-900 shadow-lg">
+                          {selectedForCard.photoUrl ? (
+                            <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-blue-950 text-blue-200 text-xs font-bold">
+                              PHOTO
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div>
-                        <p className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">Verso</p>
-                        <img
-                          src="/rh/carte-professionnelle-verso.png"
-                          alt="Conditions d’utilisation de la carte professionnelle INPTIC"
-                          className="mx-auto block w-full border border-slate-300 shadow-lg"
-                          style={{ aspectRatio: '55/85' }}
+
+                      {/* Corps de la carte : Nom, Poste, Matricule & QR Code centré en bas */}
+                      <div className="p-3 pt-1 pb-2 flex flex-col items-center justify-between flex-1 w-full">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 uppercase leading-snug">
+                            {selectedForCard.firstName} {selectedForCard.lastName}
+                          </h4>
+                          <p className="text-xs font-bold text-sky-600 mt-0.5">
+                            {selectedForCard.position}
+                          </p>
+                          <p className="text-[10px] font-mono font-bold text-[#D4AF37] mt-1">
+                            MATR: {selectedForCard.matricule}
+                          </p>
+                        </div>
+
+                        {/* QR Code centré */}
+                        <div
+                          className="my-1 h-24 w-24 rounded-xl bg-white p-1 border border-slate-200 shadow-sm flex items-center justify-center"
+                          dangerouslySetInnerHTML={{
+                            __html: generateQRCodeSVG(
+                              `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic-ga.org'}/agent/${selectedForCard.qrToken}`,
+                              { size: 72, margin: 1 }
+                            ),
+                          }}
                         />
+
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100 pt-1.5 w-full">
+                          Carte Professionnelle Officielle
+                        </p>
                       </div>
                     </div>
 
@@ -1770,9 +1660,6 @@ export default function AdminRHPage() {
                         Token : {selectedForCard.qrToken}
                       </p>
                     </div>
-                    <p className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-[11px] leading-5 text-blue-900">
-                      Impression recto-verso au format 55 × 85 mm. Dans la fenêtre d’impression, choisissez une impression recto-verso avec retournement sur le bord court et une échelle de 100 %.
-                    </p>
                   </div>
                 ) : (
                   <div className="mt-6 rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-500">
@@ -1922,25 +1809,12 @@ export default function AdminRHPage() {
       {activeTab === 'audit' && (
         <section className="container-x mt-6 px-4 md:px-0">
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-black text-slate-900">
-                  Journal d&apos;Audit des Opérations RH &amp; Accès
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void loadAuditLogs()}
-                disabled={auditLogsLoading}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
-              >
-                <RefreshCw size={14} className={auditLogsLoading ? 'animate-spin' : ''} />
-                {auditLogsLoading ? 'Actualisation…' : 'Actualiser'}
-              </button>
-            </div>
+            <h2 className="text-base font-black text-slate-900">
+              Journal d&apos;Audit des Opérations RH &amp; Accès
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
+            </p>
 
             <div className="mt-6 overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -1954,19 +1828,7 @@ export default function AdminRHPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {auditLogsLoading && auditLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-500">
-                        Chargement du journal d&apos;audit…
-                      </td>
-                    </tr>
-                  ) : auditLogsError ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-red-700">
-                        Impossible de charger le journal : {auditLogsError}
-                      </td>
-                    </tr>
-                  ) : auditLogs.length === 0 ? (
+                  {auditLogs.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-slate-500">
                         Aucun événement d&apos;audit enregistré.
@@ -2164,22 +2026,18 @@ export default function AdminRHPage() {
                       <span>Parcourir...</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
                         className="hidden"
+                        disabled={photoUploading || formSaving}
                         onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              if (typeof uploadEvent.target?.result === 'string') {
-                                setFormPhotoUrl(uploadEvent.target.result);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
+                          void handlePhotoSelection(e.target.files?.[0]);
+                          e.target.value = '';
                         }}
                       />
                     </label>
+                    <span role={photoUploading ? 'status' : undefined} className="text-xs text-slate-500">
+                      {photoUploading ? 'Lecture de la photo…' : 'JPG, PNG, WebP ou GIF · 10 Mo maximum.'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2278,49 +2136,110 @@ export default function AdminRHPage() {
                   Par défaut prudent : seules photo, nom, prénom, fonction, direction et statut sont exposés. Cochez pour autoriser l&apos;exposition des données sensibles.
                 </p>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAllPublicWhitelistFields(true)}
-                    className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-bold text-blue-700 transition hover:bg-blue-100"
-                  >
-                    Tout cocher
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAllPublicWhitelistFields(false)}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-100"
-                  >
-                    Tout décocher
-                  </button>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
-                  {RH_PUBLIC_WHITELIST_FIELDS.map(({ key, label }) => (
-                    <label
-                      key={key}
-                      className={`flex min-h-9 items-center gap-2 rounded-lg border bg-white px-2.5 py-2 ${
-                        ['gender', 'birthDate', 'birthPlace', 'email', 'phone'].includes(key)
-                          ? 'border-amber-200 font-semibold text-amber-900'
-                          : 'border-slate-200 text-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formWhitelist[key]}
-                        onChange={(event) => updatePublicWhitelist(key, event.target.checked)}
-                        className="rounded text-blue-600"
-                      />
-                      <span>{label}</span>
-                    </label>
-                  ))}
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.photo}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, photo: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Photo</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.lastName && formWhitelist.firstName}
+                      onChange={(e) =>
+                        setFormWhitelist({
+                          ...formWhitelist,
+                          lastName: e.target.checked,
+                          firstName: e.target.checked,
+                        })
+                      }
+                      className="rounded text-blue-600"
+                    />
+                    <span>Nom / Prénom</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.position}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, position: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Fonction</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.department}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, department: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Direction</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.status}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, status: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Statut</span>
+                  </label>
+                  <label className="flex items-center gap-2 font-semibold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.gender}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, gender: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Genre</span>
+                  </label>
+                  <label className="flex items-center gap-2 font-semibold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.birthDate}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, birthDate: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Date de naissance</span>
+                  </label>
+                  <label className="flex items-center gap-2 font-semibold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.birthPlace}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, birthPlace: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Lieu de naissance</span>
+                  </label>
+                  <label className="flex items-center gap-2 font-semibold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.email}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, email: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Courriel</span>
+                  </label>
+                  <label className="flex items-center gap-2 font-semibold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={formWhitelist.phone}
+                      onChange={(e) => setFormWhitelist({ ...formWhitelist, phone: e.target.checked })}
+                      className="rounded text-blue-600"
+                    />
+                    <span>Téléphone</span>
+                  </label>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
-                  disabled={formSaving}
+                  disabled={formSaving || photoUploading}
                   onClick={() => setShowCreateModal(false)}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -2328,10 +2247,10 @@ export default function AdminRHPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={formSaving}
+                  disabled={formSaving || photoUploading}
                   className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {formSaving ? (formSaveStep === 1 ? 'Enregistrement...' : 'Actualisation...') : 'Enregistrer'}
+                  {photoUploading ? 'Lecture de la photo…' : formSaving ? (formSaveStep === 1 ? 'Enregistrement...' : 'Actualisation...') : 'Enregistrer'}
                 </button>
               </div>
             </form>
@@ -2545,6 +2464,39 @@ export default function AdminRHPage() {
         </div>
       )}
 
+      <style jsx global>{`
+        @media print {
+          body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-card,
+          #printable-card * {
+            visibility: visible !important;
+          }
+          #printable-card {
+            position: fixed !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) scale(1.5) !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border-color: #0f172a !important;
+            background-color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-inside: avoid !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+        }
+      `}</style>
     </main>
   );
 }

@@ -1,10 +1,11 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSiteUrl } from '@/lib/postgres-auth';
 
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
+async function siteAuditedGET(request: NextRequest) {
   const provider = request.nextUrl.searchParams.get('provider');
   if (provider !== 'google') {
     return NextResponse.json({ error: 'Fournisseur OAuth non pris en charge.' }, { status: 400 });
@@ -34,3 +35,5 @@ export async function GET(request: NextRequest) {
   });
   return response;
 }
+
+export const GET = withSiteAudit("Démarrage de connexion Google", siteAuditedGET);

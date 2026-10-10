@@ -122,6 +122,10 @@ export function clearAuthCookie(response: NextResponse) {
 
 export async function getAuthenticatedUser(request: NextRequest): Promise<AuthUser | null> {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  return getAuthenticatedUserFromToken(token);
+}
+
+export async function getAuthenticatedUserFromToken(token: string | undefined): Promise<AuthUser | null> {
   if (!token) return null;
 
   const result = await getPostgresPool().query<AuthUserRow>(

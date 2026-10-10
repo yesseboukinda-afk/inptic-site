@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ error: 'Service de préinscription indisponible.' }, { status: 503 });
   }
@@ -96,3 +97,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success: true }, { status: 201 });
 }
+
+export const POST = withSiteAudit("Préinscription à un concours", siteAuditedPOST);

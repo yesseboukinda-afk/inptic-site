@@ -28,25 +28,43 @@ export async function authorizeStaffRequest(
   return { user };
 }
 
-export async function uploadStaffFiles(request: NextRequest, bucket: string, folder: string) {
+export async function uploadStaffFiles(
+  request: NextRequest,
+  bucket: string,
+  folder: string,
+  options: {
+    maxFileCount?: number;
+    maxFileSizeBytes?: number;
+    validateFile?: (file: File, formData: FormData) => string | null;
+  } = {},
+) {
   if (!process.env.DATABASE_URL || !process.env.PRIVATE_STORAGE_DIR) {
     return NextResponse.json({ error: 'PostgreSQL ou le stockage persistant n’est pas configuré.' }, { status: 503 });
   }
 
   try {
     const formData = await request.formData();
-    const files = formData.getAll('files') as File[];
+    const files = formData.getAll('files').filter((value): value is File => value instanceof File);
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: 'Aucun fichier fourni.' }, { status: 400 });
     }
+    if (options.maxFileCount !== undefined && files.length !== options.maxFileCount) {
+      return NextResponse.json({ error: `Téléversez exactement ${options.maxFileCount} fichier(s).` }, { status: 400 });
+    }
 
     const uploaded: StoredAttachment[] = [];
+    const maxFileSizeBytes = options.maxFileSizeBytes ?? 15 * 1024 * 1024;
 
     for (const file of files) {
       if (!(file instanceof File)) continue;
-      if (file.size > 15 * 1024 * 1024) {
-        return NextResponse.json({ error: `Le fichier ${file.name} dépasse la limite de 15 Mo.` }, { status: 413 });
+      const validationError = options.validateFile?.(file, formData);
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
+      if (file.size > maxFileSizeBytes) {
+        const maxFileSizeMb = Math.floor(maxFileSizeBytes / (1024 * 1024));
+        return NextResponse.json({ error: `Le fichier ${file.name} dépasse la limite de ${maxFileSizeMb} Mo.` }, { status: 413 });
       }
 
       const ext = (file.name.split('.').pop() || 'bin').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'bin';

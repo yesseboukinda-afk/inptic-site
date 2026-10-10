@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendAuthEmail } from '@/lib/auth-email';
@@ -6,7 +7,7 @@ import { getAuthenticatedUser, getAuthSiteUrl, hashOpaqueToken, verifyPassword }
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!process.env.RESEND_API_KEY || !(process.env.AUTH_FROM_EMAIL || process.env.NEWSLETTER_FROM_EMAIL)) {
     return NextResponse.json({ error: 'Le service de confirmation e-mail n’est pas configuré.' }, { status: 503 });
   }
@@ -118,3 +119,5 @@ export async function POST(request: NextRequest) {
     message: `Un lien de confirmation a été envoyé à ${email}. Ton adresse actuelle reste active jusqu’à la confirmation.`,
   });
 }
+
+export const POST = withSiteAudit("Demande de changement d’adresse e-mail", siteAuditedPOST);

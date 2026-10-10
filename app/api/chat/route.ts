@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   chatExists,
@@ -72,7 +73,7 @@ const MODEL_CASCADE = [
   { name: 'OpenAI GPT-4o', model: 'gpt-4o', provider: 'openai' },
 ];
 
-export async function POST(req: NextRequest) {
+async function siteAuditedPOST(req: NextRequest) {
   try {
     const body = await req.json();
     const rawMessages: unknown = body?.messages;
@@ -219,7 +220,7 @@ Contexte du site :\n${siteKnowledge}`;
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${apiKey}`,
-            ...(item.provider === 'openrouter' ? { 'HTTP-Referer': 'https://inptic.ga', 'X-Title': 'INPTIC Assistant' } : {}),
+            ...(item.provider === 'openrouter' ? { 'HTTP-Referer': 'https://inptic-ga.org', 'X-Title': 'INPTIC Assistant' } : {}),
           },
           body: JSON.stringify({
             model: item.model,
@@ -264,3 +265,5 @@ Contexte du site :\n${siteKnowledge}`;
     );
   }
 }
+
+export const POST = withSiteAudit("Envoi de message à l’assistant IA", siteAuditedPOST);

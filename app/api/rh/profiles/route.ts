@@ -1,6 +1,6 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import type { PoolClient } from 'pg';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import {
@@ -16,8 +16,7 @@ import {
   RHContractType,
   RHGender,
   RHQRStatus,
-  RH_PUBLIC_WHITELIST_FIELDS,
-  normalizeRHPublicWhitelist,
+  RHAuditLog,
 } from '@/types/rh';
 
 // Graine de profils du personnel INPTIC Gabon issue de l'organigramme officiel
@@ -211,6 +210,7 @@ async function verifyRHAuthorization(request: NextRequest, requireWrite = false)
   }
 
   const role = normalizeRole(user.role);
+
   const isSuperAdmin = isSuperAdminRole(role);
   const assignedService = user.user_metadata.service ?? user.user_metadata.department;
   const hasAccess = canAccessStaffService(role, 'human_resources', assignedService);
@@ -249,11 +249,21 @@ async function logAuditAction(
   targetId?: string,
   targetName?: string,
   details?: string,
-  ipAddress?: string,
-  client?: PoolClient,
+  ipAddress?: string
 ) {
-  const db = client ?? getPostgresPool();
-  await db.query(
+  const log: RHAuditLog = {
+    id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: new Date().toISOString(),
+    userId,
+    userEmail,
+    action,
+    targetId,
+    targetName,
+    details,
+    ipAddress,
+  };
+
+  await getPostgresPool().query(
     `INSERT INTO public.rh_audit_logs
        (user_id, user_email, action, target_id, target_name, details, ip_address)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -295,7 +305,7 @@ function mapRHProfile(d: any): RHProfile {
     qrStatus: d.qr_status,
     qrGeneratedAt: d.qr_generated_at,
     qrRevokedAt: d.qr_revoked_at,
-    publicWhitelist: normalizeRHPublicWhitelist(d.public_whitelist),
+    publicWhitelist: d.public_whitelist || DEFAULT_PUBLIC_WHITELIST,
     history: Array.isArray(d.history) ? d.history : [],
     createdAt: d.created_at,
     updatedAt: d.updated_at,
@@ -333,11 +343,6 @@ export async function GET(request: NextRequest) {
           details: row.details,
           ipAddress: row.ip_address,
         })),
-      }, {
-        headers: {
-          'Cache-Control': 'no-store, max-age=0',
-          'X-Robots-Tag': 'noindex, nofollow',
-        },
       });
     } catch (error) {
       console.error('Erreur PostgreSQL de lecture du journal RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
@@ -382,7 +387,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ data: profiles, count: profiles.length });
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const auth = await verifyRHAuthorization(request, true);
   if (auth.error) return auth.error;
 
@@ -447,9 +452,7 @@ export async function POST(request: NextRequest) {
     qrToken,
     qrStatus: 'actif',
     qrGeneratedAt: now,
-    publicWhitelist: body.publicWhitelist === undefined
-      ? DEFAULT_PUBLIC_WHITELIST
-      : normalizeRHPublicWhitelist(body.publicWhitelist),
+    publicWhitelist: body.publicWhitelist || DEFAULT_PUBLIC_WHITELIST,
     history: [
       {
         id: `hist-${Date.now()}`,
@@ -463,10 +466,8 @@ export async function POST(request: NextRequest) {
     updatedAt: now,
   };
 
-  const client = await getPostgresPool().connect();
   try {
-    await client.query('BEGIN');
-    const { rows } = await client.query(
+    const { rows } = await getPostgresPool().query(
       `INSERT INTO public.rh_profiles
          (matricule, first_name, last_name, gender, birth_date, birth_place, phone,
           email, photo_url, department, position, status, contract_type, hire_date,
@@ -485,26 +486,7 @@ export async function POST(request: NextRequest) {
       ],
     );
     newProfile.id = String(rows[0].id);
-    await logAuditAction(
-      auth.user!.id,
-      auth.user!.email,
-      'CREATE_PROFILE',
-      newProfile.id,
-      `${newProfile.firstName} ${newProfile.lastName} (${newProfile.matricule})`,
-      `Création du profil avec attribution du QR Code initial. Informations visibles au scan : ${
-        RH_PUBLIC_WHITELIST_FIELDS
-          .filter(({ key }) => newProfile.publicWhitelist[key])
-          .map(({ label }) => label)
-          .join(', ') || 'aucune'
-      }.`,
-      undefined,
-      client,
-    );
-    await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch((rollbackError) => {
-      console.error('Erreur lors de l’annulation de la création RH:', rollbackError instanceof Error ? rollbackError.message : 'UNKNOWN_ERROR');
-    });
     const databaseError = error && typeof error === 'object'
       ? error as { code?: string; constraint?: string; column?: string }
       : {};
@@ -532,14 +514,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       error: `Impossible de créer le profil RH. Référence : ${requestId}.`,
     }, { status: 503 });
-  } finally {
-    client.release();
   }
+
+  await logAuditAction(
+    auth.user!.id,
+    auth.user!.email,
+    'CREATE_PROFILE',
+    newProfile.id,
+    `${newProfile.firstName} ${newProfile.lastName} (${newProfile.matricule})`,
+    `Création du profil avec attribution du QR Code initial.`
+  );
 
   return NextResponse.json({ data: newProfile }, { status: 201 });
 }
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const auth = await verifyRHAuthorization(request, true);
   if (auth.error) return auth.error;
 
@@ -648,20 +637,7 @@ export async function PATCH(request: NextRequest) {
     if (body.contractType) updates.contractType = body.contractType;
     if (body.hireDate) updates.hireDate = body.hireDate;
     if (body.jobDescription !== undefined) updates.jobDescription = body.jobDescription;
-    if (body.publicWhitelist !== undefined) {
-      const nextWhitelist = normalizeRHPublicWhitelist(body.publicWhitelist);
-      const visibilityChanges = RH_PUBLIC_WHITELIST_FIELDS
-        .filter(({ key }) => profile.publicWhitelist[key] !== nextWhitelist[key])
-        .map(({ key, label }) => `${label} ${nextWhitelist[key] ? 'visible' : 'masqué'}`);
-
-      updates.publicWhitelist = nextWhitelist;
-      if (visibilityChanges.length > 0) {
-        historyEntry = {
-          ...historyEntry,
-          details: `${historyEntry.details} Visibilité du badge modifiée : ${visibilityChanges.join(', ')}.`,
-        };
-      }
-    }
+    if (body.publicWhitelist) updates.publicWhitelist = body.publicWhitelist;
   }
 
   const columns: Record<string, string> = {
@@ -702,36 +678,17 @@ export async function PATCH(request: NextRequest) {
   values.push(profileId);
 
   let updatedProfile: RHProfile;
-  const client = await getPostgresPool().connect();
   try {
-    await client.query('BEGIN');
-    const { rows } = await client.query(
+    const { rows } = await getPostgresPool().query(
       `UPDATE public.rh_profiles
        SET ${assignments.join(', ')}
        WHERE id::text = $${values.length}
        RETURNING *`,
       values,
     );
-    if (!rows[0]) {
-      await client.query('ROLLBACK');
-      return NextResponse.json({ error: 'Profil RH introuvable.' }, { status: 404 });
-    }
+    if (!rows[0]) return NextResponse.json({ error: 'Profil RH introuvable.' }, { status: 404 });
     updatedProfile = mapRHProfile(rows[0]);
-    await logAuditAction(
-      auth.user!.id,
-      auth.user!.email,
-      actionType ? actionType.toUpperCase() : 'UPDATE_PROFILE',
-      profileId,
-      `${updatedProfile.firstName} ${updatedProfile.lastName}`,
-      historyEntry.details,
-      undefined,
-      client,
-    );
-    await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch((rollbackError) => {
-      console.error('Erreur lors de l’annulation de la mise à jour RH:', rollbackError instanceof Error ? rollbackError.message : 'UNKNOWN_ERROR');
-    });
     const databaseError =
       error && typeof error === 'object'
         ? (error as { code?: string; constraint?: string })
@@ -744,9 +701,19 @@ export async function PATCH(request: NextRequest) {
     }
     console.error('Erreur PostgreSQL lors de la mise à jour du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible de mettre à jour le profil RH.' }, { status: 503 });
-  } finally {
-    client.release();
   }
+
+  await logAuditAction(
+    auth.user!.id,
+    auth.user!.email,
+    actionType ? actionType.toUpperCase() : 'UPDATE_PROFILE',
+    profileId,
+    `${updatedProfile.firstName} ${updatedProfile.lastName}`,
+    historyEntry.details
+  );
 
   return NextResponse.json({ data: updatedProfile });
 }
+
+export const POST = withSiteAudit("Création de profil RH", siteAuditedPOST);
+export const PATCH = withSiteAudit("Gestion de profil RH et carte professionnelle", siteAuditedPATCH);

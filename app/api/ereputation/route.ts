@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
@@ -251,7 +252,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const authorizationError = await authorizeFacebookReply(request);
   if (authorizationError) return authorizationError;
 
@@ -338,7 +339,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 // Ingestion par Webhook ou publication manuelle d'un commentaire capturé
-export async function POST(req: NextRequest) {
+async function siteAuditedPOST(req: NextRequest) {
   try {
     const body = await req.json();
     const author = body.author || 'Visiteur Réseau Social';
@@ -372,3 +373,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }
+
+export const PATCH = withSiteAudit("Réponse à un commentaire de veille", siteAuditedPATCH);
+export const POST = withSiteAudit("Action de veille de réputation", siteAuditedPOST);

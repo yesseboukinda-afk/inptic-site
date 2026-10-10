@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteStoredFile, saveStoredFile } from '@/lib/localStorage';
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
     return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
@@ -325,3 +326,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Impossible de sauvegarder le profil candidat.' }, { status: 503 });
   }
 }
+
+export const POST = withSiteAudit("Mise à jour du dossier candidat", siteAuditedPOST);

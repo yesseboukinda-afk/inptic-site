@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
   return unsubscribePage(token, 'Confirmez que vous ne souhaitez plus recevoir les actualités de l’INPTIC.');
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return unsubscribePage('', 'Le service est temporairement indisponible. Veuillez réessayer plus tard.');
   }
@@ -42,3 +43,5 @@ export async function POST(request: NextRequest) {
     return unsubscribePage('', 'Le service est temporairement indisponible. Veuillez réessayer plus tard.');
   }
 }
+
+export const POST = withSiteAudit("Désabonnement de la newsletter", siteAuditedPOST);

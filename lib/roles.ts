@@ -199,6 +199,7 @@ export function canAccessStaffService(value: unknown, service: StaffService, ass
 
   return false;
 }
+
 export function isScolariteAccountEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase().replace(/,/g, '.');

@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDocument, listDocuments, saveDocument, type DocumentKind } from '@/lib/chatbot-db';
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(listDocuments());
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   try {
     const body = await request.json();
     if (
@@ -35,3 +36,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Impossible de sauvegarder le document' }, { status: 400 });
   }
 }
+
+export const POST = withSiteAudit("Création ou modification de document assistant", siteAuditedPOST);

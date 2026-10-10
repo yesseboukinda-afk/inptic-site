@@ -1,7 +1,7 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
-import { isSuperAdminRole } from '@/lib/roles';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return unavailable('Base PostgreSQL indisponible.');
   }
@@ -123,7 +123,6 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return unavailable('Connectez-vous avec une adresse e-mail vérifiée pour créer votre profil Alumni.', 401);
   }
-  const isSuperAdmin = isSuperAdminRole(user.role);
 
   let body: unknown;
   try {
@@ -153,7 +152,7 @@ export async function POST(request: NextRequest) {
         input.promotion,
         input.commentaire,
         input.photo,
-        isSuperAdmin ? null : user.id,
+        user.id,
       ],
     );
     return NextResponse.json({
@@ -171,7 +170,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function siteAuditedPUT(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return unavailable('Base PostgreSQL indisponible.');
   }
@@ -180,15 +179,10 @@ export async function PUT(request: NextRequest) {
   if (!user) {
     return unavailable('Connectez-vous avec une adresse e-mail vérifiée pour modifier votre profil Alumni.', 401);
   }
-  const isSuperAdmin = isSuperAdminRole(user.role);
 
-  let body: { id?: unknown } & Record<string, unknown>;
+  let body: unknown;
   try {
-    const parsed = await request.json();
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return unavailable('Requête invalide.', 400);
-    }
-    body = parsed as { id?: unknown } & Record<string, unknown>;
+    body = await request.json();
   } catch {
     return unavailable('Requête invalide.', 400);
   }
@@ -198,18 +192,12 @@ export async function PUT(request: NextRequest) {
     return unavailable('Vérifiez les champs du profil : nom, prénom, promotion et longueurs maximales requis.', 400);
   }
 
-  const profileId = typeof body.id === 'string' ? body.id : '';
-  if (isSuperAdmin && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId)) {
-    return unavailable('Identifiant de profil Alumni invalide.', 400);
-  }
-
   try {
     const { rows } = await getPostgresPool().query<AlumniRow>(
       `UPDATE public.alumni
        SET nom = $1, prenom = $2, filiere = $3, poste = $4,
            entreprise = $5, promotion = $6, commentaire = $7, photo_url = $8
-       WHERE ($10::boolean AND id = $9)
-          OR (NOT $10::boolean AND owner_user_id = $9)
+       WHERE owner_user_id = $9
        RETURNING id, nom, prenom, filiere, poste, entreprise, promotion,
                  commentaire, photo_url, owner_user_id, created_at`,
       [
@@ -221,8 +209,7 @@ export async function PUT(request: NextRequest) {
         input.promotion,
         input.commentaire,
         input.photo,
-        isSuperAdmin ? profileId : user.id,
-        isSuperAdmin,
+        user.id,
       ],
     );
     if (!rows[0]) {
@@ -240,44 +227,5 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  if (!process.env.DATABASE_URL) {
-    return unavailable('Base PostgreSQL indisponible.');
-  }
-
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
-    return unavailable('Session requise. Veuillez vous connecter.', 401);
-  }
-  if (!isSuperAdminRole(user.role)) {
-    return unavailable('La suppression des profils Alumni est réservée au superadmin.', 403);
-  }
-
-  let body: { id?: unknown };
-  try {
-    body = await request.json();
-  } catch {
-    return unavailable('Requête invalide.', 400);
-  }
-  const profileId = typeof body?.id === 'string' ? body.id : '';
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId)) {
-    return unavailable('Identifiant de profil Alumni invalide.', 400);
-  }
-
-  try {
-    const { rowCount } = await getPostgresPool().query(
-      'DELETE FROM public.alumni WHERE id = $1',
-      [profileId],
-    );
-    if (!rowCount) {
-      return unavailable('Profil Alumni introuvable.', 404);
-    }
-    return NextResponse.json({ id: profileId }, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (error) {
-    const code = logPostgresError('DELETE', error);
-    if (code === '42P01' || code === '42703') {
-      return unavailable(`Le schéma Alumni doit être mis à jour (PostgreSQL ${code}). Exécutez scripts/16_alumni_verified_ownership.sql.`, 503);
-    }
-    return unavailable('Impossible de supprimer ce profil Alumni.');
-  }
-}
+export const POST = withSiteAudit("Création de profil Alumni", siteAuditedPOST);
+export const PUT = withSiteAudit("Modification de profil Alumni", siteAuditedPUT);

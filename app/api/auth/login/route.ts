@@ -1,10 +1,11 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { createAuthSession, serializeAuthUser, verifyPassword } from '@/lib/postgres-auth';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   let body: { email?: unknown; password?: unknown };
   try {
     body = await request.json();
@@ -42,3 +43,5 @@ export async function POST(request: NextRequest) {
   await createAuthSession(row.id, response);
   return response;
 }
+
+export const POST = withSiteAudit("Connexion par identifiants", siteAuditedPOST);
