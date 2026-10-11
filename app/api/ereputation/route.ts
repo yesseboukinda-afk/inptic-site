@@ -64,114 +64,127 @@ export async function GET(request: NextRequest) {
   let facebookError: string | null = null;
 
   const mentions: MentionItem[] = [...liveIngestedComments];
+  const facebookMentions: MentionItem[] = [];
+  const youtubeMentions: MentionItem[] = [];
 
-  // Read recent comments on the Page's latest posts.
-  if (fbAccessToken) {
-    try {
-      const fields = 'id,message,created_time,permalink_url,comments.limit(25){id,message,created_time,from{id,name},permalink_url}';
-      const fbParams = new URLSearchParams({ fields, limit: '10', access_token: fbAccessToken });
-      const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0';
-      const fbGraphUrl = `https://graph.facebook.com/${graphVersion}/${facebookPageId}/feed?${fbParams}`;
-      const fbRes = await fetch(fbGraphUrl, forceRefresh ? { cache: 'no-store' } : { next: { revalidate: 60 } });
-      if (fbRes.ok) {
-        facebookSource = 'available';
-        const fbJson = await fbRes.json();
-        const posts = Array.isArray(fbJson.data) ? fbJson.data : [];
-        for (const post of posts) {
-          const comments = Array.isArray(post.comments?.data) ? post.comments.data : [];
-          for (const comment of comments) {
-            const messageText = typeof comment.message === 'string' ? comment.message.trim() : '';
-            if (!messageText || !comment.created_time) continue;
-            const authorName = typeof comment.from?.name === 'string' ? comment.from.name.trim() : '';
-            mentions.push({
-              id: `fb-live-${comment.id}`,
-              source: 'Page Facebook Officielle INPTIC',
-              author: authorName || 'Utilisateur Facebook',
-              content: messageText,
-              sentiment: classifySentiment(messageText),
-              createdAt: comment.created_time,
-              date: formatCommentDate(comment.created_time),
-              url: comment.permalink_url || post.permalink_url || `https://www.facebook.com/${comment.id}`,
-              platform: 'Facebook',
-            });
-          }
-        }
-      } else {
-        const fbJson = await fbRes.json().catch(() => null);
-        const errorCode = fbJson?.error?.code;
-        if (errorCode === 190) {
-          facebookError = 'Le jeton Facebook est invalide ou expiré. Renouvelez le jeton de la Page.';
-        } else if (errorCode === 10 || errorCode === 200) {
-          facebookError = 'Le jeton ne dispose pas des autorisations nécessaires pour lire les publications et commentaires de la Page.';
-        } else if (errorCode === 100) {
-          facebookError = 'La Page configurée est introuvable ou inaccessible avec ce jeton. Vérifiez FACEBOOK_PAGE_ID et l’accès du jeton.';
-        } else {
-          facebookError = `Facebook Graph API a refusé la requête (HTTP ${fbRes.status}${Number.isInteger(errorCode) ? `, code ${errorCode}` : ''}).`;
-        }
-      }
-    } catch {
-      facebookError = 'Impossible de joindre Facebook Graph API depuis le serveur.';
-    }
-  }
-
-  // YouTube Data API returns recent top-level comments for the configured channel.
-  if (youtubeApiKey) {
-    try {
-      let resolvedChannelId = youtubeChannelId;
-      if (!resolvedChannelId) {
-        const channelParams = new URLSearchParams({
-          part: 'id',
-          forHandle: youtubeChannelHandle,
-          key: youtubeApiKey,
-        });
-        const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?${channelParams}`, {
-          next: { revalidate: 3600 },
-        });
-        if (!channelRes.ok) throw new Error(`Résolution de la chaîne YouTube refusée (HTTP ${channelRes.status}).`);
-        const channelJson = await channelRes.json();
-        resolvedChannelId = channelJson.items?.[0]?.id;
-      }
-      if (!resolvedChannelId) throw new Error('Identifiant de chaîne YouTube introuvable.');
-
-      const youtubeParams = new URLSearchParams({
-        part: 'snippet',
-        allThreadsRelatedToChannelId: resolvedChannelId,
-        maxResults: '10',
-        order: 'time',
-        key: youtubeApiKey,
-      });
-      const youtubeRes = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${youtubeParams}`, {
-        ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
-      });
-
-      if (youtubeRes.ok) {
-        youtubeSource = 'available';
-        const youtubeJson = await youtubeRes.json();
-        const threads = Array.isArray(youtubeJson.items) ? youtubeJson.items : [];
-        for (const thread of threads) {
-          const comment = thread.snippet?.topLevelComment;
-          const snippet = comment?.snippet;
-          const messageText = typeof snippet?.textDisplay === 'string' ? snippet.textDisplay.replace(/<[^>]*>/g, '').trim() : '';
-          if (!messageText || !snippet?.publishedAt) continue;
-          const videoId = thread.snippet?.videoId;
-          const commentId = comment.id || thread.id;
-          mentions.push({
-            id: `yt-live-${commentId}`,
-            source: 'Chaîne YouTube INPTIC',
-            author: snippet.authorDisplayName || 'Utilisateur YouTube',
-            content: messageText,
-            sentiment: classifySentiment(messageText),
-            createdAt: snippet.publishedAt,
-            date: formatCommentDate(snippet.publishedAt),
-            url: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${commentId}` : 'https://www.youtube.com',
-            platform: 'YouTube',
+  await Promise.all([
+    (async () => {
+      // Read recent comments on the Page's latest posts.
+      if (fbAccessToken) {
+        try {
+          const fields = 'id,message,created_time,permalink_url,comments.limit(25){id,message,created_time,from{id,name},permalink_url}';
+          const fbParams = new URLSearchParams({ fields, limit: '10', access_token: fbAccessToken });
+          const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0';
+          const fbGraphUrl = `https://graph.facebook.com/${graphVersion}/${facebookPageId}/feed?${fbParams}`;
+          const fbRes = await fetch(fbGraphUrl, {
+            ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+            signal: AbortSignal.timeout(10_000),
           });
+          if (fbRes.ok) {
+            facebookSource = 'available';
+            const fbJson = await fbRes.json();
+            const posts = Array.isArray(fbJson.data) ? fbJson.data : [];
+            for (const post of posts) {
+              const comments = Array.isArray(post.comments?.data) ? post.comments.data : [];
+              for (const comment of comments) {
+                const messageText = typeof comment.message === 'string' ? comment.message.trim() : '';
+                if (!messageText || !comment.created_time) continue;
+                const authorName = typeof comment.from?.name === 'string' ? comment.from.name.trim() : '';
+                facebookMentions.push({
+                  id: `fb-live-${comment.id}`,
+                  source: 'Page Facebook Officielle INPTIC',
+                  author: authorName || 'Utilisateur Facebook',
+                  content: messageText,
+                  sentiment: classifySentiment(messageText),
+                  createdAt: comment.created_time,
+                  date: formatCommentDate(comment.created_time),
+                  url: comment.permalink_url || post.permalink_url || `https://www.facebook.com/${comment.id}`,
+                  platform: 'Facebook',
+                });
+              }
+            }
+          } else {
+            const fbJson = await fbRes.json().catch(() => null);
+            const errorCode = fbJson?.error?.code;
+            if (errorCode === 190) {
+              facebookError = 'Le jeton Facebook est invalide ou expiré. Renouvelez le jeton de la Page.';
+            } else if (errorCode === 10 || errorCode === 200) {
+              facebookError = 'Le jeton ne dispose pas des autorisations nécessaires pour lire les publications et commentaires de la Page.';
+            } else if (errorCode === 100) {
+              facebookError = 'La Page configurée est introuvable ou inaccessible avec ce jeton. Vérifiez FACEBOOK_PAGE_ID et l’accès du jeton.';
+            } else {
+              facebookError = `Facebook Graph API a refusé la requête (HTTP ${fbRes.status}${Number.isInteger(errorCode) ? `, code ${errorCode}` : ''}).`;
+            }
+          }
+        } catch (error) {
+          facebookError = error instanceof DOMException && error.name === 'TimeoutError'
+            ? 'Facebook n’a pas répondu dans le délai imparti. Les autres sources restent accessibles.'
+            : 'Impossible de joindre Facebook Graph API depuis le serveur.';
         }
       }
-    } catch (err) {
-      console.error('Erreur YouTube Data API:', err);
-    }
-  }
+    })(),
+    (async () => {
+      // YouTube Data API returns recent top-level comments for the configured channel.
+      if (youtubeApiKey) {
+        try {
+          let resolvedChannelId = youtubeChannelId;
+          if (!resolvedChannelId) {
+            const channelParams = new URLSearchParams({
+              part: 'id',
+              forHandle: youtubeChannelHandle,
+              key: youtubeApiKey,
+            });
+            const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?${channelParams}`, {
+              next: { revalidate: 3600 },
+            });
+            if (!channelRes.ok) throw new Error(`Résolution de la chaîne YouTube refusée (HTTP ${channelRes.status}).`);
+            const channelJson = await channelRes.json();
+            resolvedChannelId = channelJson.items?.[0]?.id;
+          }
+          if (!resolvedChannelId) throw new Error('Identifiant de chaîne YouTube introuvable.');
+
+          const youtubeParams = new URLSearchParams({
+            part: 'snippet',
+            allThreadsRelatedToChannelId: resolvedChannelId,
+            maxResults: '10',
+            order: 'time',
+            key: youtubeApiKey,
+          });
+          const youtubeRes = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${youtubeParams}`, {
+            ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+          });
+
+          if (youtubeRes.ok) {
+            youtubeSource = 'available';
+            const youtubeJson = await youtubeRes.json();
+            const threads = Array.isArray(youtubeJson.items) ? youtubeJson.items : [];
+            for (const thread of threads) {
+              const comment = thread.snippet?.topLevelComment;
+              const snippet = comment?.snippet;
+              const messageText = typeof snippet?.textDisplay === 'string' ? snippet.textDisplay.replace(/<[^>]*>/g, '').trim() : '';
+              if (!messageText || !snippet?.publishedAt) continue;
+              const videoId = thread.snippet?.videoId;
+              const commentId = comment.id || thread.id;
+              youtubeMentions.push({
+                id: `yt-live-${commentId}`,
+                source: 'Chaîne YouTube INPTIC',
+                author: snippet.authorDisplayName || 'Utilisateur YouTube',
+                content: messageText,
+                sentiment: classifySentiment(messageText),
+                createdAt: snippet.publishedAt,
+                date: formatCommentDate(snippet.publishedAt),
+                url: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${commentId}` : 'https://www.youtube.com',
+                platform: 'YouTube',
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Erreur YouTube Data API:', err);
+        }
+      }
+    })(),
+  ]);
+  mentions.push(...facebookMentions, ...youtubeMentions);
 
   // 3. Interroger les flux RSS de presse et du web pour INPTIC Gabon
   try {
