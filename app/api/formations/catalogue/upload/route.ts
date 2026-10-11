@@ -10,7 +10,7 @@ async function siteAuditedPOST(request: NextRequest) {
 
   return uploadStaffFiles(request, BUCKET, 'catalogue', {
     maxFileCount: 1,
-    maxFileSizeBytes: 50 * 1024 * 1024,
+    maxFileSizeBytes: 60 * 1024 * 1024,
     validateFile: (file, formData) => {
       const kind = formData.get('kind');
       const extension = file.name.split('.').pop()?.toLowerCase();

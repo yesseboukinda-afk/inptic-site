@@ -219,7 +219,11 @@ export default function TrainingCatalog() {
                   onChange={(event) => setFile(event.target.files?.[0] || null)}
                   className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
                 />
-                <span className="mt-1 block text-xs font-normal text-slate-500">Sélectionnez le fichier à téléverser (15 Mo maximum).</span>
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  {kind === 'pdf'
+                    ? 'Sélectionnez le fichier PDF à téléverser (60 Mo maximum).'
+                    : 'Sélectionnez le fichier vidéo à téléverser (15 Mo maximum).'}
+                </span>
               </label>
               <button type="submit" disabled={saving || Boolean(updatingResourceId)} aria-busy={saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60 md:col-span-2 md:justify-self-start">
                 {saving ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
