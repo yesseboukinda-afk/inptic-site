@@ -137,9 +137,12 @@ sont stockés sur le disque persistant défini par `PRIVATE_STORAGE_DIR`; leurs
 métadonnées sont dans `private_files`. Les dossiers candidats restent privés et
 sont servis par une route qui vérifie la session et l'appartenance du document.
 
-Pour une base LWS déjà créée, exécuter `scripts/15_repair_homepage_agenda.sql`
-puis `scripts/16_alumni_verified_ownership.sql` dans PostgreSQL. L'agenda est alors
-réparé même si une table incomplète existe déjà. L'annuaire Alumni est lu depuis
+Pour une base LWS déjà créée, exécuter `scripts/15_repair_homepage_agenda.sql`,
+`scripts/16_alumni_verified_ownership.sql`, `scripts/17_create_site_audit_logs.sql`
+puis `scripts/18_grant_lws_audit_runtime.sql` dans PostgreSQL. L'agenda est alors
+réparé même si une table incomplète existe déjà. Le dernier script restaure les
+droits de lecture et d'écriture limités aux journaux pour le rôle applicatif LWS
+vérifié. L'annuaire Alumni est lu depuis
 PostgreSQL sur tous les appareils ; publier ou modifier une fiche exige un compte
 INPTIC avec une adresse e-mail vérifiée. Les anciennes fiches restent visibles,
 mais ne sont pas automatiquement attribuées à un compte.

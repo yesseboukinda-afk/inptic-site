@@ -360,8 +360,8 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 19mm;
-          height: 19mm;
+          width: 15mm;
+          height: 15mm;
           background: #fff;
         }
         .qr-box svg { display: block; width: 100%; height: 100%; }
@@ -518,6 +518,7 @@ export default function AdminRHPage() {
   const [profiles, setProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
   const [profilesError, setProfilesError] = useState('');
+  const [auditLogsError, setAuditLogsError] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Filtres
@@ -656,13 +657,16 @@ export default function AdminRHPage() {
     try {
       const res = await fetch('/api/rh/profiles?logs=1', {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
       });
-      const json = await res.json();
-      if (json.logs && Array.isArray(json.logs)) {
-        setAuditLogs(json.logs);
-      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Chargement du journal RH impossible (${res.status}).`);
+      if (!Array.isArray(json.logs)) throw new Error('Réponse invalide lors du chargement du journal RH.');
+      setAuditLogs(json.logs);
+      setAuditLogsError('');
     } catch (err) {
       console.error('Erreur chargement logs:', err);
+      setAuditLogsError(err instanceof Error ? err.message : 'Impossible de charger le journal RH.');
     }
   };
 
@@ -1973,6 +1977,12 @@ export default function AdminRHPage() {
             <p className="mt-1 text-xs text-slate-500">
               Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
             </p>
+
+            {auditLogsError && (
+              <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                {auditLogsError}
+              </p>
+            )}
 
             <div className="mt-6 overflow-x-auto">
               <table className="w-full text-left text-xs">
