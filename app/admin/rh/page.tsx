@@ -339,8 +339,8 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 18mm;
-          height: 18mm;
+          width: 15mm;
+          height: 15mm;
           padding: 0.7mm;
           background: #fff;
         }
@@ -1751,7 +1751,7 @@ export default function AdminRHPage() {
                             <span className="absolute bottom-0 left-0 h-full w-[22%] bg-[#383e9e]" style={{ clipPath: 'polygon(0 0, 100% 100%, 0 100%)' }} />
                           </div>
                           <div
-                            className="absolute bottom-[1%] left-[3%] z-10 flex h-[22%] w-[33%] items-center justify-center bg-white p-[1%]"
+                            className="absolute bottom-[1%] left-[3%] z-10 flex h-[18%] w-[27%] items-center justify-center bg-white p-[1%]"
                             dangerouslySetInnerHTML={{
                               __html: generateQRCodeSVG(
                                 `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic-ga.org'}/agent/${selectedForCard.qrToken || selectedForCard.id}`,
