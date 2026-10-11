@@ -305,13 +305,8 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
           .tech-slide-in {
             animation: techSlideInRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) both;
           }
-          @media (prefers-reduced-motion: reduce) {
-            .tech-slide-in {
-              animation: none;
-            }
-          }
         `}</style>
-        <article key={current.id} className="tech-slide-in overflow-hidden">
+        <article key={currentIndex} className="tech-slide-in overflow-hidden">
           <div className="relative h-52 overflow-hidden rounded-xl border border-white/10 bg-[#172b56] sm:h-64">
             {current.coverImage ? (
               <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
