@@ -96,7 +96,15 @@ const getProfileFileName = (profile: RHProfile) =>
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '') || `profil_${profile.id}`;
 
+const getCardNameVariant = (profile: Pick<RHProfile, 'firstName' | 'lastName'>) => {
+  const nameLength = `${profile.firstName} ${profile.lastName}`.length;
+  if (nameLength > 42) return 'dense';
+  if (nameLength > 24) return 'compact';
+  return 'standard';
+};
+
 const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
+  const nameVariant = getCardNameVariant(profile);
   const qrSvg = generateQRCodeSVG(`${origin}/agent/${profile.qrToken || profile.id}`, {
     size: 240,
     margin: 1,
@@ -106,7 +114,7 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
     : '<div class="photo photo-placeholder">PHOTO</div>';
 
   return `
-    <section class="card-face card-front">
+    <section class="card-face card-front card-front--${nameVariant}">
       <div class="front-band">
         <span>MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE<br />DE LA DIGITALISATION ET DE L’INNOVATION</span>
         <i aria-hidden="true"></i>
@@ -239,6 +247,16 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           border-radius: 50%;
           background: #f1f5f9;
         }
+        .card-front--compact .photo-wrapper {
+          width: 21mm;
+          height: 21mm;
+          flex-basis: 21mm;
+        }
+        .card-front--dense .photo-wrapper {
+          width: 17mm;
+          height: 17mm;
+          flex-basis: 17mm;
+        }
         .photo {
           display: block;
           width: 100%;
@@ -265,14 +283,17 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         }
         .name {
           max-width: 100%;
-          overflow: hidden;
           color: #1b1b1b;
           font-size: 8.5pt;
           font-weight: 900;
-          line-height: 1.15;
-          text-overflow: ellipsis;
+          line-height: 1.05;
+          overflow-wrap: anywhere;
           text-transform: uppercase;
-          white-space: nowrap;
+          white-space: normal;
+        }
+        .card-front--compact .name { font-size: 7.5pt; }
+        .card-front--dense .name { font-size: 6.5pt; }
+        .card-front--dense .identity { line-height: 1; }
         }
         .position {
           max-width: 100%;
@@ -1731,15 +1752,26 @@ export default function AdminRHPage() {
                             <img src="/rh/gabon-emblem.png" alt="Emblème gabonais" className="h-[76%] w-[28%] bg-white object-contain" />
                           </div>
                           <h4 className="mt-[1%] text-[7px] font-black leading-none text-neutral-900">CARTE PROFESSIONNELLE</h4>
-                          <div className="mx-auto mt-[2%] h-[29%] w-[29%] overflow-hidden rounded-full border-2 border-[#293b9d] bg-slate-100">
+                          <div
+                            className="mx-auto mt-[2%] overflow-hidden rounded-full border-2 border-[#293b9d] bg-slate-100"
+                            style={{
+                              width: getCardNameVariant(selectedForCard) === 'dense' ? '20%' : getCardNameVariant(selectedForCard) === 'compact' ? '24.7%' : '29%',
+                              height: getCardNameVariant(selectedForCard) === 'dense' ? '20%' : getCardNameVariant(selectedForCard) === 'compact' ? '24.7%' : '29%',
+                            }}
+                          >
                             {selectedForCard.photoUrl ? (
                               <img src={selectedForCard.photoUrl} alt="" className="h-full w-full object-cover object-[center_25%]" />
                             ) : (
                               <div className="flex h-full items-center justify-center bg-blue-950 text-[7px] font-bold text-blue-100">PHOTO</div>
                             )}
                           </div>
-                          <div className="relative z-10 mx-auto flex w-[94%] flex-col items-center px-1 pt-[2%] leading-tight">
-                            <p className="w-full truncate text-[9px] font-black uppercase text-neutral-900">
+                          <div className="relative z-10 mx-auto flex w-[94%] flex-col items-center px-1 pt-[2%] leading-[1.05]">
+                            <p
+                              className="w-full whitespace-normal break-words text-center font-black uppercase text-neutral-900"
+                              style={{
+                                fontSize: getCardNameVariant(selectedForCard) === 'dense' ? '7px' : getCardNameVariant(selectedForCard) === 'compact' ? '8px' : '9px',
+                              }}
+                            >
                               {selectedForCard.firstName} {selectedForCard.lastName}
                             </p>
                             <p className="w-full truncate text-[7px] font-bold text-neutral-800">{selectedForCard.position}</p>
