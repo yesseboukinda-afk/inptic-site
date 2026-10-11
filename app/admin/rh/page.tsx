@@ -519,6 +519,7 @@ export default function AdminRHPage() {
   // Données
   const [profiles, setProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
+  const [auditLogCount, setAuditLogCount] = useState(0);
   const [profilesError, setProfilesError] = useState('');
   const [auditLogsError, setAuditLogsError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -664,7 +665,11 @@ export default function AdminRHPage() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Chargement du journal RH impossible (${res.status}).`);
       if (!Array.isArray(json.logs)) throw new Error('Réponse invalide lors du chargement du journal RH.');
+      if (!Number.isSafeInteger(json.total) || json.total < 0) {
+        throw new Error('Compteur invalide lors du chargement du journal RH.');
+      }
       setAuditLogs(json.logs);
+      setAuditLogCount(json.total);
       setAuditLogsError('');
     } catch (err) {
       console.error('Erreur chargement logs:', err);
@@ -1324,7 +1329,7 @@ export default function AdminRHPage() {
               }`}
             >
               <Shield size={16} />
-              <span>Journal d&apos;Audit ({auditLogs.length})</span>
+              <span>Journal d&apos;Audit ({auditLogCount})</span>
             </button>
           </div>
         </div>

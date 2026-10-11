@@ -328,11 +328,13 @@ export async function GET(request: NextRequest) {
   // Consultation du journal d'audit
   if (getAuditLogs) {
     try {
-      const { rows } = await getPostgresPool().query(
-        'SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100',
-      );
+      const pool = getPostgresPool();
+      const [logsResult, countResult] = await Promise.all([
+        pool.query('SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100'),
+        pool.query<{ total: string }>('SELECT COUNT(*)::text AS total FROM public.rh_audit_logs'),
+      ]);
       return NextResponse.json({
-        logs: rows.map((row) => ({
+        logs: logsResult.rows.map((row) => ({
           id: String(row.id),
           timestamp: row.timestamp,
           userId: row.user_id,
@@ -343,6 +345,7 @@ export async function GET(request: NextRequest) {
           details: row.details,
           ipAddress: row.ip_address,
         })),
+        total: Number(countResult.rows[0]?.total || 0),
       });
     } catch (error) {
       console.error('Erreur PostgreSQL de lecture du journal RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
