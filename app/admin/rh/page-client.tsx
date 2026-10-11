@@ -362,11 +362,17 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           justify-content: center;
           width: 15mm;
           height: 15mm;
+          overflow: hidden;
           background: #fff;
           border: 1px solid #e2e8f0;
           border-radius: 12px;
         }
-        .qr-box svg { display: block; width: 100%; height: 100%; }
+        .qr-box svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          border-radius: 11px;
+        }
         .card-back img {
           display: block;
           width: 100%;
