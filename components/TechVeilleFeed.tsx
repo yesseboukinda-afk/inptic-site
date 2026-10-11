@@ -1,7 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ExternalLink, Megaphone, Sparkles, Globe, Cpu, Database, Code, Wifi, RefreshCw, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  Code,
+  Cpu,
+  Database,
+  ExternalLink,
+  Globe,
+  Megaphone,
+  RefreshCw,
+  Sparkles,
+  Wifi,
+} from 'lucide-react';
 
 type TechItem = {
   id: string;
@@ -187,167 +201,212 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
     }
   };
 
-  const getDomainIcon = (domain: TechItem['domain']) => {
+  const getDomainIcon = (domain: TechItem['domain'], featured = false) => {
+    const className = featured ? 'text-white' : undefined;
     switch (domain) {
-      case 'IA': return <Cpu size={16} className="text-purple-600" />;
-      case 'Base de données': return <Database size={16} className="text-emerald-600" />;
-      case 'Développement': return <Code size={16} className="text-blue-600" />;
-      case 'Réseaux': return <Wifi size={16} className="text-amber-600" />;
-      default: return <Globe size={16} className="text-blue-600" />;
+      case 'IA': return <Cpu size={featured ? 42 : 16} className={className || 'text-purple-600'} />;
+      case 'Base de données': return <Database size={featured ? 42 : 16} className={className || 'text-emerald-600'} />;
+      case 'Développement': return <Code size={featured ? 42 : 16} className={className || 'text-blue-600'} />;
+      case 'Réseaux': return <Wifi size={featured ? 42 : 16} className={className || 'text-amber-600'} />;
+      default: return <Globe size={featured ? 42 : 16} className={className || 'text-blue-600'} />;
     }
   };
 
   const current = news[currentIndex] || INITIAL_TECH_NEWS[0];
+  const goToStory = (offset: number) => {
+    setCurrentIndex((index) => (index + offset + news.length) % news.length);
+  };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 to-[#14306b] p-6 text-white shadow-xl overflow-hidden">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D4AF37] text-slate-950 font-black shadow">
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <h3 className="text-base font-black flex items-center gap-2">
-              <span>Veille Technologique Internationale IT &amp; IA</span>
-              {isFetchingLive && <RefreshCw size={13} className="animate-spin text-cyan-300" />}
-            </h3>
-            <p className="text-xs text-slate-300">Actualités mondiales en temps réel (IA, Bases de données, Dev, Réseaux)</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-full bg-blue-500/20 px-3 py-1 font-bold text-cyan-300 border border-blue-400/30">
-            {currentIndex + 1} / {news.length} ({feedSource === 'fallback' ? 'Secours' : feedSource === 'live' ? 'Direct' : 'Chargement'})
-          </span>
-          <span className="text-slate-300" aria-live="polite">
-            {isFetchingLive ? 'Actualisation…' : lastUpdated ? `Mis à jour à ${lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-          </span>
-          <button
-            type="button"
-            onClick={() => loadLiveTechNews(true)}
-            title="Actualiser les flux en direct"
-            aria-label="Actualiser la veille IT"
-            disabled={isFetchingLive}
-            className="rounded-lg bg-white/10 p-2 hover:bg-white/20 transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isFetchingLive ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
-
-      {refreshError && (
-        <div role="status" className="mt-4 rounded-xl border border-amber-300/40 bg-amber-500/10 p-3 text-xs text-amber-100">
-          {refreshError}
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-500/20 p-3 text-xs font-bold text-emerald-200 flex items-center gap-2">
-          <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-      {publishError && (
-        <div role="alert" className="mt-4 rounded-2xl border border-red-300 bg-red-500/20 p-3 text-xs font-bold text-red-100">
-          {publishError}
-        </div>
-      )}
-
-      {/* Carrousel Slide avec Animation Slide-In Droite vers Gauche (1.5s) */}
-      <div key={currentIndex} className="mt-6 space-y-4">
-        <style jsx>{`
-          @keyframes techSlideInRight {
-            0% {
-              opacity: 0;
-              transform: translateX(90px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateX(0);
-            }
-          }
-          .tech-slide-1-5s {
-            animation: techSlideInRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          }
-        `}</style>
-
-        <div className="tech-slide-1-5s space-y-4">
-          {current.coverImage && (
-            <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-md">
-              <img src={current.coverImage} alt={current.title} className="h-full w-full object-cover" />
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <header className="relative overflow-hidden bg-gradient-to-br from-[#102451] via-[#173875] to-[#175a78] px-5 py-5 text-white sm:px-6">
+        <div aria-hidden="true" className="absolute -right-8 -top-16 h-48 w-48 rounded-full border-[24px] border-white/5" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#D4AF37] text-slate-950 shadow-lg shadow-black/10">
+              <Sparkles size={21} />
             </div>
-          )}
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-200">INPTIC · veille mondiale</p>
+              <h3 className="mt-0.5 text-base font-black leading-tight sm:text-lg">Technologies, IA &amp; innovation</h3>
+              <p className="mt-1 text-xs text-blue-100/80">Une sélection des dernières actualités technologiques.</p>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-amber-300">
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold ${
+              feedSource === 'live'
+                ? 'border-emerald-200/25 bg-emerald-300/10 text-emerald-100'
+                : feedSource === 'fallback'
+                  ? 'border-amber-200/25 bg-amber-300/10 text-amber-100'
+                  : 'border-white/15 bg-white/10 text-blue-100'
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${
+                feedSource === 'live' ? 'bg-emerald-300' : feedSource === 'fallback' ? 'bg-amber-300' : 'bg-blue-200 animate-pulse'
+              }`} />
+              {feedSource === 'live' ? 'En direct' : feedSource === 'fallback' ? 'Mode secours' : 'Connexion'}
+            </span>
+            <button
+              type="button"
+              onClick={() => loadLiveTechNews(true)}
+              title="Actualiser les flux"
+              aria-label="Actualiser la veille technologique"
+              disabled={isFetchingLive}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={isFetchingLive ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+        <div className="relative mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/10 pt-3 text-[11px] text-blue-100/75">
+          <span className="inline-flex items-center gap-1.5"><Globe size={13} /> Sources internationales</span>
+          <span className="inline-flex items-center gap-1.5"><Cpu size={13} /> IA</span>
+          <span className="inline-flex items-center gap-1.5"><Code size={13} /> Développement</span>
+          <span className="inline-flex items-center gap-1.5"><Wifi size={13} /> Réseaux</span>
+          {lastUpdated && (
+            <span className="ml-auto inline-flex items-center gap-1.5" aria-live="polite">
+              <RefreshCw size={11} className={isFetchingLive ? 'animate-spin' : ''} />
+              {isFetchingLive ? 'Actualisation…' : `Mis à jour à ${lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
+            </span>
+          )}
+        </div>
+      </header>
+
+      <div className="p-4 sm:p-6">
+        {refreshError && (
+          <div role="status" className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-900">
+            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+            <span>{refreshError}</span>
+          </div>
+        )}
+        {successMsg && (
+          <div role="status" className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-xs font-semibold text-emerald-800">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+        {publishError && (
+          <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs font-semibold text-red-800">
+            <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+            <span>{publishError}</span>
+          </div>
+        )}
+
+        <article key={current.id} className="grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="relative min-h-48 overflow-hidden bg-gradient-to-br from-[#102451] via-[#234c86] to-cyan-700 lg:min-h-full">
+            {current.coverImage ? (
+              <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <>
+                <div aria-hidden="true" className="absolute -right-12 -top-12 h-48 w-48 rounded-full border-[28px] border-white/10" />
+                <div aria-hidden="true" className="absolute -bottom-20 -left-12 h-56 w-56 rounded-full border-[30px] border-cyan-300/10" />
+                <div className="absolute inset-0 flex items-center justify-center text-white/90">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] border border-white/20 bg-white/10 shadow-2xl backdrop-blur-sm">
+                    {getDomainIcon(current.domain, true)}
+                  </div>
+                </div>
+              </>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-slate-950/10" />
+            <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-slate-950/35 px-3 py-1.5 text-[10px] font-bold text-white backdrop-blur">
               {getDomainIcon(current.domain)}
               {current.domain}
             </span>
-            <span className="text-xs text-slate-400">• {current.source}</span>
-            <span className="text-xs text-slate-500">• {current.date}</span>
+            <span className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 text-[11px] font-medium text-white/90">
+              <Globe size={13} /> {current.source}
+            </span>
           </div>
 
-          <h4 className="text-lg sm:text-xl font-black text-white leading-snug">{current.title}</h4>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{current.summary}</p>
-        </div>
+          <div className="flex min-w-0 flex-col p-5 sm:p-6">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500">
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} className="text-blue-600" />{current.date}</span>
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 font-bold text-blue-700">À la une</span>
+            </div>
+            <h4 className="mt-4 text-lg font-black leading-snug text-slate-900 sm:text-xl">{current.title}</h4>
+            <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-slate-600">{current.summary}</p>
 
-        <div className="space-y-2.5 rounded-2xl border border-white/10 bg-white/5 p-3.5">
-          <div>
-            <p className="text-xs font-semibold text-slate-200">Publication destinée à la page Actualités</p>
-            <p className="mt-1 text-[11px] text-slate-400">Les annonces institutionnelles restent séparées dans la page Annonces.</p>
-          </div>
-
-          <div role="group" aria-label="Sélectionner les réseaux de partage" className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
-            {(
-              [
-                ['whatsapp', 'WhatsApp'],
-                ['facebook', 'Facebook'],
-                ['linkedin', 'LinkedIn'],
-                ['x', 'X (Twitter)'],
-              ] as const
-            ).map(([net, label]) => (
-              <button
-                key={net}
-                type="button"
-                onClick={() => toggleNetwork(net)}
-                title={`${selectedNetworks[net] ? 'Désactiver' : 'Activer'} le partage sur ${label}`}
-                aria-label={`Partager sur ${label}`}
-                aria-pressed={selectedNetworks[net]}
-                className={`inline-flex h-10 w-10 items-center justify-center border transition ${
-                  selectedNetworks[net] ? 'border-cyan-300 bg-white text-slate-950 shadow' : 'border-white/15 bg-white/10 text-slate-400 hover:bg-white/20'
-                }`}
+            <div className="mt-auto flex items-center justify-between gap-3 pt-6">
+              <a
+                href={current.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 transition hover:text-blue-900"
               >
-                {getSocialIcon(net)}
-                <span className="sr-only">{label}</span>
-              </button>
-            ))}
+                Lire à la source <ExternalLink size={13} />
+              </a>
+              <div className="flex items-center gap-2">
+                <span className="mr-1 text-[11px] font-semibold tabular-nums text-slate-500">{currentIndex + 1}<span className="mx-1 text-slate-300">/</span>{news.length}</span>
+                <button
+                  type="button"
+                  onClick={() => goToStory(-1)}
+                  aria-label="Actualité précédente"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  <ArrowLeft size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToStory(1)}
+                  aria-label="Actualité suivante"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-700 text-white transition hover:bg-blue-800"
+                >
+                  <ArrowRight size={15} />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </article>
 
-        {/* Actions Admin */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10">
-          <a
-            href={current.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
-          >
-            <ExternalLink size={14} />
-            <span>Suivre le lien d&apos;origine</span>
-          </a>
-
-          <div className="flex items-center gap-2">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Partager cette actualité</p>
+              <p className="mt-0.5 text-xs text-slate-500">Sélectionnez les réseaux à préparer avec la publication.</p>
+            </div>
+            <div role="group" aria-label="Sélectionner les réseaux de partage" className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ['whatsapp', 'WhatsApp'],
+                  ['facebook', 'Facebook'],
+                  ['linkedin', 'LinkedIn'],
+                  ['x', 'X (Twitter)'],
+                ] as const
+              ).map(([net, label]) => (
+                <button
+                  key={net}
+                  type="button"
+                  onClick={() => toggleNetwork(net)}
+                  title={`${selectedNetworks[net] ? 'Désactiver' : 'Activer'} le partage sur ${label}`}
+                  aria-label={`Partager sur ${label}`}
+                  aria-pressed={selectedNetworks[net]}
+                  className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                    selectedNetworks[net]
+                      ? 'border-blue-200 bg-white text-blue-700 shadow-sm'
+                      : 'border-slate-200 bg-slate-100 text-slate-400 hover:bg-white hover:text-slate-700'
+                  }`}
+                >
+                  {getSocialIcon(net)}
+                  <span className="sr-only">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-sm text-[11px] leading-relaxed text-slate-500">
+              La publication sera ajoutée aux Actualités. Vous pourrez confirmer chaque partage sur son réseau.
+            </p>
             <button
+              type="button"
               onClick={() => handlePublishAndBroadcast(current)}
               disabled={publishingId !== null}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-5 py-2.5 text-xs font-bold text-slate-950 shadow-lg hover:bg-[#e6c141] transition shadow disabled:opacity-50"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2.5 text-xs font-extrabold text-slate-950 shadow-sm transition hover:bg-[#e6c141] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Megaphone size={14} />
-              <span>{publishingId === current.id ? 'Publication en cours...' : 'Publier sur Actualités & préparer les partages'}</span>
+              {publishingId === current.id ? <RefreshCw size={14} className="animate-spin" /> : <Megaphone size={14} />}
+              {publishingId === current.id ? 'Publication en cours…' : 'Publier sur Actualités'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

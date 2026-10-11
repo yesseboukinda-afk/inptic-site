@@ -150,42 +150,46 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white font-black shadow">
-            <ShieldAlert size={24} />
+    <div className="space-y-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <header className="relative overflow-hidden bg-gradient-to-br from-[#102451] via-[#173875] to-[#175a78] px-5 py-5 text-white sm:px-6">
+        <div aria-hidden="true" className="absolute -right-8 -top-16 h-48 w-48 rounded-full border-[24px] border-white/5" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-[#102451] shadow-lg shadow-black/10">
+              <ShieldAlert size={22} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-200">INPTIC · veille institutionnelle</p>
+              <h3 className="mt-0.5 text-base font-black leading-tight sm:text-lg">E-réputation &amp; médias sociaux</h3>
+              <p className="mt-1 text-xs text-blue-100/80">Commentaires, mentions et signaux de réputation.</p>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Veille &amp; E-réputation</span>
-            <h3 className="text-xl font-black text-slate-900">Surveillance des Médias &amp; Réseaux Sociaux</h3>
-            <p className="text-xs text-slate-500">Derniers commentaires actualisés chaque minute et alertes de réputation institutionnelle</p>
+
+          <div className="flex items-center gap-3 self-start rounded-2xl border border-white/15 bg-white/10 px-3.5 py-2.5 backdrop-blur-sm sm:self-auto">
+            <div className="text-right">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-100/80">
+                <span className={`h-1.5 w-1.5 rounded-full ${isScanning ? 'animate-ping bg-amber-300' : 'bg-emerald-300'}`} />
+                {isScanning ? 'Analyse en cours' : lastScannedAt ? `Actualisé à ${lastScannedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En attente'}
+              </span>
+              <span className="mt-0.5 block text-lg font-black text-white">{score}% <span className="text-xs font-semibold text-emerald-200">positif</span></span>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-300/15 text-emerald-200">
+              <TrendingUp size={19} />
+            </div>
           </div>
         </div>
+      </header>
 
-        <div className="flex items-center gap-3 bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200">
-          <div className="text-right">
-            <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-              <span className={`h-2 w-2 rounded-full ${isScanning ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
-              {isScanning ? 'Scan en cours' : lastScannedAt ? `Actualisé à ${lastScannedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En attente'}
-            </span>
-            <span className="text-lg font-black text-emerald-600">{score}% Positif</span>
-          </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-            <TrendingUp size={18} />
-          </div>
-        </div>
-      </div>
-
+      <div className="space-y-5 px-4 pb-5 sm:px-6 sm:pb-6">
       {/* Canal officiel INPTIC surveillé */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-bold text-slate-700">Canaux surveillés :</span>
+          <span className="font-bold text-slate-700">Canaux officiels surveillés</span>
           <a
             href="https://www.facebook.com/people/Inptic-Gabon/61557159190234/?mibextid=wwXIfr"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-blue-400 transition"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
           >
             <img src="/partages/facebook.svg" alt="" className="h-4 w-4" />
             <span>Facebook</span>
@@ -194,7 +198,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
             href="https://www.youtube.com/@INPTICGabonOfficiel"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-red-400 transition"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 shadow-sm transition hover:border-red-400 hover:text-red-700"
           >
             <img src="/partages/youtube.svg" alt="" className="h-4 w-4" />
             <span>YouTube</span>
@@ -205,19 +209,19 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
 
       {/* ── CENTRE DE NOTIFICATION TEMPS RÉEL (COMMENTAIRES PÉJORATIFS & DÉGRADANTS) ── */}
       {negativeAlerts.length > 0 && (
-        <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-5 shadow-lg space-y-4 animate-in fade-in duration-300">
+        <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm space-y-4 animate-in fade-in duration-300 sm:p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 text-red-800">
               <span className="relative flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-red-600" />
               </span>
-              <Bell size={18} className="animate-bounce" />
+              <Bell size={17} />
               <h4 className="font-black text-sm uppercase tracking-wide">
                 Alerte E-réputation : {negativeAlerts.length} alerte(s) critique(s) détectée(s)
               </h4>
             </div>
-            <span className="rounded-full bg-red-600 px-3 py-0.5 text-xs font-bold text-white">
+            <span className="rounded-full bg-red-100 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-red-800">
               Action urgente
             </span>
           </div>
@@ -227,7 +231,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
               <div key={alertItem.id} className="rounded-xl border border-red-200 bg-white p-4 space-y-2 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <span role="img" aria-label={alertItem.platform} title={alertItem.platform} className="inline-flex h-8 w-8 items-center justify-center bg-red-100 text-red-800">
+                    <span role="img" aria-label={alertItem.platform} title={alertItem.platform} className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-100 text-red-800">
                       {getPlatformIcon(alertItem.platform)}
                     </span>
                     <strong className="text-slate-900">Auteur : {alertItem.author}</strong>
@@ -238,7 +242,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
                   </span>
                 </div>
 
-                <p className="text-xs sm:text-sm font-semibold text-red-950 bg-red-50/80 p-3 rounded-lg border border-red-100">
+                <p className="rounded-xl border border-red-100 bg-red-50/80 p-3 text-xs font-semibold leading-relaxed text-red-950 sm:text-sm">
                   &laquo; {alertItem.content} &raquo;
                 </p>
 
@@ -305,33 +309,33 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
       )}
 
       {/* Statistiques de mentions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <span className="text-xs text-slate-500">Total Mentions (Live)</span>
-          <p className="mt-1 text-2xl font-black text-slate-900">{mentions.length}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <span className="text-[11px] font-semibold text-slate-500">Mentions suivies</span>
+          <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{mentions.length}</p>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <span className="text-xs text-emerald-700 font-semibold inline-flex items-center gap-1">
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
             <ThumbsUp size={13} /> Positives
           </span>
-          <p className="mt-1 text-2xl font-black text-emerald-800">{positiveCount}</p>
+          <p className="mt-1 text-2xl font-black tabular-nums text-emerald-800">{positiveCount}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-blue-50 p-4">
-          <span className="text-xs text-blue-700 font-semibold inline-flex items-center gap-1">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700">
             <Globe size={13} /> Neutres
           </span>
-          <p className="mt-1 text-2xl font-black text-blue-800">{neutralCount}</p>
+          <p className="mt-1 text-2xl font-black tabular-nums text-blue-800">{neutralCount}</p>
         </div>
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-          <span className="text-xs text-red-700 font-semibold inline-flex items-center gap-1">
+        <div className="rounded-2xl border border-red-100 bg-red-50/70 p-4">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700">
             <AlertTriangle size={13} /> Alertes / Négatives
           </span>
-          <p className="mt-1 text-2xl font-black text-red-800">{negativeCount}</p>
+          <p className="mt-1 text-2xl font-black tabular-nums text-red-800">{negativeCount}</p>
         </div>
       </div>
 
       {/* Filtres de sentiment */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -344,8 +348,8 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
             <button
               key={val}
               onClick={() => setFilter(val)}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-                filter === val ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+                filter === val ? 'bg-[#173875] text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
               }`}
             >
               {label}
@@ -357,7 +361,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
           type="button"
           onClick={() => loadLiveMentions(true)}
           disabled={isScanning}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
           <span>{isScanning ? 'Scan en cours…' : 'Actualiser le scan web'}</span>
@@ -374,7 +378,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
       )}
 
       {/* ── SECTION COMMENTAIRES FACEBOOK & YOUTUBE ── */}
-      <section aria-labelledby="recent-comments-heading" className="space-y-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+      <section aria-labelledby="recent-comments-heading" className="space-y-3.5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <MessageSquare size={16} className="text-blue-600" />
@@ -412,7 +416,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filteredComments.map((comment) => (
-              <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2.5 shadow-sm">
+              <article key={comment.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2.5 transition hover:border-blue-200 hover:shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span role="img" aria-label={comment.platform} title={comment.platform} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-800">
@@ -460,7 +464,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
           </div>
         ) : (
           filtered.map((m) => (
-            <div key={m.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-3">
+            <div key={m.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span role="img" aria-label={m.platform} title={m.platform} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800">
@@ -548,6 +552,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
         )}
       </div>
 
+      </div>
     </div>
   );
 }
