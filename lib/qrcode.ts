@@ -19,35 +19,28 @@ export function generateQRCodeSVG(
     color = '#0f172a',
     background = '#ffffff',
   } = options;
+  const qr = QRCode.create(text, { errorCorrectionLevel: 'M' });
+  const quietZone = Math.max(4, Math.ceil(margin));
+  const viewSize = qr.modules.size + quietZone * 2;
+  const darkModules: string[] = [];
 
-  try {
-    let svgString = '';
-    QRCode.toString(
-      text,
-      {
-        type: 'svg',
-        errorCorrectionLevel: 'M',
-        margin,
-        color: {
-          dark: color,
-          light: background,
-        },
-        width: size,
-      },
-      (err, result) => {
-        if (!err && result) {
-          svgString = result;
-        }
+  for (let row = 0; row < qr.modules.size; row++) {
+    let column = 0;
+    while (column < qr.modules.size) {
+      if (!qr.modules.get(row, column)) {
+        column++;
+        continue;
       }
-    );
 
-    if (svgString) {
-      return svgString;
+      const start = column;
+      while (column < qr.modules.size && qr.modules.get(row, column)) {
+        column++;
+      }
+      darkModules.push(
+        `M${start + quietZone} ${row + quietZone}h${column - start}v1H${start + quietZone}z`,
+      );
     }
-  } catch (err) {
-    console.error('Erreur génération QR Code officiel:', err);
   }
 
-  // Fallback SVG de secours
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}"><rect width="100%" height="100%" fill="${background}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${viewSize} ${viewSize}" shape-rendering="crispEdges"><rect width="${viewSize}" height="${viewSize}" fill="${background}"/><path fill="${color}" d="${darkModules.join('')}"/></svg>`;
 }

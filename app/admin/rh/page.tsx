@@ -360,9 +360,8 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 15mm;
-          height: 15mm;
-          padding: 0.7mm;
+          width: 19mm;
+          height: 19mm;
           background: #fff;
         }
         .qr-box svg { display: block; width: 100%; height: 100%; }
