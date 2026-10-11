@@ -2,6 +2,7 @@ import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
+import { classifySentiment } from '@/lib/sentiment';
 
 type MentionItem = {
   id: string;
@@ -45,17 +46,6 @@ function formatCommentDate(value: string | undefined) {
     timeStyle: 'short',
     timeZone: 'Africa/Libreville',
   }).format(date);
-}
-
-function classifySentiment(content: string): MentionItem['sentiment'] {
-  const lower = content.toLocaleLowerCase('fr');
-  if (/nul|incompétent|mauvais|scandale|problème|arnaque|faux|lent|plainte|déçu|décevant|pas\s+la\s+ligne|ne\s+(?:passes?|gagnes?)\s+pas.{0,60}concours/i.test(lower)) {
-    return 'negatif';
-  }
-  if (/excellent|super|merci|bravo|félicit|succès|top|génial|recommande/i.test(lower)) {
-    return 'positif';
-  }
-  return 'neutre';
 }
 
 export async function GET(request: NextRequest) {
@@ -209,13 +199,7 @@ export async function GET(request: NextRequest) {
         const source = sourceMatch ? sourceMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'Presse en ligne / Web';
         const pubDate = pubDateMatch ? new Date(pubDateMatch[1]).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Récemment';
 
-        let sentiment: 'positif' | 'neutre' | 'negatif' = 'neutre';
-        const lower = title.toLowerCase();
-        if (/excellence|succ[èe]s|lance|innovation|belle|victoire|reconnaissance|prog[rè]s|numerique|technologie/i.test(lower)) {
-          sentiment = 'positif';
-        } else if (/scandale|gr[èe]ve|incomp[ée]tent|nul|fausse|alerte|plainte|probl[èe]me/i.test(lower)) {
-          sentiment = 'negatif';
-        }
+        const sentiment = classifySentiment(title);
 
         mentions.push({
           id: `live-rss-${index}`,
