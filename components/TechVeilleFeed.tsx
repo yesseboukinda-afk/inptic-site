@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
   CheckCircle2,
   Code,
   Cpu,
@@ -218,8 +217,8 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <header className="relative overflow-hidden bg-gradient-to-br from-[#102451] via-[#173875] to-[#175a78] px-5 py-5 text-white sm:px-6">
+    <section className="overflow-hidden rounded-2xl border border-[#24345e] bg-[#101d40] p-4 text-white shadow-sm sm:p-5">
+      <header className="relative overflow-hidden border-b border-white/10 pb-3.5">
         <div aria-hidden="true" className="absolute -right-8 -top-16 h-48 w-48 rounded-full border-[24px] border-white/5" />
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -227,14 +226,14 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
               <Sparkles size={21} />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-200">INPTIC · veille mondiale</p>
-              <h3 className="mt-0.5 text-base font-black leading-tight sm:text-lg">Technologies, IA &amp; innovation</h3>
-              <p className="mt-1 text-xs text-blue-100/80">Une sélection des dernières actualités technologiques.</p>
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-amber-300">Veille IT &amp; IA</p>
+              <h3 className="mt-0.5 text-sm font-black leading-tight sm:text-base">Veille technologique internationale</h3>
+              <p className="mt-1 text-[10px] leading-relaxed text-blue-100/70">Actualités mondiales en temps réel : IA, bases de données, développement, réseaux.</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold ${
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-bold ${
               feedSource === 'live'
                 ? 'border-emerald-200/25 bg-emerald-300/10 text-emerald-100'
                 : feedSource === 'fallback'
@@ -252,27 +251,27 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
               title="Actualiser les flux"
               aria-label="Actualiser la veille technologique"
               disabled={isFetchingLive}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw size={15} className={isFetchingLive ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
-        <div className="relative mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/10 pt-3 text-[11px] text-blue-100/75">
-          <span className="inline-flex items-center gap-1.5"><Globe size={13} /> Sources internationales</span>
-          <span className="inline-flex items-center gap-1.5"><Cpu size={13} /> IA</span>
-          <span className="inline-flex items-center gap-1.5"><Code size={13} /> Développement</span>
-          <span className="inline-flex items-center gap-1.5"><Wifi size={13} /> Réseaux</span>
+        <div className="relative mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-blue-100/65">
+          <span className="inline-flex items-center gap-1"><Globe size={11} /> Sources internationales</span>
+          <span className="inline-flex items-center gap-1"><Cpu size={11} /> IA</span>
+          <span className="inline-flex items-center gap-1"><Code size={11} /> Développement</span>
+          <span className="inline-flex items-center gap-1"><Wifi size={11} /> Réseaux</span>
           {lastUpdated && (
             <span className="ml-auto inline-flex items-center gap-1.5" aria-live="polite">
-              <RefreshCw size={11} className={isFetchingLive ? 'animate-spin' : ''} />
+              <RefreshCw size={10} className={isFetchingLive ? 'animate-spin' : ''} />
               {isFetchingLive ? 'Actualisation…' : `Mis à jour à ${lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
             </span>
           )}
         </div>
       </header>
 
-      <div className="p-4 sm:p-6">
+      <div className="pt-3.5">
         {refreshError && (
           <div role="status" className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-900">
             <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
@@ -292,78 +291,44 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
           </div>
         )}
 
-        <article key={current.id} className="grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="relative min-h-48 overflow-hidden bg-gradient-to-br from-[#102451] via-[#234c86] to-cyan-700 lg:min-h-full">
+        <article key={current.id} className="overflow-hidden">
+          <div className="relative h-32 overflow-hidden rounded-xl border border-white/10 bg-[#172b56] sm:h-36">
             {current.coverImage ? (
               <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <>
-                <div aria-hidden="true" className="absolute -right-12 -top-12 h-48 w-48 rounded-full border-[28px] border-white/10" />
-                <div aria-hidden="true" className="absolute -bottom-20 -left-12 h-56 w-56 rounded-full border-[30px] border-cyan-300/10" />
-                <div className="absolute inset-0 flex items-center justify-center text-white/90">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] border border-white/20 bg-white/10 shadow-2xl backdrop-blur-sm">
-                    {getDomainIcon(current.domain, true)}
-                  </div>
+                <div aria-hidden="true" className="absolute -right-8 -top-12 h-36 w-36 rounded-full border-[22px] border-white/5" />
+                <div aria-hidden="true" className="absolute -bottom-20 -left-8 h-44 w-44 rounded-full border-[24px] border-cyan-300/5" />
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-blue-100/75">
+                  Image de l’article
                 </div>
               </>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-slate-950/10" />
-            <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-slate-950/35 px-3 py-1.5 text-[10px] font-bold text-white backdrop-blur">
-              {getDomainIcon(current.domain)}
-              {current.domain}
-            </span>
-            <span className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 text-[11px] font-medium text-white/90">
-              <Globe size={13} /> {current.source}
-            </span>
           </div>
 
-          <div className="flex min-w-0 flex-col p-5 sm:p-6">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500">
-              <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} className="text-blue-600" />{current.date}</span>
-              <span className="rounded-full bg-blue-50 px-2.5 py-1 font-bold text-blue-700">À la une</span>
+          <div className="flex min-w-0 flex-col pt-2.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] font-medium text-blue-100/65">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 font-bold text-slate-950">
+                {getDomainIcon(current.domain)}
+                {current.domain}
+              </span>
+              <span>{current.source}</span>
+              <span>·</span>
+              <span>{current.date}</span>
             </div>
-            <h4 className="mt-4 text-lg font-black leading-snug text-slate-900 sm:text-xl">{current.title}</h4>
-            <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-slate-600">{current.summary}</p>
+            <h4 className="mt-2 text-base font-black leading-snug text-white sm:text-lg">{current.title}</h4>
+            <p className="mt-2 line-clamp-3 text-[11px] leading-relaxed text-blue-100/75">{current.summary}</p>
 
-            <div className="mt-auto flex items-center justify-between gap-3 pt-6">
-              <a
-                href={current.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 transition hover:text-blue-900"
-              >
-                Lire à la source <ExternalLink size={13} />
-              </a>
-              <div className="flex items-center gap-2">
-                <span className="mr-1 text-[11px] font-semibold tabular-nums text-slate-500">{currentIndex + 1}<span className="mx-1 text-slate-300">/</span>{news.length}</span>
-                <button
-                  type="button"
-                  onClick={() => goToStory(-1)}
-                  aria-label="Actualité précédente"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                >
-                  <ArrowLeft size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToStory(1)}
-                  aria-label="Actualité suivante"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-700 text-white transition hover:bg-blue-800"
-                >
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-            </div>
           </div>
         </article>
 
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex flex-col gap-2">
             <div>
-              <p className="text-sm font-bold text-slate-900">Partager cette actualité</p>
-              <p className="mt-0.5 text-xs text-slate-500">Sélectionnez les réseaux à préparer avec la publication.</p>
+              <p className="text-[10px] font-bold text-blue-50">Publication destinée à la page Actualités</p>
+              <p className="mt-0.5 text-[9px] leading-relaxed text-blue-100/60">Les annonces institutionnelles restent séparées dans la page Annonces.</p>
             </div>
-            <div role="group" aria-label="Sélectionner les réseaux de partage" className="flex flex-wrap items-center gap-2">
+            <div role="group" aria-label="Sélectionner les réseaux de partage" className="flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2">
               {(
                 [
                   ['whatsapp', 'WhatsApp'],
@@ -379,32 +344,57 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
                   title={`${selectedNetworks[net] ? 'Désactiver' : 'Activer'} le partage sur ${label}`}
                   aria-label={`Partager sur ${label}`}
                   aria-pressed={selectedNetworks[net]}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                  className={`inline-flex h-7 items-center justify-center gap-1 rounded-lg border px-2 text-[9px] font-semibold transition ${
                     selectedNetworks[net]
-                      ? 'border-blue-200 bg-white text-blue-700 shadow-sm'
-                      : 'border-slate-200 bg-slate-100 text-slate-400 hover:bg-white hover:text-slate-700'
+                      ? 'border-white bg-white text-emerald-700 shadow-sm'
+                      : 'border-white/15 bg-white/5 text-blue-100/60 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {getSocialIcon(net)}
-                  <span className="sr-only">{label}</span>
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-sm text-[11px] leading-relaxed text-slate-500">
-              La publication sera ajoutée aux Actualités. Vous pourrez confirmer chaque partage sur son réseau.
-            </p>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <a
+            href={current.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-2 text-[9px] font-bold text-white transition hover:bg-white/10"
+          >
+            <ExternalLink size={12} /> Suivre le lien d&apos;origine
+          </a>
+          <div className="flex flex-1 items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => handlePublishAndBroadcast(current)}
               disabled={publishingId !== null}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2.5 text-xs font-extrabold text-slate-950 shadow-sm transition hover:bg-[#e6c141] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#e9b91d] px-3 py-2 text-[9px] font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {publishingId === current.id ? <RefreshCw size={14} className="animate-spin" /> : <Megaphone size={14} />}
-              {publishingId === current.id ? 'Publication en cours…' : 'Publier sur Actualités'}
+              {publishingId === current.id ? 'Publication…' : 'Publier et préparer les partages'}
             </button>
           </div>
+        </div>
+        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
+          <button
+            type="button"
+            onClick={() => goToStory(-1)}
+            className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[9px] font-semibold text-blue-100 transition hover:bg-white/10"
+          >
+            <ArrowLeft size={11} className="mr-1 inline" />Précédent
+          </button>
+          <span className="text-[9px] font-bold text-amber-300">Article {currentIndex + 1} / {news.length}</span>
+          <button
+            type="button"
+            onClick={() => goToStory(1)}
+            className="rounded-lg border border-white/15 px-2.5 py-1.5 text-[9px] font-semibold text-blue-100 transition hover:bg-white/10"
+          >
+            Suivant<ArrowRight size={11} className="ml-1 inline" />
+          </button>
         </div>
       </div>
     </section>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldAlert, TrendingUp, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Clock, ThumbsUp, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, MessageSquare, Globe, RefreshCw, Send, Bell, ExternalLink, Clock, ThumbsUp, AlertTriangle } from 'lucide-react';
 
 type MentionItem = {
   id: string;
@@ -150,46 +150,42 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
   };
 
   return (
-    <div className="space-y-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <header className="relative overflow-hidden bg-gradient-to-br from-[#102451] via-[#173875] to-[#175a78] px-5 py-5 text-white sm:px-6">
-        <div aria-hidden="true" className="absolute -right-8 -top-16 h-48 w-48 rounded-full border-[24px] border-white/5" />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <header className="relative overflow-hidden border-b border-slate-100 pb-3">
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-[#102451] shadow-lg shadow-black/10">
-              <ShieldAlert size={22} />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+              <ShieldAlert size={18} />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-200">INPTIC · veille institutionnelle</p>
-              <h3 className="mt-0.5 text-base font-black leading-tight sm:text-lg">E-réputation &amp; médias sociaux</h3>
-              <p className="mt-1 text-xs text-blue-100/80">Commentaires, mentions et signaux de réputation.</p>
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-blue-600">Veille &amp; e-réputation</p>
+              <h3 className="mt-0.5 text-sm font-black leading-tight text-slate-900 sm:text-base">Surveillance des médias &amp; réseaux sociaux</h3>
+              <p className="mt-1 text-[10px] text-slate-500">Derniers commentaires et alertes de réputation institutionnelle.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 self-start rounded-2xl border border-white/15 bg-white/10 px-3.5 py-2.5 backdrop-blur-sm sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <div className="text-right">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-100/80">
-                <span className={`h-1.5 w-1.5 rounded-full ${isScanning ? 'animate-ping bg-amber-300' : 'bg-emerald-300'}`} />
-                {isScanning ? 'Analyse en cours' : lastScannedAt ? `Actualisé à ${lastScannedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En attente'}
+              <span className="block text-[9px] text-slate-500">
+                {isScanning ? 'Scan en cours' : lastScannedAt ? `Actualisé à ${lastScannedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En attente'}
               </span>
-              <span className="mt-0.5 block text-lg font-black text-white">{score}% <span className="text-xs font-semibold text-emerald-200">positif</span></span>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-300/15 text-emerald-200">
-              <TrendingUp size={19} />
+              <span className="mt-0.5 block text-xl font-black leading-none text-emerald-700">{score}<span className="text-sm"> %</span></span>
+              <span className="text-[8px] font-bold text-emerald-700">Positif</span>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="space-y-5 px-4 pb-5 sm:px-6 sm:pb-6">
+      <div className="space-y-3">
       {/* Canal officiel INPTIC surveillé */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-[10px]">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-bold text-slate-700">Canaux officiels surveillés</span>
+          <span className="font-bold text-slate-800">Canaux surveillés</span>
           <a
             href="https://www.facebook.com/people/Inptic-Gabon/61557159190234/?mibextid=wwXIfr"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 shadow-sm transition hover:border-blue-400 hover:text-blue-700"
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 transition hover:border-blue-400 hover:text-blue-700"
           >
             <img src="/partages/facebook.svg" alt="" className="h-4 w-4" />
             <span>Facebook</span>
@@ -198,7 +194,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
             href="https://www.youtube.com/@INPTICGabonOfficiel"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 shadow-sm transition hover:border-red-400 hover:text-red-700"
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 transition hover:border-red-400 hover:text-red-700"
           >
             <img src="/partages/youtube.svg" alt="" className="h-4 w-4" />
             <span>YouTube</span>
@@ -309,33 +305,45 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
       )}
 
       {/* Statistiques de mentions */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <span className="text-[11px] font-semibold text-slate-500">Mentions suivies</span>
-          <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{mentions.length}</p>
+          <span className="text-[9px] font-semibold text-slate-500">Total mentions (live)</span>
+          <p className="mt-1 text-xl font-black tabular-nums text-slate-900">{mentions.length}</p>
         </div>
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+          <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700">
             <ThumbsUp size={13} /> Positives
           </span>
-          <p className="mt-1 text-2xl font-black tabular-nums text-emerald-800">{positiveCount}</p>
+          <p className="mt-1 text-xl font-black tabular-nums text-emerald-800">{positiveCount}</p>
         </div>
         <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700">
+          <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-blue-700">
             <Globe size={13} /> Neutres
           </span>
-          <p className="mt-1 text-2xl font-black tabular-nums text-blue-800">{neutralCount}</p>
+          <p className="mt-1 text-xl font-black tabular-nums text-blue-800">{neutralCount}</p>
         </div>
         <div className="rounded-2xl border border-red-100 bg-red-50/70 p-4">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700">
+          <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-red-700">
             <AlertTriangle size={13} /> Alertes / Négatives
           </span>
-          <p className="mt-1 text-2xl font-black tabular-nums text-red-800">{negativeCount}</p>
+          <p className="mt-1 text-xl font-black tabular-nums text-red-800">{negativeCount}</p>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-1 flex items-center justify-between text-[9px] font-medium text-slate-500">
+          <span>Répartition des sentiments</span>
+          <span>{mentions.length} mention{mentions.length === 1 ? '' : 's'}</span>
+        </div>
+        <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-100" aria-label={`${positiveCount} positives, ${neutralCount} neutres, ${negativeCount} négatives`}>
+          <span className="bg-emerald-500 transition-all" style={{ width: `${mentions.length ? (positiveCount / mentions.length) * 100 : 0}%` }} />
+          <span className="bg-blue-500 transition-all" style={{ width: `${mentions.length ? (neutralCount / mentions.length) * 100 : 0}%` }} />
+          <span className="bg-red-500 transition-all" style={{ width: `${mentions.length ? (negativeCount / mentions.length) * 100 : 0}%` }} />
         </div>
       </div>
 
       {/* Filtres de sentiment */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -348,7 +356,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
             <button
               key={val}
               onClick={() => setFilter(val)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+              className={`rounded-lg px-2.5 py-1.5 text-[9px] font-bold transition ${
                 filter === val ? 'bg-[#173875] text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -361,7 +369,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
           type="button"
           onClick={() => loadLiveMentions(true)}
           disabled={isScanning}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[9px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
           <span>{isScanning ? 'Scan en cours…' : 'Actualiser le scan web'}</span>
@@ -378,21 +386,21 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
       )}
 
       {/* ── SECTION COMMENTAIRES FACEBOOK & YOUTUBE ── */}
-      <section aria-labelledby="recent-comments-heading" className="space-y-3.5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3">
+      <section aria-labelledby="recent-comments-heading" className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <MessageSquare size={16} className="text-blue-600" />
-            <h4 id="recent-comments-heading" className="text-sm font-black text-slate-900">
+            <MessageSquare size={14} className="text-blue-600" />
+            <h4 id="recent-comments-heading" className="text-[10px] font-black text-slate-900">
               Commentaires récents
             </h4>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">{filteredComments.length} commentaire{filteredComments.length > 1 ? 's' : ''}</span>
+            <span className="text-[9px] text-slate-500">{filteredComments.length} commentaire{filteredComments.length > 1 ? 's' : ''}</span>
             <select
               aria-label="Filtrer les commentaires par plateforme"
               value={commentPlatformFilter}
               onChange={(event) => setCommentPlatformFilter(event.target.value as 'all' | 'Facebook' | 'YouTube')}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[9px] font-semibold text-slate-700 outline-none focus:border-blue-500"
             >
               <option value="all">Toutes les plateformes</option>
               <option value="Facebook">Facebook</option>
@@ -414,35 +422,27 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
               : `Aucun commentaire récent sur ${commentPlatformFilter}.`}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="divide-y divide-slate-100">
             {filteredComments.map((comment) => (
-              <article key={comment.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2.5 transition hover:border-blue-200 hover:shadow-sm">
+              <article key={comment.id} className="space-y-1.5 px-3 py-2.5 transition hover:bg-slate-50">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span role="img" aria-label={comment.platform} title={comment.platform} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-800">
+                    <span role="img" aria-label={comment.platform} title={comment.platform} className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-[9px] font-bold text-blue-800">
                       {getPlatformIcon(comment.platform)}
                     </span>
-                    <strong className="text-xs text-slate-900">{comment.author}</strong>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-                      <Clock size={11} />{comment.date}
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${
-                      comment.sentiment === 'positif'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : comment.sentiment === 'negatif'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {comment.sentiment}
-                    </span>
+                    <strong className="text-[9px] text-slate-900">{comment.author}</strong>
+                    <span className="text-[9px] text-slate-400">{comment.platform}</span>
+                    <span className="text-[9px] text-slate-400">· {comment.date}</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-bold ${
+                      comment.sentiment === 'positif' ? 'bg-emerald-100 text-emerald-800' :
+                      comment.sentiment === 'negatif' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                    }`}>{comment.sentiment}</span>
                   </div>
                 </div>
-                <p className="whitespace-pre-wrap text-xs sm:text-sm leading-relaxed text-slate-700">{comment.content}</p>
-                <div className="pt-1">
-                  <a href={comment.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
-                    <ExternalLink size={12} />Voir sur {comment.platform}
+                <p className="whitespace-pre-wrap pl-8 text-[9px] leading-relaxed text-slate-600">{comment.content}</p>
+                <div className="pl-8">
+                  <a href={comment.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[9px] font-semibold text-blue-600 hover:underline">
+                    <ExternalLink size={10} />Voir sur {comment.platform}
                   </a>
                 </div>
               </article>
