@@ -291,8 +291,28 @@ export default function TechVeilleFeed({ accessToken }: { accessToken: string })
           </div>
         )}
 
-        <article key={current.id} className="overflow-hidden">
-          <div className="relative h-32 overflow-hidden rounded-xl border border-white/10 bg-[#172b56] sm:h-36">
+        <style jsx>{`
+          @keyframes techSlideInRight {
+            from {
+              opacity: 0;
+              transform: translateX(90px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .tech-slide-in {
+            animation: techSlideInRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .tech-slide-in {
+              animation: none;
+            }
+          }
+        `}</style>
+        <article key={current.id} className="tech-slide-in overflow-hidden">
+          <div className="relative h-52 overflow-hidden rounded-xl border border-white/10 bg-[#172b56] sm:h-64">
             {current.coverImage ? (
               <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
