@@ -18,9 +18,16 @@ et aux calculs. Les sources Web renvoyées par Google sont affichées dans les
 réponses. Le modèle Pro et ces outils peuvent répondre plus lentement et entraîner
 des coûts supérieurs à Gemini Flash.
 
+Pour le déploiement LWS, renseigner `GEMINI_API_KEY` dans les variables
+d'environnement du serveur Node.js, avec `GEMINI_MODEL=gemini-2.5-pro` et
+`GEMINI_TTS_MODEL=gemini-3.8-flash-tts` si ces modèles sont disponibles pour la
+clé et le projet Google utilisés. La même clé sert aux réponses textuelles et
+à la génération vocale. Ne jamais copier la clé dans Git, une variable
+`NEXT_PUBLIC_*` ou un message.
+
 La lecture vocale est générée côté serveur par Gemini TTS (`GEMINI_TTS_MODEL`,
-par défaut `gemini-3.8-flash-tts`) avec la voix féminine Kore et un style français
-chaleureux et naturel. Elle utilise la même clé serveur `GEMINI_API_KEY` et le
+par défaut `gemini-3.8-flash-tts`) avec la voix Achernar et un style français
+féminin, doux, humain et posé. Elle utilise la même clé serveur `GEMINI_API_KEY` et le
 quota Gemini. Si le serveur ne peut pas joindre Google, l'interface essaie une
 voix française féminine installée dans le navigateur et signale ce mode de secours.
 

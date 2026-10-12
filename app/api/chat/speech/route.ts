@@ -68,13 +68,13 @@ export async function POST(request: Request) {
             text: text.trim(),
             annotations: [{
               type: 'speech_metadata',
-              style: 'Speak in French with a warm, natural, expressive feminine voice. Use clear pronunciation, a gentle conversational pace, human-like intonation, and friendly warmth. Read the text faithfully without adding words.',
+              style: 'Speak in French with a soft, feminine, warm, natural human voice. Sound like a kind and reassuring woman speaking conversationally to one person, with gentle breaths, subtle human intonation, clear pronunciation, and a calm unhurried pace. Keep the delivery tender and approachable, never robotic, theatrical, breathy, or overly bright. Read the text faithfully without adding words.',
             }],
           }],
         }],
         response_format: { type: 'audio' },
         generation_config: {
-          speech_config: [{ voice: 'Kore' }],
+          speech_config: [{ voice: 'Achernar' }],
         },
       }),
     });

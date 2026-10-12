@@ -83,8 +83,8 @@ function speakWithBrowserVoice(
 
     const utterance = new SpeechSynthesisUtterance(chunk);
     utterance.lang = voice?.lang || 'fr-FR';
-    utterance.rate = 0.92;
-    utterance.pitch = 1.08;
+    utterance.rate = 0.9;
+    utterance.pitch = 1.05;
     utterance.volume = 1;
     if (voice) utterance.voice = voice;
     utterance.onend = speakNext;
