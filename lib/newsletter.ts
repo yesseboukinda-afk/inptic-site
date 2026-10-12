@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { getPostgresPool } from '@/lib/postgres';
+import { isSmtpEmailConfigured, sendSmtpEmail } from '@/lib/smtp-email';
 
 type NewsletterPublication = {
   id: string;
@@ -73,7 +73,7 @@ function getNewsletterSummary(excerpt: string) {
 function getEmailErrorCode(value: unknown) {
   if (!value || typeof value !== 'object') return null;
   const error = value as Record<string, unknown>;
-  const code = error.name ?? error.code ?? error.statusCode;
+  const code = error.code ?? error.responseCode ?? error.name;
   return typeof code === 'string' || typeof code === 'number' ? String(code).slice(0, 80) : null;
 }
 
@@ -103,9 +103,7 @@ async function dispatchPublicationNewsletter(
     return { status: 'skipped', sent: 0, failed: 0 };
   }
 
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.NEWSLETTER_FROM_EMAIL;
-  if (!resendKey || !from || !process.env.DATABASE_URL) {
+  if (!isSmtpEmailConfigured() || !process.env.DATABASE_URL) {
     return { status: 'not_configured', sent: 0, failed: 0 };
   }
 
@@ -149,22 +147,11 @@ async function dispatchPublicationNewsletter(
       continue;
     }
 
-    const idempotencyKey = createHash('sha256')
-      .update(`inptic-newsletter/${publication.id}/${email}`)
-      .digest('hex');
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-        },
-        body: JSON.stringify({
-          from,
-          to: [email],
-          subject: `Actualités INPTIC — ${publication.title}`,
-          html: `
+      const result = await sendSmtpEmail({
+        to: email,
+        subject: `Actualités INPTIC — ${publication.title}`,
+        html: `
             <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
               <div style="margin:0 0 24px;text-align:center">
                 <img src="${escapeHtml(logoUrl)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
@@ -179,29 +166,13 @@ async function dispatchPublicationNewsletter(
               <p style="font-size:12px"><a href="${escapeHtml(`${siteUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`)}">Se désabonner</a></p>
             </div>
           `,
-        }),
-        cache: 'no-store',
       });
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || typeof result?.id !== 'string') {
-        failed += 1;
-        const errorCode = getEmailErrorCode(result);
-        await getPostgresPool().query(
-          `UPDATE public.newsletter_deliveries
-           SET status = 'failed', error_code = $3, updated_at = NOW()
-           WHERE publication_id = $1 AND subscriber_email = $2`,
-          [publication.id, email, errorCode || `HTTP_${response.status}`],
-        );
-        continue;
-      }
-
       try {
         await getPostgresPool().query(
           `UPDATE public.newsletter_deliveries
            SET status = 'sent', resend_email_id = $3, error_code = NULL, updated_at = NOW()
            WHERE publication_id = $1 AND subscriber_email = $2`,
-          [publication.id, email, result.id],
+          [publication.id, email, result.messageId],
         );
         sent += 1;
       } catch (error) {
@@ -210,8 +181,8 @@ async function dispatchPublicationNewsletter(
       }
     } catch (error) {
       failed += 1;
-      const errorCode = error instanceof Error ? error.name : 'NETWORK_ERROR';
-      console.error('Erreur réseau Resend pour la newsletter:', errorCode);
+      const errorCode = getEmailErrorCode(error) || 'SMTP_ERROR';
+      console.error('Erreur SMTP pour la newsletter:', errorCode);
       await getPostgresPool().query(
         `UPDATE public.newsletter_deliveries
          SET status = 'failed', error_code = $3, updated_at = NOW()

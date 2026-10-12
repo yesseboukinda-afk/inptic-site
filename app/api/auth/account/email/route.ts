@@ -4,11 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendAuthEmail } from '@/lib/auth-email';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser, getAuthSiteUrl, hashOpaqueToken, verifyPassword } from '@/lib/postgres-auth';
+import { isSmtpEmailConfigured } from '@/lib/smtp-email';
 
 export const runtime = 'nodejs';
 
 async function siteAuditedPOST(request: NextRequest) {
-  if (!process.env.RESEND_API_KEY || !(process.env.AUTH_FROM_EMAIL || process.env.NEWSLETTER_FROM_EMAIL)) {
+  if (!isSmtpEmailConfigured()) {
     return NextResponse.json({ error: 'Le service de confirmation e-mail n’est pas configuré.' }, { status: 503 });
   }
 

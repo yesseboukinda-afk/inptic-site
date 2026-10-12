@@ -873,9 +873,9 @@ export default function GestionAnnoncesPage() {
             const messages: Record<NewsletterDelivery['status'], string> = {
               sent: `Annonce publiée et envoyée à ${newsletter?.sent ?? 0} abonné(s).`,
               no_subscribers: 'Annonce publiée. Aucun abonné actif à prévenir.',
-              not_configured: 'Annonce publiée, mais l’envoi automatique n’est pas configuré. Ajoutez RESEND_API_KEY et NEWSLETTER_FROM_EMAIL.',
+              not_configured: 'Annonce publiée, mais l’envoi automatique n’est pas configuré. Ajoutez les paramètres SMTP LWS.',
               partial: `Annonce publiée ; ${newsletter?.sent ?? 0} e-mail(s) envoyé(s), ${newsletter?.failed ?? 0} en échec.`,
-              failed: 'Annonce publiée, mais l’envoi automatique a échoué. Vérifiez la configuration de Resend.',
+              failed: 'Annonce publiée, mais l’envoi automatique a échoué. Vérifiez les paramètres SMTP LWS.',
               skipped: editingId ? 'Annonce mise à jour.' : 'Annonce publiée.',
             };
             setGlobalOk(!newsletter || newsletter.status === 'sent' || newsletter.status === 'skipped');

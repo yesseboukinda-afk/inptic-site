@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendAuthEmail } from '@/lib/auth-email';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthSiteUrl, hashOpaqueToken, hashPassword, serializeAuthUser } from '@/lib/postgres-auth';
+import { isSmtpEmailConfigured } from '@/lib/smtp-email';
 
 export const runtime = 'nodejs';
 
@@ -114,7 +115,7 @@ function escapeHtml(value: string) {
 }
 
 function hasAuthMailConfig() {
-  return Boolean(process.env.RESEND_API_KEY && (process.env.AUTH_FROM_EMAIL || process.env.NEWSLETTER_FROM_EMAIL));
+  return isSmtpEmailConfigured();
 }
 
 export const POST = withSiteAudit("Création de compte candidat", siteAuditedPOST);

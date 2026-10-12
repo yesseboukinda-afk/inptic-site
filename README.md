@@ -48,9 +48,11 @@ Avant d'activer le parcours :
 
 1. Créer une base PostgreSQL dans le panneau LWS, puis exécuter une seule fois
    `scripts/00_lws_complete_schema.sql` dans cette base.
-2. Configurer côté serveur `DATABASE_URL`, `AUTH_SITE_URL` (origine HTTPS du site),
-   `RESEND_API_KEY` et `AUTH_FROM_EMAIL`. L'expéditeur doit être vérifié dans
-   Resend. Ces secrets ne doivent pas avoir le préfixe `NEXT_PUBLIC_`.
+2. Configurer côté serveur `DATABASE_URL`, `AUTH_SITE_URL` (origine HTTPS du site)
+   et les variables SMTP LWS `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
+   `SMTP_USER`, `SMTP_PASSWORD` et `SMTP_FROM_EMAIL`. L'adresse expéditrice
+   utilisée est `inptic@inptic-ga.org`. Ne pas donner le préfixe `NEXT_PUBLIC_`
+   aux secrets SMTP.
 3. Pour activer la connexion Google, créer un client OAuth de type application
    Web dans Google Cloud Console, ajouter comme URI de callback
    `https://votre-domaine.tld/api/auth/oauth/callback`, puis configurer les
@@ -190,10 +192,13 @@ Pour activer les inscriptions et envois de newsletter :
 
 1. Exécuter `scripts/11_create_newsletter_subscribers.sql` sur la base
    PostgreSQL LWS. Le schéma applicatif (script 13) crée également ces tables.
-2. Configurer `RESEND_API_KEY`, `NEWSLETTER_FROM_EMAIL` avec une adresse d'un
-   domaine vérifié dans Resend, et `NEWSLETTER_SITE_URL` avec l'origine HTTPS
-   publique. Ces variables doivent être définies dans l'environnement Node.js LWS.
-3. Après une inscription, Resend envoie un courriel de confirmation ; une nouvelle
+2. Configurer les variables SMTP LWS `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
+   `SMTP_USER`, `SMTP_PASSWORD` et `SMTP_FROM_EMAIL=INPTIC <inptic@inptic-ga.org>`,
+   ainsi que `NEWSLETTER_SITE_URL` avec l'origine HTTPS publique. Ces variables
+   doivent être définies dans l'environnement Node.js LWS. Utiliser les valeurs
+   exactes du panneau LWS ; le port 465 utilise généralement SSL/TLS et le port
+   587 STARTTLS.
+3. Après une inscription, le serveur SMTP envoie un courriel de confirmation ; une nouvelle
    actualité publiée pour `actualites` déclenche l'envoi aux abonnés actifs.
    Chaque message comprend un lien de désabonnement confirmé.
 

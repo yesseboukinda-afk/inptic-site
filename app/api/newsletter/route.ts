@@ -1,7 +1,7 @@
 import { withSiteAudit } from '@/lib/site-audit';
-import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { isSmtpEmailConfigured, sendSmtpEmail } from '@/lib/smtp-email';
 
 function escapeHtml(value: string) {
   return value
@@ -39,9 +39,7 @@ async function siteAuditedPOST(req: NextRequest) {
     );
   }
 
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.NEWSLETTER_FROM_EMAIL;
-  if (!resendKey || !from) {
+  if (!isSmtpEmailConfigured()) {
     return NextResponse.json(
       { error: 'L’envoi du courriel de confirmation n’est pas configuré. Veuillez réessayer plus tard.' },
       { status: 503 },
@@ -97,25 +95,12 @@ async function siteAuditedPOST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     'https://inptic-ga.org'
   ).replace(/\/+$/, '');
-  const idempotencyKey = createHash('sha256')
-    .update(`inptic-newsletter-confirmation/${email}/${subscribedAt}`)
-    .digest('hex');
-
-  let response: Response;
   try {
-    response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey,
-      },
-      body: JSON.stringify({
-        from,
-        to: [email],
-        subject: 'Confirmation de votre inscription à la newsletter INPTIC',
-        text: `Bonjour,\n\nVotre adresse e-mail est bien inscrite à la newsletter de l’INPTIC Gabon. Vous recevrez les prochaines actualités publiées sur ${siteUrl}.\n\nSi vous n’êtes pas à l’origine de cette inscription, vous pouvez ignorer ce message.`,
-        html: `
+    await sendSmtpEmail({
+      to: email,
+      subject: 'Confirmation de votre inscription à la newsletter INPTIC',
+      text: `Bonjour,\n\nVotre adresse e-mail est bien inscrite à la newsletter de l’INPTIC Gabon. Vous recevrez les prochaines actualités publiées sur ${siteUrl}.\n\nSi vous n’êtes pas à l’origine de cette inscription, vous pouvez ignorer ce message.`,
+      html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#0f172a">
             <div style="margin:0 0 24px;text-align:center">
               <img src="${escapeHtml(`${siteUrl}/logoinptic.png`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
@@ -127,32 +112,16 @@ async function siteAuditedPOST(req: NextRequest) {
             <p style="font-size:12px;color:#64748b">Si vous n’êtes pas à l’origine de cette inscription, vous pouvez ignorer ce message.</p>
           </div>
         `,
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15000),
     });
   } catch (error) {
     console.error(
-      'Échec réseau de l’envoi de confirmation newsletter:',
-      error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+      'Échec SMTP de l’envoi de confirmation newsletter:',
+      error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+        ? error.code
+        : 'SMTP_ERROR',
     );
     return NextResponse.json(
       { error: 'Votre inscription est enregistrée, mais le courriel de confirmation n’a pas pu être envoyé. Veuillez réessayer.' },
-      { status: 502 },
-    );
-  }
-
-  const result: unknown = await response.json().catch(() => null);
-  const resendResult = result && typeof result === 'object'
-    ? result as Record<string, unknown>
-    : null;
-  if (!response.ok || typeof resendResult?.id !== 'string') {
-    const errorCode = typeof resendResult?.name === 'string'
-      ? resendResult.name
-      : `HTTP_${response.status}`;
-    console.error('Échec Resend pour le courriel de confirmation newsletter:', errorCode);
-    return NextResponse.json(
-      { error: 'Votre inscription est enregistrée, mais le courriel de confirmation n’a pas pu être envoyé. Veuillez vérifier la configuration d’envoi et réessayer.' },
       { status: 502 },
     );
   }
