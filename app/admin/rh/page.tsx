@@ -114,7 +114,6 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
       <div class="body">
         <div>
           <div class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</div>
-          <div class="position">${escapeHtml(profile.position)}</div>
           <div class="matr">MATR: ${escapeHtml(profile.matricule)}</div>
         </div>
         <div class="qr-box">${qrSvg}</div>
@@ -206,12 +205,6 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           color: #0f172a;
           line-height: 1.1;
           text-transform: uppercase;
-        }
-        .position {
-          font-size: 6.5pt;
-          font-weight: 700;
-          color: #0284c7;
-          margin-top: 0.5mm;
         }
         .matr {
           font-size: 5.5pt;
@@ -374,7 +367,7 @@ export default function AdminRHPage() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Données
-  const [profiles, setProfiles] = useState<RHProfile[]>([]);
+  const [allProfiles, setAllProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
   const [profilesError, setProfilesError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -398,6 +391,7 @@ export default function AdminRHPage() {
   const [importText, setImportText] = useState('');
   const [importFileName, setImportFileName] = useState('');
   const [importReport, setImportReport] = useState<{ success: number; errors: string[] } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Formulaire Employé
   const [formMatricule, setFormMatricule] = useState('');
@@ -418,6 +412,7 @@ export default function AdminRHPage() {
   const [formWhitelist, setFormWhitelist] = useState<RHPublicWhitelist>(DEFAULT_PUBLIC_WHITELIST);
   const [formError, setFormError] = useState('');
   const [formSaving, setFormSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [formSaveStep, setFormSaveStep] = useState<1 | 2>(1);
 
   // Vérification de la session
@@ -484,6 +479,10 @@ export default function AdminRHPage() {
   }, []);
 
   const isReadOnly = userRole === 'rh_consultation';
+  const profiles = useMemo(
+    () => (showArchived ? allProfiles : allProfiles.filter((profile) => !profile.isArchived)),
+    [allProfiles, showArchived],
+  );
 
   // Chargement des profils
   const loadProfiles = async () => {
@@ -491,13 +490,14 @@ export default function AdminRHPage() {
     setLoading(true);
     setProfilesError('');
     try {
-      const res = await fetch(`/api/rh/profiles?archived=${showArchived ? '1' : '0'}`, {
+      const res = await fetch('/api/rh/profiles?archived=1', {
         headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Chargement RH impossible (${res.status}).`);
       if (!Array.isArray(json.data)) throw new Error('Réponse invalide lors du chargement des employés.');
-      setProfiles(json.data);
+      setAllProfiles(json.data);
     } catch (err) {
       console.error('Erreur chargement profils:', err);
       setProfilesError(err instanceof Error ? err.message : 'Impossible de charger la liste des employés.');
@@ -527,18 +527,7 @@ export default function AdminRHPage() {
       loadProfiles();
       loadAuditLogs();
     }
-
-    const refreshInterval = window.setInterval(() => {
-      if (token) {
-        void loadProfiles();
-        void loadAuditLogs();
-      }
-    }, 30_000);
-
-    return () => {
-      window.clearInterval(refreshInterval);
-    };
-  }, [token, showArchived]);
+  }, [token]);
 
   // Profils filtrés
   const filteredProfiles = useMemo(() => {
@@ -676,6 +665,44 @@ export default function AdminRHPage() {
     setShowCreateModal(true);
   };
 
+  const handlePhotoSelection = (file: File | undefined) => {
+    if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const photoTypes: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      gif: 'image/gif',
+    };
+    const expectedType = extension ? photoTypes[extension] : undefined;
+    if (!expectedType || (file.type && file.type !== expectedType)) {
+      setFormError('Formats photo acceptés : JPG, PNG, WebP ou GIF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('La photo ne doit pas dépasser 10 Mo.');
+      return;
+    }
+
+    setPhotoUploading(true);
+    setFormError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string' && reader.result.startsWith('data:image/')) {
+        setFormPhotoUrl(reader.result);
+      } else {
+        setFormError('Impossible de lire la photo sélectionnée.');
+      }
+      setPhotoUploading(false);
+    };
+    reader.onerror = () => {
+      setFormError('Impossible de lire la photo sélectionnée.');
+      setPhotoUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Sauvegarde de l’employé dans PostgreSQL
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -720,6 +747,10 @@ export default function AdminRHPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erreur lors de la sauvegarde dans PostgreSQL.');
 
+      if (editingProfile && json.data?.id === editingProfile.id) {
+        setSelectedForCard((current) => current?.id === editingProfile.id ? json.data : current);
+        setViewingProfile((current) => current?.id === editingProfile.id ? json.data : current);
+      }
       setFormSaveStep(2);
       await Promise.all([loadProfiles(), loadAuditLogs()]);
       setShowCreateModal(false);
@@ -926,42 +957,55 @@ export default function AdminRHPage() {
     const rawHeaders = rows[0].map((header) =>
       header.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase(),
     );
-
-    const colIndex = {
-      matricule: rawHeaders.findIndex((h) => h.includes('matricule')),
-      nom: rawHeaders.findIndex((h) => h.includes('nom')),
-      prenom: rawHeaders.findIndex((h) => h.includes('prenom')),
-      direction: rawHeaders.findIndex((h) => h.includes('direction') || h.includes('service')),
-      fonction: rawHeaders.findIndex((h) => h.includes('fonction') || h.includes('poste')),
-      email: rawHeaders.findIndex((h) => h.includes('email') || h.includes('courriel')),
-      telephone: rawHeaders.findIndex((h) => h.includes('tel') || h.includes('phone')),
+    const findColumn = (exact: string[], partial: string[] = exact) => {
+      const exactIndex = rawHeaders.findIndex((header) => exact.includes(header));
+      return exactIndex !== -1
+        ? exactIndex
+        : rawHeaders.findIndex((header) => partial.some((alias) => header.includes(alias)));
     };
 
-    if (colIndex.nom === -1 || colIndex.direction === -1 || colIndex.fonction === -1) {
-      setImportReport({
-        success: 0,
-        errors: ["Colonnes obligatoires manquantes dans l'en-tête (Nom, Direction/Service, Fonction)."],
-      });
-      return;
-    }
+    const colIndex = {
+      matricule: findColumn(['matricule']),
+      nom: findColumn(['nom'], ['nom complet', 'name']),
+      prenom: findColumn(['prenom'], ['prenom', 'first name']),
+      direction: findColumn(['direction', 'service']),
+      fonction: findColumn(['fonction', 'poste']),
+      email: findColumn(['email', 'courriel']),
+      telephone: findColumn(['telephone', 'tel', 'phone']),
+    };
 
     let successCount = 0;
     const errors: string[] = [];
+    const matriculesInFile = new Set<string>();
+    const generatedMatriculePrefix = `INPTIC-IMP-${crypto.randomUUID()}`;
 
+    setIsImporting(true);
     for (let i = 1; i < rows.length; i++) {
       const parts = rows[i];
-      const nom = parts[colIndex.nom];
-      const prenom = colIndex.prenom !== -1 ? parts[colIndex.prenom] : 'Agent';
-      const direction = parts[colIndex.direction];
-      const fonction = parts[colIndex.fonction];
-      const matricule = colIndex.matricule !== -1 && parts[colIndex.matricule] ? parts[colIndex.matricule] : `INPTIC-IMP-${Date.now().toString(36).slice(-4)}-${i}`;
-      const email = colIndex.email !== -1 ? parts[colIndex.email] : '';
-      const telephone = colIndex.telephone !== -1 ? parts[colIndex.telephone] : '';
+      const getCell = (column: number) => {
+        const value = ((column !== -1 ? parts[column] : '') ?? '').trim();
+        return value === '-' ? '' : value;
+      };
+      const nom = getCell(colIndex.nom);
+      const prenom = getCell(colIndex.prenom);
+      const direction = getCell(colIndex.direction);
+      const fonction = getCell(colIndex.fonction);
+      const suppliedMatricule = getCell(colIndex.matricule);
+      const matricule =
+        suppliedMatricule || `${generatedMatriculePrefix}-${i}`;
+      const email = getCell(colIndex.email);
+      const telephone = getCell(colIndex.telephone);
 
-      if (!nom || !direction || !fonction) {
-        errors.push(`Ligne ${i + 1} ignorée : nom, direction ou fonction manquant.`);
+      if (![nom, prenom, direction, fonction, suppliedMatricule, email, telephone].some(Boolean)) {
         continue;
       }
+
+      const matriculeKey = matricule.toLocaleUpperCase();
+      if (matriculesInFile.has(matriculeKey)) {
+        errors.push(`Ligne ${i + 1} (${nom}) ignorée : le matricule « ${matricule} » apparaît plusieurs fois dans le fichier.`);
+        continue;
+      }
+      matriculesInFile.add(matriculeKey);
 
       try {
         const res = await fetch('/api/rh/profiles', {
@@ -978,22 +1022,40 @@ export default function AdminRHPage() {
             position: fonction,
             email,
             phone: telephone,
+            allowIncomplete: true,
             status: 'contractuel',
             contractType: 'CDI',
           }),
         });
 
+        const json = await res.json().catch(() => null);
         if (res.ok) {
           successCount++;
         } else {
-          const json = await res.json();
-          errors.push(`Ligne ${i + 1} (${nom}) : ${json.error || 'Erreur insertion'}`);
+          errors.push(
+            `Ligne ${i + 1} (${nom}) : ${
+              typeof json?.error === 'string' ? json.error : `Erreur serveur (${res.status})`
+            }`,
+          );
         }
-      } catch (err: any) {
-        errors.push(`Ligne ${i + 1} (${nom}) : ${err.message}`);
+      } catch (error) {
+        const message =
+          error instanceof TypeError
+            ? 'Connexion au serveur RH impossible.'
+            : error instanceof Error
+              ? error.message
+              : 'Erreur réseau inconnue.';
+        const remainingRows = rows.length - i - 1;
+        errors.push(
+          `Ligne ${i + 1} (${nom}) : ${message} L'import est interrompu${
+            remainingRows > 0 ? ` ; ${remainingRows} ligne(s) restante(s) non traitée(s)` : ''
+          }.`,
+        );
+        break;
       }
     }
 
+    setIsImporting(false);
     setImportReport({ success: successCount, errors });
     await loadProfiles();
     await loadAuditLogs();
@@ -1165,6 +1227,16 @@ export default function AdminRHPage() {
 
             {/* Actions : Ajouter, Import, Export */}
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void loadProfiles()}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-100 transition disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>{loading ? 'Actualisation...' : 'Actualiser la liste'}</span>
+              </button>
+
               <button
                 onClick={handleExportCSV}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
@@ -1541,15 +1613,12 @@ export default function AdminRHPage() {
                         </div>
                       </div>
 
-                      {/* Corps de la carte : Nom, Poste, Matricule & QR Code centré en bas */}
+                      {/* Corps de la carte : Nom, matricule & QR Code centré en bas */}
                       <div className="p-3 pt-1 pb-2 flex flex-col items-center justify-between flex-1 w-full">
                         <div>
                           <h4 className="text-sm font-black text-slate-900 uppercase leading-snug">
                             {selectedForCard.firstName} {selectedForCard.lastName}
                           </h4>
-                          <p className="text-xs font-bold text-sky-600 mt-0.5">
-                            {selectedForCard.position}
-                          </p>
                           <p className="text-[10px] font-mono font-bold text-[#D4AF37] mt-1">
                             MATR: {selectedForCard.matricule}
                           </p>
@@ -1560,7 +1629,7 @@ export default function AdminRHPage() {
                           className="my-1 h-24 w-24 rounded-xl bg-white p-1 border border-slate-200 shadow-sm flex items-center justify-center"
                           dangerouslySetInnerHTML={{
                             __html: generateQRCodeSVG(
-                              `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga'}/agent/${selectedForCard.qrToken}`,
+                              `${typeof window !== 'undefined' ? window.location.origin : 'https://inptic-ga.org'}/agent/${selectedForCard.qrToken}`,
                               { size: 72, margin: 1 }
                             ),
                           }}
@@ -1950,22 +2019,18 @@ export default function AdminRHPage() {
                       <span>Parcourir...</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
                         className="hidden"
+                        disabled={photoUploading || formSaving}
                         onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              if (typeof uploadEvent.target?.result === 'string') {
-                                setFormPhotoUrl(uploadEvent.target.result);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
+                          void handlePhotoSelection(e.target.files?.[0]);
+                          e.target.value = '';
                         }}
                       />
                     </label>
+                    <span role={photoUploading ? 'status' : undefined} className="text-xs text-slate-500">
+                      {photoUploading ? 'Lecture de la photo…' : 'JPG, PNG, WebP ou GIF · 10 Mo maximum.'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2167,7 +2232,7 @@ export default function AdminRHPage() {
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
-                  disabled={formSaving}
+                  disabled={formSaving || photoUploading}
                   onClick={() => setShowCreateModal(false)}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -2175,10 +2240,10 @@ export default function AdminRHPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={formSaving}
+                  disabled={formSaving || photoUploading}
                   className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {formSaving ? (formSaveStep === 1 ? 'Enregistrement...' : 'Actualisation...') : 'Enregistrer'}
+                  {photoUploading ? 'Lecture de la photo…' : formSaving ? (formSaveStep === 1 ? 'Enregistrement...' : 'Actualisation...') : 'Enregistrer'}
                 </button>
               </div>
             </form>
@@ -2382,9 +2447,10 @@ export default function AdminRHPage() {
               </button>
               <button
                 onClick={handleExecuteImport}
-                className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                disabled={isImporting || !importText.trim()}
+                className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Lancer l&apos;importation
+                {isImporting ? 'Importation en cours…' : "Lancer l'importation"}
               </button>
             </div>
           </div>

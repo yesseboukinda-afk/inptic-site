@@ -93,10 +93,13 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
     return () => clearInterval(interval);
   }, []);
 
-  const positiveCount = mentions.filter((m) => m.sentiment === 'positif').length;
-  const neutralCount = mentions.filter((m) => m.sentiment === 'neutre').length;
-  const negativeCount = mentions.filter((m) => m.sentiment === 'negatif').length;
-  const score = Math.round((positiveCount / (mentions.length || 1)) * 100);
+  const socialComments = mentions.filter(
+    (mention) => mention.platform === 'Facebook' || mention.platform === 'YouTube',
+  );
+  const positiveCount = socialComments.filter((comment) => comment.sentiment === 'positif').length;
+  const neutralCount = socialComments.filter((comment) => comment.sentiment === 'neutre').length;
+  const negativeCount = socialComments.filter((comment) => comment.sentiment === 'negatif').length;
+  const score = Math.round((positiveCount / (socialComments.length || 1)) * 100);
 
   const filtered = mentions.filter((m) => filter === 'all' || m.sentiment === filter);
   const filteredComments = comments
@@ -111,7 +114,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
   const facebookCommentsWithoutAuthor = comments.filter(
     (comment) => comment.platform === 'Facebook' && comment.author === 'Utilisateur Facebook',
   ).length;
-  const negativeAlerts = mentions.filter((m) => m.sentiment === 'negatif');
+  const negativeAlerts = socialComments.filter((comment) => comment.sentiment === 'negatif');
 
   const handleSendReply = async (id: string) => {
     const message = replyText.trim();
@@ -169,7 +172,7 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
               <span className={`h-2 w-2 rounded-full ${isScanning ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
               {isScanning ? 'Scan en cours' : lastScannedAt ? `Actualisé à ${lastScannedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En attente'}
             </span>
-            <span className="text-lg font-black text-emerald-600">{score}% Positif</span>
+            <span className="text-lg font-black text-emerald-600">{score}% de commentaires positifs</span>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
             <TrendingUp size={18} />
@@ -312,19 +315,19 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <span className="text-xs text-emerald-700 font-semibold inline-flex items-center gap-1">
-            <ThumbsUp size={13} /> Positives
+            <ThumbsUp size={13} /> Commentaires positifs
           </span>
           <p className="mt-1 text-2xl font-black text-emerald-800">{positiveCount}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-blue-50 p-4">
           <span className="text-xs text-blue-700 font-semibold inline-flex items-center gap-1">
-            <Globe size={13} /> Neutres
+            <Globe size={13} /> Commentaires neutres
           </span>
           <p className="mt-1 text-2xl font-black text-blue-800">{neutralCount}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
           <span className="text-xs text-red-700 font-semibold inline-flex items-center gap-1">
-            <AlertTriangle size={13} /> Alertes / Négatives
+            <AlertTriangle size={13} /> Commentaires négatifs
           </span>
           <p className="mt-1 text-2xl font-black text-red-800">{negativeCount}</p>
         </div>

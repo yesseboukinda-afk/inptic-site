@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslation } from 'react-i18next';
+import DirectorMessage from '@/components/DirectorMessage';
 
 export default function Institut() {
   const { t } = useTranslation();
@@ -54,14 +55,12 @@ export default function Institut() {
             <p className="mt-5 leading-7 text-slate-600">
               {t('institute.missionText')}
             </p>
-            <div className="mt-8 rounded-2xl bg-blue-50 p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">{t('institute.directorMessage')}</p>
-              <blockquote className="mt-4 text-lg leading-8 text-slate-800">
-                « {t('institute.quote')} »
-              </blockquote>
-              <p className="mt-3 font-semibold text-slate-900">Landry BADIALI</p>
-              <p className="text-sm text-slate-600">{t('institute.director')}</p>
-            </div>
+            <DirectorMessage defaults={{
+              title: t('institute.directorMessage'),
+              text: t('institute.quote'),
+              name: 'Landry BADIALI',
+              role: t('institute.director'),
+            }} />
           </div>
         </div>
       </section>

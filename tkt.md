@@ -2,133 +2,132 @@
 
 Ce guide décrit les principaux parcours disponibles sur le site, de la découverte des formations au suivi d'une candidature, ainsi que les outils réservés au personnel autorisé.
 
-Site public : <https://inptic-site.vercel.app/>
+Site public : <https://inptic-ga.org/>
 
 ## 1. Découvrir le site
 
-Depuis l'accueil, la navigation donne accès aux rubriques suivantes :
+La barre supérieure donne accès à la recherche, au choix du thème clair/sombre, aux langues disponibles et, après connexion, aux paramètres du compte. Le menu principal et le menu mobile donnent accès à l'accueil, aux actualités, aux concours, aux publications scientifiques, à l'institut, aux formations, à la recherche, aux entreprises, au contact et aux annonces. Les entrées de gestion ne s'affichent qu'aux comptes autorisés. Le pied de page complète la navigation avec les admissions, la vie étudiante, les alumni, les textes et lois, les politiques du site et la newsletter.
 
-- **INPTIC** : présentation de l'institut, gouvernance, organigramme, certifications et partenariats.
+Sur l'accueil, le carrousel met en avant les annonces publiées; la bannière présente les formations et des accès aux actualités, aux admissions et aux publications. L'agenda affiche trois événements. Un compte autorisé du service Communication ou un Superadmin peut modifier les dates et intitulés de ces événements directement depuis l'accueil, puis enregistrer ou annuler ses changements. Les chiffres clés et cartes de formation complètent la page.
+
+- **INPTIC** : présentation de l'institut, mission, gouvernance, certifications et partenariats.
 - **Formations** : catalogue des filières et des formations proposées.
-- **Recherche** : laboratoires, projets, incubateur et publications scientifiques.
-- **Actualités** : articles et veille technologique.
-- **Concours** : concours en cours, résultats et historique.
-- **Annonces** : annonces destinées au public et aux candidats.
-- **Entreprises**, **Contact**, **Vie étudiante**, **Alumni** et **Visite 3D** : informations et services complémentaires.
-- **Recherche du site** : utiliser la barre de recherche pour retrouver des contenus publiés.
-- **Assistant** : ouvrir le chatbot depuis son bouton sur le site.
+- **Recherche** : laboratoires, projets, incubateur, recherche sur le site et publications scientifiques.
+- **Actualités** et **Annonces** : articles, publications institutionnelles et veille technologique.
+- **Concours** : concours en cours, résultats, historique et préinscription candidat.
+- **Entreprises**, **Contact**, **Vie étudiante** et **Alumni** : informations et services complémentaires.
+- **Assistant** : ouvrir le chatbot depuis son bouton flottant ou la page dédiée. Il accepte les questions écrites et, selon le navigateur, la dictée vocale; les réponses peuvent être lues à voix haute.
 
-Le sélecteur de langue permet de consulter les textes traduits lorsqu'une traduction est disponible. Les liens vers Facebook, WhatsApp, LinkedIn et les autres services externes ouvrent ces plateformes dans un nouvel onglet.
+La recherche de l'en-tête interroge les actualités et les formations et affiche un message avec le nombre de résultats (ou l'indisponibilité de la recherche); elle ne remplace pas les filtres des pages spécialisées. Le sélecteur permet de choisir le français, l'anglais, le chinois ou l'arabe, selon les traductions disponibles. Le bouton de thème bascule entre les modes clair et sombre. Le site peut être installé comme application depuis un navigateur compatible. Les raccourcis sociaux présents au pied de page ouvrent Facebook, WhatsApp, YouTube et TikTok; le partage d'un article est une action distincte.
 
 ### Liens directs
 
 **Accueil et institut**
 
-- [Accueil](https://inptic-site.vercel.app/)
-- [Présentation de l'INPTIC](https://inptic-site.vercel.app/institut)
-- [Présentation détaillée](https://inptic-site.vercel.app/institut/presentation)
-- [Organigramme](https://inptic-site.vercel.app/institut/organigramme)
-- [Gouvernance](https://inptic-site.vercel.app/institut/gouvernance)
-- [Certifications](https://inptic-site.vercel.app/institut/certifications)
-- [Partenariats](https://inptic-site.vercel.app/institut/partenariats)
+- [Accueil](https://inptic-ga.org/)
+- [Présentation de l'INPTIC](https://inptic-ga.org/institut)
+- [Présentation détaillée](https://inptic-ga.org/institut/presentation)
+- [Gouvernance](https://inptic-ga.org/institut/gouvernance)
+- [Certifications](https://inptic-ga.org/institut/certifications)
+- [Partenariats](https://inptic-ga.org/institut/partenariats)
 
 **Formations**
 
-- [Catalogue des formations](https://inptic-site.vercel.app/formations)
-- [Génie logiciel](https://inptic-site.vercel.app/formations/genie-logiciel)
-- [Postes et logistique](https://inptic-site.vercel.app/formations/postes-logistique)
-- [Télécommunications](https://inptic-site.vercel.app/formations/telecoms)
-- [Monétique](https://inptic-site.vercel.app/formations/monetique)
-- [Cybersécurité](https://inptic-site.vercel.app/formations/cybersecurite)
+- [Catalogue des formations](https://inptic-ga.org/formations)
+- [Génie logiciel](https://inptic-ga.org/formations/genie-logiciel)
+- [Postes et logistique](https://inptic-ga.org/formations/postes-logistique)
+- [Télécommunications](https://inptic-ga.org/formations/telecoms)
+- [Monétique](https://inptic-ga.org/formations/monetique)
+- [Cybersécurité](https://inptic-ga.org/formations/cybersecurite)
 
 **Admissions et compte candidat**
 
-- [Admissions](https://inptic-site.vercel.app/admissions)
-- [Guide d'admission](https://inptic-site.vercel.app/admissions/guide)
-- [Calculateur d'admission](https://inptic-site.vercel.app/admissions/calculateur)
-- [Concours et résultats](https://inptic-site.vercel.app/concours)
-- [Connexion et inscription](https://inptic-site.vercel.app/candidat)
-- [Dépôt du dossier](https://inptic-site.vercel.app/admissions/depot)
-- [Suivi candidat et quittance](https://inptic-site.vercel.app/admissions/suivi)
-- [Paiement](https://inptic-site.vercel.app/admissions/paiement)
+- [Admissions](https://inptic-ga.org/admissions)
+- [Guide d'admission](https://inptic-ga.org/admissions/guide)
+- [Calculateur d'admission](https://inptic-ga.org/admissions/calculateur)
+- [Concours et résultats](https://inptic-ga.org/concours)
+- [Connexion et inscription](https://inptic-ga.org/candidat)
+- [Dépôt du dossier](https://inptic-ga.org/admissions/depot)
+- [Suivi candidat et quittance](https://inptic-ga.org/admissions/suivi)
+- [Paiement](https://inptic-ga.org/admissions/paiement)
 
 **Actualités, recherche et services**
 
-- [Actualités](https://inptic-site.vercel.app/actualites)
-- [Annonces](https://inptic-site.vercel.app/annonces)
-- [Recherche](https://inptic-site.vercel.app/recherche)
-- [Publications scientifiques](https://inptic-site.vercel.app/recherche/publications)
-- [Laboratoires](https://inptic-site.vercel.app/recherche/laboratoires)
-- [Projets](https://inptic-site.vercel.app/recherche/projets)
-- [Incubateur](https://inptic-site.vercel.app/recherche/incubateur)
-- [Entreprises](https://inptic-site.vercel.app/entreprises)
-- [Alumni](https://inptic-site.vercel.app/alumni)
-- [Vie étudiante](https://inptic-site.vercel.app/vie-etudiante)
-- [Contact](https://inptic-site.vercel.app/contact)
-- [Visite 3D](https://inptic-site.vercel.app/visite-3d)
-- [Textes et lois](https://inptic-site.vercel.app/textes-et-lois)
-- [Assistant INPTIC](https://inptic-site.vercel.app/chatbot)
-- [Politique de confidentialité](https://inptic-site.vercel.app/confidentialite)
-- [Conditions d'utilisation](https://inptic-site.vercel.app/conditions-d-utilisation)
-- [Réinitialisation du mot de passe](https://inptic-site.vercel.app/reset-password)
+- [Actualités](https://inptic-ga.org/actualites)
+- [Annonces](https://inptic-ga.org/annonces)
+- [Recherche](https://inptic-ga.org/recherche)
+- [Publications scientifiques](https://inptic-ga.org/recherche/publications)
+- [Laboratoires](https://inptic-ga.org/recherche/laboratoires)
+- [Projets](https://inptic-ga.org/recherche/projets)
+- [Incubateur](https://inptic-ga.org/recherche/incubateur)
+- [Entreprises](https://inptic-ga.org/entreprises)
+- [Alumni](https://inptic-ga.org/alumni)
+- [Vie étudiante](https://inptic-ga.org/vie-etudiante)
+- [Contact](https://inptic-ga.org/contact)
+- [Visite 3D](https://inptic-ga.org/visite-3d)
+- [Textes et lois](https://inptic-ga.org/textes-et-lois)
+- [Assistant INPTIC](https://inptic-ga.org/chatbot)
+- [Politique de confidentialité](https://inptic-ga.org/confidentialite)
+- [Conditions d'utilisation](https://inptic-ga.org/conditions-d-utilisation)
+- [Réinitialisation du mot de passe](https://inptic-ga.org/reset-password)
 
 **Administration**
 
-- [Gestion des annonces et veilles](https://inptic-site.vercel.app/annonces/gestion)
-- [Tableau de bord de la Direction](https://inptic-site.vercel.app/directeur)
-- [Compte de la Direction](https://inptic-site.vercel.app/directeur/compte)
-- [Espace Scolarité](https://inptic-site.vercel.app/scolarite)
-- [Administration RH](https://inptic-site.vercel.app/admin/rh)
+- [Administration et comptes du personnel](https://inptic-ga.org/admin)
+- [Journal de traçabilité Superadmin](https://inptic-ga.org/admin/journal)
+- [Gestion des annonces et veilles](https://inptic-ga.org/annonces/gestion)
+- [Tableau de bord de la Direction](https://inptic-ga.org/directeur)
+- [Compte de la Direction](https://inptic-ga.org/directeur/compte)
+- [Espace Scolarité](https://inptic-ga.org/scolarite)
+- [Administration RH](https://inptic-ga.org/admin/rh)
 
-**Réseaux sociaux officiels**
+**Raccourcis sociaux du pied de page**
 
-- [Facebook INPTIC Gabon](https://www.facebook.com/people/Inptic-Gabon/61557159190234/)
+- [Facebook INPTIC](https://www.facebook.com/share/1JiVyPnGRj/?mibextid=wwXIfr)
 - [Chaîne WhatsApp INPTIC](https://whatsapp.com/channel/0029VagrNh3KQuJBA9v3Zc3i)
 - [YouTube INPTIC Gabon Officiel](https://www.youtube.com/@INPTICGabonOfficiel)
+- [TikTok INPTIC Gabon](https://www.tiktok.com/@inptic.gabon.offi)
 
-Les boutons **Partager** ouvrent les réseaux ou services de partage avec le contenu courant; ce ne sont pas des liens vers des profils officiels. Le site ne configure actuellement pas de lien de profil Instagram, LinkedIn, X ou TikTok dans son pied de page.
+Les liens de partage d'un contenu s'ouvrent séparément des raccourcis sociaux du pied de page. Il n'y a actuellement pas de raccourci Instagram, LinkedIn ou X dans le pied de page. L'organigramme n'a pas de page distincte; consulter la page Gouvernance.
+
+Sur [`/institut`](https://inptic-ga.org/institut), la présentation de la mission et des valeurs comprend le message de la Direction générale. Un compte autorisé du service Communication ou un Superadmin peut modifier son titre, son texte, le nom et la fonction affichés, puis enregistrer ou annuler. L'affichage public reste disponible sans connexion.
+
+Les liens personnels sont générés selon les données concernées : une quittance se consulte sur `/quittance/<référence>` et une carte professionnelle sur `/agent/<jeton>`. Ne partagez pas ces références ou jetons publiquement.
 
 Les deux rôles administratifs sont **Admin** et **Superadmin**. Chaque compte Admin reçoit un seul service : **Communication**, **Scolarité**, **Direction des études** ou **Ressources humaines**. L'admin ne voit dans la navigation que les liens de son service et ne peut pas accéder aux autres espaces. Seul le Superadmin voit tous les liens et peut naviguer partout. Les permissions sont vérifiées côté serveur, en plus des contrôles de navigation; elles ne sont pas accordées par une adresse e-mail ou un lien affiché. Les règles et variantes héritées sont centralisées dans [`lib/roles.ts`](./lib/roles.ts).
 
 Les opérations de chaque espace restent limitées au service attribué. Si une page refuse l'accès, demander au Superadmin de vérifier le rôle `admin` et le service associé au compte.
 
-Repères de navigation : **RH** vers `/admin/rh`, **Scolarité** vers `/scolarite`, **Communication** vers `/annonces/gestion`, **Direction des études** vers ses outils attribués, et **Superadmin** vers `/admin`. La réinitialisation du mot de passe, la vérification d'une quittance et la vérification d'une carte RH utilisent des liens individuels; elles ne figurent pas ici, car leur URL dépend du compte, de la référence ou du QR concerné.
+Repères de navigation : **RH** vers `/admin/rh`, **Scolarité** vers `/scolarite`, **Communication** vers `/annonces/gestion`, **Direction des études** vers `/concours`, et **Superadmin** vers `/admin`. La réinitialisation du mot de passe se fait sur `/reset-password`. Une quittance se vérifie à `/quittance/<référence>` et une carte RH à `/agent/<jeton>`; ces dernières URLs comportent une référence individuelle.
+
+Le Superadmin peut ouvrir **Journal de traçabilité** depuis `/admin` pour consulter les appels d'action API enregistrés : identité connue de l'acteur, rôle, service/direction, opération, résultat et date/heure. La liste est filtrable par recherche, service et période, et paginée. Pour une base existante, le schéma du journal doit avoir été installé avec `scripts/17_create_site_audit_logs.sql`. Les actions publiques sans session sont marquées comme non authentifiées; le journal ne collecte pas les mots de passe ni le contenu des formulaires.
 
 ## 2. Créer un compte candidat
 
-1. Ouvrir [`/candidat`](https://inptic-site.vercel.app/candidat).
-2. Choisir **Inscription**.
-3. Saisir le nom, l'adresse e-mail et un mot de passe, puis valider le formulaire.
-4. Si Supabase demande une confirmation, ouvrir l'e-mail reçu et confirmer le compte avant de se reconnecter.
+1. Ouvrir [`/candidat`](https://inptic-ga.org/candidat), choisir **Inscription**, puis saisir le nom, l'adresse e-mail et un mot de passe d'au moins six caractères.
+2. Ouvrir le message de confirmation reçu par e-mail et confirmer l'adresse avant de se connecter. Le lien de confirmation expire; si nécessaire, recommencer l'inscription ou demander un nouveau lien selon le message affiché.
+3. Il est aussi possible de choisir **Google** si la connexion Google est activée pour le site. Une première connexion Google peut créer le compte candidat; les connexions suivantes réutilisent ce compte.
 
-La page propose également une connexion sociale. Facebook Login fonctionne seulement si le fournisseur Facebook est activé et correctement configuré dans Supabase et Meta. Une première connexion sociale crée généralement le compte; les connexions suivantes réutilisent ce compte.
-
-En cas d'oubli du mot de passe, choisir **Mot de passe oublié**, saisir l'adresse e-mail et utiliser le lien reçu pour définir un nouveau mot de passe.
+En cas d'oubli du mot de passe, choisir **Mot de passe oublié**, saisir l'adresse e-mail et utiliser le lien reçu pour définir un nouveau mot de passe. La création publique de compte est destinée aux candidats; la création des comptes du personnel est réservée à l'administration.
 
 ## 3. Parcours d'inscription au concours
 
-Le parcours de candidature comporte quatre étapes à compléter dans l'ordre. L'étape suivante reste inaccessible tant que la précédente n'est pas entièrement validée.
+Le parcours comprend la création/connexion au compte, la préinscription, le dépôt du dossier, puis le paiement et le suivi. La préinscription au concours demande une session candidat; elle n'est pas enregistrée anonymement.
 
-1. Créer un compte candidat ou se connecter dans [`/candidat`](https://inptic-site.vercel.app/candidat).
-2. Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Une session ouverte est rattachée automatiquement; en l'absence de session, le candidat peut quand même enregistrer sa préinscription sans choisir de concours.
-3. Cliquer sur **Me préinscrire**. L'action est rattachée au compte candidat, sans formulaire ni justificatif à cette étape. Si le candidat n'est pas connecté, il se connecte ou crée d'abord son compte.
-4. Remplir et enregistrer le formulaire officiel dans [`/admissions/depot`](https://inptic-site.vercel.app/admissions/depot), puis téléverser les trois pièces obligatoires : acte de naissance ou CNI, Bac/attestation de réussite (ou certificat de scolarité pour les candidats en Terminale), et relevé de notes officiel. Les fichiers acceptés sont PDF, JPG, PNG et WebP (5 Mo maximum par fichier).
-5. Une fois le formulaire et les trois pièces enregistrés, poursuivre vers [`/admissions/paiement`](https://inptic-site.vercel.app/admissions/paiement). La page [`/admissions/suivi`](https://inptic-site.vercel.app/admissions/suivi) permet de consulter l'état du dossier et de la quittance.
+1. Créer un compte candidat ou se connecter dans [`/candidat`](https://inptic-ga.org/candidat).
+2. Ouvrir [`/concours`](https://inptic-ga.org/concours), choisir le concours concerné s'il y en a un et cliquer sur **Me préinscrire**. Si le candidat n'est pas connecté, le bouton l'invite à ouvrir ou créer son compte.
+3. Suivre **Continuer mon dossier** ou ouvrir [`/admissions/depot`](https://inptic-ga.org/admissions/depot). Compléter le formulaire officiel et téléverser les trois pièces demandées : acte de naissance ou CNI, Bac/attestation de réussite (ou certificat de scolarité pour les candidats en Terminale), et relevé de notes officiel. Les fichiers acceptés sont PDF, JPG, PNG et WebP (5 Mo maximum par fichier).
+4. Une fois le formulaire et les pièces enregistrés, poursuivre vers [`/admissions/paiement`](https://inptic-ga.org/admissions/paiement). La page [`/admissions/suivi`](https://inptic-ga.org/admissions/suivi) permet de consulter l'état du dossier et de la quittance.
 
-Si une étape est incomplète, le parcours renvoie le candidat vers l'étape correspondante. En cas de déconnexion, revenir à `/candidat` et se reconnecter.
-
-Avant le déploiement, appliquer les migrations `scripts/09_add_admissions_workflow_to_profiles.sql` et `scripts/10_allow_preinscription_without_concours.sql` dans Supabase pour enregistrer les étapes et autoriser une préinscription sans session active.
+Si une étape est incomplète, le parcours renvoie le candidat vers la page correspondante. En cas de déconnexion, revenir à `/candidat` et se reconnecter. `/admissions/guide` et `/admissions/calculateur` proposent aussi des informations et outils avant la candidature.
 
 ## 4. Payer les frais et suivre le dossier
 
 1. Vérifier le numéro de dossier et le statut affiché.
-2. Choisir Airtel Money ou Moov Money et saisir le numéro associé au compte Mobile Money.
-
-1. Vérifier le numéro de dossier et le statut affiché.
-2. Lorsque le paiement est autorisé, choisir Airtel Money ou Moov Money et saisir le numéro associé au compte Mobile Money.
+2. Lorsque le paiement est autorisé, choisir Airtel Money ou Moov Money et saisir le numéro associé au compte Mobile Money dans la passerelle affichée.
 3. Valider la demande sur le téléphone et saisir le code PIN uniquement dans le parcours officiel de l'opérateur. Ne jamais transmettre ce code au personnel ou dans une conversation.
-4. Attendre la confirmation de paiement. La page vérifie le statut de la transaction; ne relancez pas une seconde opération si la première est encore en attente.
-5. Après confirmation, consulter et télécharger la quittance. Son QR code ouvre la page de vérification de la référence.
+4. Attendre la confirmation de l'opérateur; la page vérifie le statut de la transaction. Ne relancez pas une seconde opération si la première est encore en attente.
+5. Après confirmation, consulter ou télécharger la quittance. Son QR code ouvre la page de vérification de la référence.
 
 Si le paiement reste en attente ou échoue, conserver la référence de transaction et contacter le service indiqué par l'institut. Ne pas considérer une capture d'écran ou une simple demande de paiement comme une confirmation définitive.
 
@@ -141,17 +140,23 @@ Dans **Actualités** et **Annonces**, ouvrir une carte pour lire son contenu ou 
 
 L'identifiant anonyme utilisé pour mémoriser le like est stocké dans le navigateur. Deux appareils différents peuvent donc représenter deux visiteurs distincts, même s'ils sont utilisés par la même personne.
 
+Le pied de page propose l'inscription à la newsletter. Saisir une adresse e-mail et confirmer l'inscription depuis le message reçu; les annonces publiées peuvent ensuite être envoyées aux abonnés actifs. Chaque courriel contient un lien de désabonnement.
+
 ## 6. Publications scientifiques
 
-Ouvrir [`/recherche/publications`](https://inptic-site.vercel.app/recherche/publications) pour rechercher ou filtrer les publications par domaine, année ou auteur. Ouvrir une fiche pour consulter ses détails et télécharger les documents disponibles. Les actions de création, modification et suppression nécessitent les droits correspondants.
+Ouvrir [`/recherche/publications`](https://inptic-ga.org/recherche/publications) pour rechercher ou filtrer les publications par domaine, année ou auteur. Ouvrir une fiche pour consulter ses détails et télécharger les documents disponibles. Les actions de création, modification et suppression nécessitent les droits correspondants.
 
 ## 7. Outils du personnel
 
 Les espaces d'administration ne sont accessibles qu'aux comptes et rôles autorisés. Si une page redirige vers la connexion ou refuse l'accès, demander à l'administrateur de vérifier le rôle attribué au compte. Ne partagez jamais le compte d'un collègue. Avant une opération importante, vérifiez que vous êtes dans le bon espace et relisez la fiche avant de la publier, modifier, archiver ou supprimer.
 
+### Administration des comptes du personnel
+
+Ouvrir [`/admin`](https://inptic-ga.org/admin) avec un compte Superadmin. Le tableau permet de créer et supprimer des comptes du personnel, de les rechercher par nom ou adresse e-mail et de filtrer la liste par service ou rôle. Pour créer un compte, saisir le nom, l'adresse e-mail, un mot de passe initial et le rôle. Un compte **Admin** doit avoir un seul service attribué parmi **Communication**, **Scolarité**, **Direction des études** ou **Ressources humaines**; un **Superadmin** a accès à tous les services. Vérifier le rôle et le service avant de confirmer la création ou la suppression.
+
 ### 7.1 Gestion des annonces et veille de communication
 
-Ouvrir [`/annonces/gestion`](https://inptic-site.vercel.app/annonces/gestion) avec un compte Admin auquel le service Communication est attribué, ou avec un compte Superadmin.
+Ouvrir [`/annonces/gestion`](https://inptic-ga.org/annonces/gestion) avec un compte Admin auquel le service Communication est attribué, ou avec un compte Superadmin.
 
 1. Cliquer sur **Nouvelle annonce**.
 2. Renseigner le titre, la catégorie et le texte. Le titre est limité à 120 caractères et le texte à 5 000 caractères.
@@ -162,7 +167,7 @@ Ouvrir [`/annonces/gestion`](https://inptic-site.vercel.app/annonces/gestion) av
 
 La colonne latérale contient la veille technologique et l'e-réputation. Les sources disponibles dépendent de la configuration des accès; actuellement, les commentaires sont lus depuis Facebook et YouTube lorsqu'ils sont configurés. L'interface ne publie pas de réponse sur les réseaux sociaux. Les actions de partage ouvrent le service externe ou copient un lien; le site ne peut pas certifier qu'un contenu a effectivement été publié sur celui-ci.
 
-Le panneau **Engagement par domaine et par réseau** présente les statistiques des actualités technologiques aux comptes autorisés. Si les compteurs sont absents, vérifier que la migration SQL des statistiques a été appliquée dans Supabase.
+Le panneau **Engagement par domaine et par réseau** présente les statistiques des actualités technologiques aux comptes autorisés. Si les compteurs sont absents, contacter l'administrateur du site afin qu'il vérifie la base de données et sa configuration.
 
 #### Veille technologique IT et IA
 
@@ -181,7 +186,7 @@ Le panneau **Engagement par domaine et par réseau** présente les statistiques 
 
 ### 7.2 Gestion des concours et des résultats
 
-Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Le personnel autorisé voit les commandes d'administration en haut de la page.
+Ouvrir [`/concours`](https://inptic-ga.org/concours). Le personnel autorisé voit les commandes d'administration en haut de la page.
 
 1. Cliquer sur **Publier un nouveau concours**; pour corriger un concours existant, choisir **Modifier** sur sa fiche.
 2. Remplir le titre officiel, la filière ou le département, l'année, le statut (**En cours**, **À venir** ou **Terminé**), la description, les dates d'inscription, d'épreuves et de résultats, ainsi que les conditions d'admission.
@@ -192,7 +197,7 @@ Ouvrir [`/concours`](https://inptic-site.vercel.app/concours). Le personnel auto
 
 ### 7.3 Scolarité et traitement des candidatures
 
-Ouvrir [`/scolarite`](https://inptic-site.vercel.app/scolarite) avec un compte Admin auquel le service Scolarité est attribué, ou avec un compte Superadmin.
+Ouvrir [`/scolarite`](https://inptic-ga.org/scolarite) avec un compte Admin auquel le service Scolarité est attribué, ou avec un compte Superadmin.
 
 1. Dans **Dossiers d'admission**, examiner la file des dossiers en attente. Ouvrir un dossier avec **Examiner & Valider**.
 2. Vérifier l'identité, la filière, le niveau et chaque pièce jointe. Ouvrir les documents pour les lire avant de prendre une décision.
@@ -200,38 +205,39 @@ Ouvrir [`/scolarite`](https://inptic-site.vercel.app/scolarite) avec un compte A
 4. Dans **Publier documents étudiants**, choisir l'étudiant, sélectionner le document officiel (PDF, Word ou image selon les formats acceptés), puis publier. Vérifier le message de confirmation.
 5. Dans **Rapports Quota E-mail**, consulter les paliers de candidatures et rapports affichés. Les alertes de quota dépendent de la configuration de messagerie.
 
-Le rôle **Direction des études** peut voir les outils correspondant à ses droits. Le suivi individuel du candidat est une page candidat, pas un tableau d'administration : [`/admissions/suivi`](https://inptic-site.vercel.app/admissions/suivi).
+Le rôle **Direction des études** peut voir les outils correspondant à ses droits. Le suivi individuel du candidat est une page candidat, pas un tableau d'administration : [`/admissions/suivi`](https://inptic-ga.org/admissions/suivi).
 
 ### 7.4 Direction générale
 
-L'espace général [`/directeur`](https://inptic-site.vercel.app/directeur) est réservé au Superadmin. Le traitement opérationnel des dossiers se fait dans **Scolarité**, accessible uniquement à l'admin auquel ce service est attribué et au Superadmin. Se déconnecter avant de quitter un poste partagé.
+L'espace général [`/directeur`](https://inptic-ga.org/directeur) est réservé au Superadmin. Le traitement opérationnel des dossiers se fait dans **Scolarité**, accessible uniquement à l'admin auquel ce service est attribué et au Superadmin. Se déconnecter avant de quitter un poste partagé.
 
-Dans [`/directeur/compte`](https://inptic-site.vercel.app/directeur/compte), ouvrir **Paramètres du compte** pour modifier le nom, l'e-mail affiché, le téléphone, le poste, le département, le bureau, la présentation ou la photo, puis cliquer **Enregistrer**. Dans cette version, ces paramètres sont conservés dans le navigateur utilisé; ils ne sont pas automatiquement synchronisés entre appareils.
+Dans [`/directeur/compte`](https://inptic-ga.org/directeur/compte), ouvrir **Paramètres du compte** pour modifier le nom, l'e-mail affiché, le téléphone, le poste, le département, le bureau, la présentation ou la photo, puis cliquer **Enregistrer**. Dans cette version, ces paramètres sont conservés dans le navigateur utilisé; ils ne sont pas automatiquement synchronisés entre appareils.
 
 ### 7.5 Publications scientifiques
 
-Ouvrir [`/recherche/publications`](https://inptic-site.vercel.app/recherche/publications). Les visiteurs peuvent rechercher par texte, domaine, année ou auteur, ouvrir la source, télécharger le PDF et copier un lien.
+Ouvrir [`/recherche/publications`](https://inptic-ga.org/recherche/publications). Les visiteurs peuvent rechercher par texte, domaine, année ou auteur, ouvrir la source, télécharger le PDF et copier un lien.
 
 Avec un rôle autorisé, cliquer sur **Ajouter une publication**. Renseigner le titre, les auteurs (séparés par des virgules), le domaine, l'année, la date de parution, le résumé, les mots-clés et, si disponibles, la revue/conférence, le DOI ou l'URL. Ajouter le PDF et les pièces jointes, vérifier les informations, puis enregistrer. Pour corriger une fiche, choisir **Modifier**; pour la retirer, utiliser **Supprimer** et confirmer.
 
 ### 7.6 Catalogue de formations et ressources vidéo
 
-Ouvrir [`/formations`](https://inptic-site.vercel.app/formations). Un membre du personnel ayant les droits voit **Gérer le catalogue**.
+Ouvrir [`/formations`](https://inptic-ga.org/formations). Un membre du personnel ayant les droits voit **Gérer le catalogue**.
 
 1. Ouvrir la gestion et saisir le titre de la ressource.
-2. Choisir **Catalogue PDF** ou **Catalogue vidéo complet**, puis téléverser un PDF, MP4 ou WebM (15 Mo maximum).
+2. Choisir **Catalogue PDF** ou **Catalogue vidéo complet**, puis téléverser un PDF (60 Mo maximum) ou une vidéo MP4/WebM (15 Mo maximum).
 3. Cliquer **Publier en ligne** et attendre la confirmation.
 4. La page publique présente une seule ressource PDF et une seule vidéo à la fois : une nouvelle publication du même type remplace la précédente mise en avant. Utiliser **Dépublier/Publier** pour changer son état, ou supprimer une ressource seulement après vérification.
 
 ### 7.7 Administration des ressources humaines
 
-Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un compte Admin auquel le service RH est attribué, ou avec un compte Superadmin.
+Ouvrir [`/admin/rh`](https://inptic-ga.org/admin/rh) avec un compte Admin auquel le service RH est attribué, ou avec un compte Superadmin.
 
 **Profils du personnel**
 
 - Utiliser la recherche (nom, prénom, matricule ou fonction), les filtres de direction/service et statut, et **Afficher archivés** pour retrouver un profil archivé.
 - **Nouvel Employé** ouvre le formulaire. Compléter le matricule, le nom, le prénom, les informations d'état civil et de contact, la direction/service, la fonction, le statut, le contrat, la date d'embauche et les autres champs requis; enregistrer et attendre la fin des étapes de sauvegarde.
 - Pour une fiche existante, utiliser **Voir**, **Modifier** ou **Archiver**. L'archivage est réversible (soft delete); il ne supprime pas immédiatement la fiche. Une fiche archivée peut être restaurée.
+- Pour remplacer une photo, choisir un fichier JPG, PNG, WebP ou GIF (10 Mo maximum), attendre la fin de la lecture et vérifier l'aperçu, puis cliquer sur **Enregistrer**. Le bouton reste désactivé pendant le chargement de l'image afin que la sauvegarde ne parte pas avec l'ancienne photo.
 - **Import CSV** accepte les en-têtes Matricule, Nom, Prénom, Direction, Fonction, Email et Téléphone, avec séparateur virgule ou point-virgule. Examiner le rapport d'import et corriger les lignes rejetées.
 - **Export Excel / CSV** télécharge la liste selon les données disponibles. Manipuler ce fichier comme une donnée RH confidentielle.
 
@@ -252,7 +258,7 @@ Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un compte Adm
 
 ### 7.8 Réseau Alumni
 
-- La page [Alumni](https://inptic-site.vercel.app/alumni) présente les profils sous forme de portraits carrés en grille. La recherche peut porter sur tous les champs ou être limitée au nom, à la filière, au poste, à l'entreprise ou à la promotion.
+- La page [Alumni](https://inptic-ga.org/alumni) présente les profils sous forme de portraits carrés en grille. La recherche peut porter sur tous les champs ou être limitée au nom, à la filière, au poste, à l'entreprise ou à la promotion.
 - Choisir un champ de tri et un sens croissant ou décroissant pour réordonner les profils; **Réinitialiser** efface la recherche et les critères de tri.
 - Un Alumni connecté peut modifier son propre profil depuis sa fiche. Le Superadmin peut également créer, modifier et supprimer des profils depuis l'annuaire.
 - Une modification enregistrée est partagée avec les autres visiteurs via la base de données; un brouillon local non synchronisé n'est pas publié dans l'annuaire.
@@ -261,7 +267,7 @@ Ouvrir [`/admin/rh`](https://inptic-site.vercel.app/admin/rh) avec un compte Adm
 
 - **Je ne peux pas déposer mon dossier** : vérifier la connexion candidat et revenir à `/candidat` si nécessaire.
 - **Je ne vois pas mon paiement confirmé** : attendre la réponse de l'opérateur, actualiser le suivi et conserver la référence de transaction.
-- **Le bouton Facebook échoue** : le fournisseur Facebook doit être activé dans Supabase, les identifiants OAuth configurés, et les URL de redirection autorisées dans Supabase et Meta.
+- **La connexion Google échoue** : la connexion OAuth Google doit être activée et ses identifiants ainsi que l'URL de retour du site correctement configurés. En cas d'erreur, réessayer plus tard ou contacter l'administrateur; le site ne propose pas de connexion Facebook.
 - **Je ne vois pas un outil de gestion** : le compte doit posséder le rôle correspondant; contacter l'administrateur.
 - **Une actualité ou un compteur semble ancien** : actualiser la page et vérifier la connexion Internet; les compteurs se synchronisent périodiquement.
 

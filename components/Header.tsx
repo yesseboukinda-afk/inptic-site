@@ -193,6 +193,26 @@ export default function Header() {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const desktopViewport = window.matchMedia('(min-width: 1024px)');
+    const closeMobileMenu = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileMenuOpen(false);
+    };
+    desktopViewport.addEventListener('change', closeMobileMenu);
+    return () => desktopViewport.removeEventListener('change', closeMobileMenu);
+  }, []);
+
   const toggleDarkMode = () => {
     const nextDarkMode = !isDarkMode;
     document.documentElement.classList.toggle('dark', nextDarkMode);
@@ -261,13 +281,13 @@ export default function Header() {
             <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-auto sm:h-9 md:h-10" />
           </Link>
 
-          <div className="ml-auto hidden items-center gap-3 md:flex">
+          <div className="ml-auto hidden items-center gap-3 lg:flex">
             <div className="hidden h-10 w-56 rounded-full border border-gray-200 bg-gray-100 lg:block" />
             <div className="h-10 w-10 rounded-lg border border-gray-200 bg-gray-100" />
             <div className="h-10 w-28 rounded-lg border border-gray-200 bg-gray-100" />
           </div>
 
-          <div className="ml-auto flex items-center gap-2 md:hidden">
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
             <div className="h-9 w-24 rounded-lg border border-gray-200 bg-gray-100" />
             <div className="h-9 w-9 rounded-lg border border-gray-200 bg-gray-100" />
             <div className="h-9 w-9 rounded-lg border border-gray-200 bg-gray-100" />
@@ -279,13 +299,13 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18" role="banner">
+      <header className="sticky top-0 z-[70] flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18 lg:z-50" role="banner">
         <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
           <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
             <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-auto sm:h-9 md:h-10" />
           </Link>
 
-          <div className="ml-auto hidden md:flex items-center gap-3">
+          <div className="ml-auto hidden lg:flex items-center gap-3">
             <form onSubmit={handleSearchSubmit} className="hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
               <input
                 type="search"
@@ -389,7 +409,7 @@ export default function Header() {
             )}
           </div>
 
-          <div className="ml-auto flex items-center gap-2 md:hidden">
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
             {isSuperAdmin ? (
               <>
                 <Link href="/admin" className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white" aria-label="Superadmin">
@@ -443,19 +463,17 @@ export default function Header() {
               </button>
 
               {languageMenuOpen && (
-                <div className="absolute right-0 top-full z-[60] mt-2 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div className="fixed right-2 top-[3.625rem] z-[80] mt-2 flex w-max max-w-[calc(100vw-1rem)] items-center gap-1 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl md:top-[3.9375rem]">
                   {languageOptions.map((option) => (
                     <button
                       key={option.code}
                       type="button"
                       onClick={() => changeLanguage(option.code)}
-                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition ${currentLanguage === option.code ? 'bg-[#F9F2D1] text-slate-900' : 'text-slate-700 hover:bg-slate-50'}`}
+                      className={`flex min-h-10 min-w-12 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm transition ${currentLanguage === option.code ? 'bg-[#F9F2D1] text-slate-900' : 'text-slate-700 hover:bg-slate-50'}`}
                       aria-label={option.label}
                     >
-                      <span className="flex items-center gap-2">
-                        <span aria-hidden="true">{option.flag}</span>
-                        <span>{option.label}</span>
-                      </span>
+                      <span aria-hidden="true">{option.flag}</span>
+                      <span>{option.label}</span>
                       {currentLanguage === option.code && <span className="text-[10px] font-bold">✓</span>}
                     </button>
                   ))}
@@ -482,7 +500,7 @@ export default function Header() {
         </div>
       </header>
 
-      <nav className="main-nav hidden md:block sticky top-16 z-30 shadow-md transition-colors duration-300" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu principal">
+      <nav className="main-nav sticky top-[4.5rem] z-30 hidden shadow-md transition-colors duration-300 lg:block" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu principal">
         <div className="container-x flex flex-wrap gap-2 md:gap-6 items-center min-h-12 text-sm px-4 md:px-0">
           <Link href="/" className="nav-link transition-all duration-200 py-3 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
             {t('common.home')}
@@ -602,8 +620,8 @@ export default function Header() {
       </nav>
 
       {mobileMenuOpen && (
-        <nav id="mobile-menu" ref={mobileMenuRef} className="main-nav md:hidden border-b border-white/10 animate-in slide-in-from-top-2 duration-200 z-40" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu mobile">
-          <div className="container-x px-4 py-4 space-y-2 max-h-[calc(100vh-120px)] overflow-y-auto">
+        <nav id="mobile-menu" ref={mobileMenuRef} className="main-nav fixed inset-x-0 bottom-0 top-16 z-[60] overflow-y-auto overscroll-contain border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200 md:top-[4.5rem] lg:hidden" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu mobile">
+          <div className="container-x space-y-2 px-4 py-4">
             <div className="mb-4 md:hidden flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
               <input type="search" placeholder={t('common.search')} aria-label={t('common.search')} className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 text-base" />
               <Search size={18} className="text-slate-400 flex-shrink-0" aria-hidden="true" />

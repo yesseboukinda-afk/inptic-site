@@ -1,7 +1,9 @@
 # INPTIC — maquette fonctionnelle
 
+Documentation : [manuel technique](./manuel-technique.md) · [cahier des charges](./cahier-des-charge.md) · [guide d'utilisation](./tkt.md)
+
 ## Installation
-1. Installer Node.js 20+.
+1. Installer Node.js 22.5+ (le stockage SQLite du chatbot utilise `node:sqlite`).
 2. `npm install`
 3. Copier `.env.example` vers `.env.local` et renseigner les services.
 4. `npm run dev`
@@ -27,14 +29,16 @@ voix française féminine installée dans le navigateur et signale ce mode de se
 En l'absence de clé Gemini, les anciens fournisseurs restent disponibles en
 repli avec `OPENAI_API_KEY` ou `OPENROUTER_API_KEY`.
 
-Le dossier `chatbot/` conserve le template open source complet comme référence pour
-les futures évolutions (historique, authentification, outils et artefacts), mais il
-n'est plus nécessaire de lancer une seconde application pour utiliser l'assistant
-du site.
+Le dossier `chatbot/` conserve un template open source distinct; il n'est pas
+lancé en parallèle et ses fonctions ne doivent pas être confondues avec celles
+de l'assistant intégré au site.
 
-Les artefacts éditables (documents, code et tableurs), les votes et l'historique
-persistant restent des fonctionnalités séparées du template source : ils nécessitent
-une base de données et un espace d'édition dédiés.
+L'assistant intégré conserve ses conversations, messages et documents dans une
+base SQLite locale (`data/inptic-chatbot.sqlite` par défaut; chemin configurable
+avec `INPTIC_CHATBOT_DB_PATH`). En production, ce fichier doit se trouver sur un
+stockage persistant. Les routes d'historique et de documents ne cloisonnent pas
+actuellement ces données par compte utilisateur; ne pas les considérer comme
+privées entre comptes.
 
 ## Authentification PostgreSQL/LWS
 
@@ -51,11 +55,11 @@ Avant d'activer le parcours :
 2. Configurer côté serveur `DATABASE_URL`, `AUTH_SITE_URL` (origine HTTPS du site),
    `RESEND_API_KEY` et `AUTH_FROM_EMAIL`. L'expéditeur doit être vérifié dans
    Resend. Ces secrets ne doivent pas avoir le préfixe `NEXT_PUBLIC_`.
-3. Dans Google/Facebook Developer Console, ajouter comme URI de callback
+3. Pour activer la connexion Google, créer un client OAuth de type application
+   Web dans Google Cloud Console, ajouter comme URI de callback
    `https://votre-domaine.tld/api/auth/oauth/callback`, puis configurer les
-   identifiants serveur `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
-   `FACEBOOK_APP_ID` et `FACEBOOK_APP_SECRET` selon les fournisseurs activés.
-   L'authentification sociale est facultative.
+   identifiants serveur `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`.
+   La connexion Google est facultative.
 4. Depuis la racine du projet, construire avec `npm run build:next`, puis
    redémarrer l'application Node.js LWS. Cette commande génère les types de
    routes, lance `tsc --noEmit`, puis construit avec Webpack. Le contrôle de
@@ -136,6 +140,16 @@ newsletter utilisent PostgreSQL. Les fichiers publics et les dossiers candidats
 sont stockés sur le disque persistant défini par `PRIVATE_STORAGE_DIR`; leurs
 métadonnées sont dans `private_files`. Les dossiers candidats restent privés et
 sont servis par une route qui vérifie la session et l'appartenance du document.
+
+Pour une base LWS déjà créée, exécuter `scripts/15_repair_homepage_agenda.sql`
+puis `scripts/16_alumni_verified_ownership.sql` et
+`scripts/17_create_site_audit_logs.sql` dans PostgreSQL. L'agenda est alors
+réparé même si une table incomplète existe déjà. Le dernier script installe le
+journal central des actions API, visible uniquement depuis l'espace Superadmin.
+L'annuaire Alumni est lu depuis
+PostgreSQL sur tous les appareils ; publier ou modifier une fiche exige un compte
+INPTIC avec une adresse e-mail vérifiée. Les anciennes fiches restent visibles,
+mais ne sont pas automatiquement attribuées à un compte.
 Les fichiers publics sont servis par `/api/storage/...`.
 
 Configurer les variables serveur et démarrer l'application. Les profils, pièces jointes,

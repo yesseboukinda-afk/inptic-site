@@ -124,7 +124,7 @@ async function dispatchPublicationNewsletter(
   const siteUrl = (
     process.env.NEWSLETTER_SITE_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://inptic-site.vercel.app'
+    'https://inptic-ga.org'
   ).replace(/\/+$/, '');
   const articleUrl = `${siteUrl}/annonces#${encodeURIComponent(publication.slug)}`;
   const logoUrl = `${siteUrl}/logoinptic.png`;

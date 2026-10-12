@@ -1,16 +1,20 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest } from 'next/server';
 import { authorizeStaffRequest, deleteStaffFile, uploadStaffFiles } from '@/lib/staff-storage';
 
 const BUCKET = 'concours-docs';
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const auth = await authorizeStaffRequest(request, 'concours', 'Accès non autorisé pour les documents de concours.');
   if (auth.error) return auth.error;
   return uploadStaffFiles(request, BUCKET, 'concours');
 }
 
-export async function DELETE(request: NextRequest) {
+async function siteAuditedDELETE(request: NextRequest) {
   const auth = await authorizeStaffRequest(request, 'concours', 'Accès non autorisé pour les documents de concours.');
   if (auth.error) return auth.error;
   return deleteStaffFile(request, BUCKET);
 }
+
+export const POST = withSiteAudit("Ajout de pièce jointe de concours", siteAuditedPOST);
+export const DELETE = withSiteAudit("Suppression de pièce jointe de concours", siteAuditedDELETE);

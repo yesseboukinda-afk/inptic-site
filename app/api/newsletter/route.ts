@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
@@ -11,7 +12,7 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
-export async function POST(req: NextRequest) {
+async function siteAuditedPOST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
   const siteUrl = (
     process.env.NEWSLETTER_SITE_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://inptic-site.vercel.app'
+    'https://inptic-ga.org'
   ).replace(/\/+$/, '');
   const idempotencyKey = createHash('sha256')
     .update(`inptic-newsletter-confirmation/${email}/${subscribedAt}`)
@@ -170,3 +171,5 @@ export async function POST(req: NextRequest) {
     message: 'Inscription confirmée ! Un courriel de confirmation vient de vous être envoyé.',
   });
 }
+
+export const POST = withSiteAudit("Inscription à la newsletter", siteAuditedPOST);

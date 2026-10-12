@@ -1,10 +1,11 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { createAuthSessionToken, getAuthSiteUrl, hashOpaqueToken, setSessionCookie } from '@/lib/postgres-auth';
 
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
+async function siteAuditedGET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token') || '';
   const siteUrl = getAuthSiteUrl(request);
   if (!/^[a-f0-9]{64}$/i.test(token)) {
@@ -119,3 +120,12 @@ export async function GET(request: NextRequest) {
   setSessionCookie(response, sessionToken);
   return response;
 }
+
+export const GET = withSiteAudit(
+  'Vérification d’adresse e-mail',
+  siteAuditedGET,
+  (response) => {
+    const location = response.headers.get('location');
+    return Boolean(location && new URL(location).searchParams.get('verified') === '1');
+  },
+);

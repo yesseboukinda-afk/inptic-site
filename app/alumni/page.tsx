@@ -1,10 +1,12 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RotateCcw, Search } from 'lucide-react';
+import { authClient } from '@/lib/auth-client';
 
 type Alumni = {
-  id: number | string;
+  id: string;
   nom: string;
   prenom: string;
   filiere: string;
@@ -13,6 +15,25 @@ type Alumni = {
   promotion: string;
   commentaire: string;
   photo: string;
+  isOwner: boolean;
+};
+
+type AlumniDraft = Omit<Alumni, 'id' | 'isOwner'>;
+
+type AuthUser = {
+  id: string;
+  email?: string;
+};
+
+const EMPTY_FORM = {
+  nom: '',
+  prenom: '',
+  filiere: '',
+  poste: '',
+  entreprise: '',
+  promotion: '',
+  commentaire: '',
+  photo: '',
 };
 
 export default function Alumni() {
@@ -20,55 +41,128 @@ export default function Alumni() {
 
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [submitting, setSubmitting] = useState(false);
-
-  const [form, setForm] = useState({
-    nom: '',
-    prenom: '',
-    filiere: '',
-    poste: '',
-    entreprise: '',
-    promotion: '',
-    commentaire: '',
-    photo: '',
-  });
-
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loadingAlumni, setLoadingAlumni] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [localDraft, setLocalDraft] = useState<AlumniDraft | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [directorySearchBy, setDirectorySearchBy] = useState('all');
+  const [directorySortBy, setDirectorySortBy] = useState('');
+  const [directorySortDirection, setDirectorySortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Charger les anciens étudiants persistés au montage (localStorage + API PostgreSQL)
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem('inptic_alumni');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setAlumni(parsed);
-        }
-      }
-    } catch {}
+  const visibleAlumni = useMemo(() => {
+    const query = directoryQuery.trim().toLocaleLowerCase();
+    const fields: Record<string, (person: Alumni) => string> = {
+      nom: (person) => `${person.prenom} ${person.nom}`,
+      filiere: (person) => person.filiere,
+      poste: (person) => person.poste,
+      entreprise: (person) => person.entreprise,
+      promotion: (person) => person.promotion,
+    };
+    const searchableFields = directorySearchBy === 'all'
+      ? Object.keys(fields)
+      : [directorySearchBy];
+    const filtered = alumni.filter((person) =>
+      !query || searchableFields.some((field) =>
+        fields[field]?.(person).toLocaleLowerCase().includes(query),
+      ),
+    );
 
-    fetch('/api/alumni')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((payload) => {
-        if (Array.isArray(payload?.data) && payload.data.length > 0) {
-          setAlumni((prev) => {
-            // Combiner les données distantes avec les ajouts locaux récents
-            const map = new Map<string | number, Alumni>();
-            payload.data.forEach((item: Alumni) => map.set(item.id, item));
-            prev.forEach((item) => {
-              if (!map.has(item.id)) map.set(item.id, item);
-            });
-            const merged = Array.from(map.values());
-            try {
-              localStorage.setItem('inptic_alumni', JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-      })
-      .catch((err) => {
-        console.error('[Alumni] Erreur de chargement distant:', err);
+    if (!directorySortBy) return filtered;
+
+    const sortField = fields[directorySortBy];
+    if (!sortField) return filtered;
+
+    return [...filtered].sort((first, second) => {
+      const comparison = sortField(first).localeCompare(sortField(second), 'fr', {
+        numeric: true,
+        sensitivity: 'base',
       });
+      return directorySortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [alumni, directoryQuery, directorySearchBy, directorySortBy, directorySortDirection]);
+
+  useEffect(() => {
+    const { data: { subscription } } = authClient.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ? {
+        id: session.user.id,
+        email: session.user.email,
+      } : null);
+      setAuthLoading(false);
+      setIsEditing(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAlumni() {
+      setLoadingAlumni(true);
+      setLoadError('');
+      try {
+        const response = await fetch('/api/alumni', { cache: 'no-store' });
+        const payload = await response.json() as { data?: Alumni[]; error?: string };
+        if (!response.ok) throw new Error(payload.error || 'Impossible de charger les anciens étudiants.');
+        if (!Array.isArray(payload.data)) throw new Error('Réponse invalide du serveur Alumni.');
+        if (active) setAlumni(payload.data);
+      } catch (error) {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : 'Impossible de charger les anciens étudiants.');
+        }
+      } finally {
+        if (active) setLoadingAlumni(false);
+      }
+    }
+
+    void loadAlumni();
+    return () => {
+      active = false;
+    };
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (!authUser || loadingAlumni || alumni.some((person) => person.isOwner)) {
+      setLocalDraft(null);
+      return;
+    }
+
+    setLocalDraft(null);
+    try {
+      const cached = JSON.parse(localStorage.getItem('inptic_alumni') || '[]') as unknown;
+      if (!Array.isArray(cached)) return;
+      const draft = cached.find((item): item is AlumniDraft & { id: string } =>
+        Boolean(
+          item &&
+          typeof item === 'object' &&
+          typeof item.id === 'string' &&
+          item.id.startsWith('temp-') &&
+          typeof item.nom === 'string' &&
+          typeof item.prenom === 'string',
+        ),
+      );
+      if (draft) {
+        setLocalDraft({
+          nom: draft.nom,
+          prenom: draft.prenom,
+          filiere: typeof draft.filiere === 'string' ? draft.filiere : '',
+          poste: typeof draft.poste === 'string' ? draft.poste : '',
+          entreprise: typeof draft.entreprise === 'string' ? draft.entreprise : '',
+          promotion: typeof draft.promotion === 'string' ? draft.promotion : '',
+          commentaire: typeof draft.commentaire === 'string' ? draft.commentaire : '',
+          photo: typeof draft.photo === 'string' ? draft.photo : '',
+        });
+      }
+    } catch {
+      setLocalDraft(null);
+    }
+  }, [alumni, authUser, loadingAlumni]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -115,13 +209,13 @@ export default function Alumni() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError('');
+    setSubmitted(false);
 
-    const tempId = `temp-${Date.now()}`;
-    const newAlumni: Alumni = {
-      id: tempId,
+    const alumniInput = {
       nom: form.nom.trim(),
       prenom: form.prenom.trim(),
-      filiere: form.filiere,
+      filiere: form.filiere.trim(),
       poste: form.poste.trim(),
       entreprise: form.entreprise.trim(),
       promotion: form.promotion,
@@ -129,61 +223,50 @@ export default function Alumni() {
       photo: form.photo,
     };
 
-    // 1. Afficher immédiatement et persister localement
-    setAlumni((prev) => {
-      const next = [newAlumni, ...prev.filter((a) => a.id !== newAlumni.id)];
-      try {
-        localStorage.setItem('inptic_alumni', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    setForm({
-      nom: '',
-      prenom: '',
-      filiere: '',
-      poste: '',
-      entreprise: '',
-      promotion: '',
-      commentaire: '',
-      photo: '',
-    });
-
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-    }, 5000);
-
-    setTimeout(() => {
-      document.getElementById('anciens')?.scrollIntoView({
-        behavior: 'smooth',
-      });
-    }, 100);
-
-    // 2. Sauvegarde asynchrone dans PostgreSQL via /api/alumni
     try {
-      const res = await fetch('/api/alumni', {
-        method: 'POST',
+      const response = await fetch('/api/alumni', {
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAlumni),
+        body: JSON.stringify(alumniInput),
       });
-      if (res.ok) {
-        const payload = await res.json();
-        if (payload?.data?.id) {
-          setAlumni((prev) => {
-            const updated = prev.map((a) => (a.id === tempId ? payload.data : a));
-            try {
-              localStorage.setItem('inptic_alumni', JSON.stringify(updated));
-            } catch {}
-            return updated;
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('[Alumni] Sauvegarde distante échouée, conservé en local:', err);
+      const payload = await response.json() as { data?: Alumni; error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Impossible d’enregistrer le profil Alumni.');
+      const savedProfile = payload.data;
+      if (!savedProfile?.id) throw new Error('Le serveur n’a pas confirmé l’enregistrement du profil.');
+
+      setAlumni((previous) => isEditing
+        ? previous.map((person) => person.isOwner ? savedProfile : person)
+        : [savedProfile, ...previous]);
+      setLocalDraft(null);
+      setForm(EMPTY_FORM);
+      setIsEditing(false);
+      setSubmitted(true);
+      window.setTimeout(() => setSubmitted(false), 5000);
+      window.setTimeout(() => {
+        document.getElementById('anciens')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Impossible d’enregistrer le profil Alumni.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const editProfile = (person: Alumni) => {
+    setForm({
+      nom: person.nom,
+      prenom: person.prenom,
+      filiere: person.filiere,
+      poste: person.poste,
+      entreprise: person.entreprise,
+      promotion: person.promotion,
+      commentaire: person.commentaire,
+      photo: person.photo,
+    });
+    setIsEditing(true);
+    setSubmitted(false);
+    setSubmitError('');
+    document.getElementById('rejoindre')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -416,13 +499,71 @@ export default function Alumni() {
 
           <div className="mx-auto mt-10 max-w-4xl rounded-2xl bg-white p-6 text-slate-900 shadow-2xl md:p-10">
 
-            {submitted && (
-              <div
-                className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700"
-                role="status"
-              >
-                Votre profil Alumni a été ajouté avec succès.
+                {submitted && (
+                  <div
+                    className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700"
+                    role="status"
+                  >
+                    Votre profil Alumni a bien été enregistré dans l’annuaire.
+                  </div>
+                )}
+
+                {authLoading ? (
+              <p className="text-center text-slate-600" role="status">
+                Vérification de votre session…
+              </p>
+            ) : !authUser ? (
+              <div className="text-center">
+                <p className="leading-7 text-slate-700">
+                  Pour publier un profil partagé et pouvoir le modifier ensuite, connectez-vous
+                  avec un compte INPTIC dont l’adresse e-mail a été vérifiée.
+                </p>
+                <a
+                  href="/candidat"
+                  className="mt-5 inline-flex rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Créer un compte ou se connecter
+                </a>
               </div>
+            ) : loadingAlumni ? (
+              <p className="text-center text-slate-600" role="status">
+                Chargement de votre profil…
+              </p>
+            ) : alumni.some((person) => person.isOwner) && !isEditing ? (
+              <div className="text-center">
+                <p className="leading-7 text-slate-700">
+                  Votre profil est publié dans l’annuaire. Utilisez le bouton « Modifier mon profil »
+                  sur votre fiche pour le mettre à jour.
+                </p>
+              </div>
+            ) : (
+              <>
+              {localDraft && !isEditing && (
+                <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <p>
+                    Un brouillon non synchronisé est conservé sur cet appareil. Vérifiez son contenu
+                    avant de le publier avec votre compte.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(localDraft);
+                      setSubmitError('');
+                    }}
+                    className="mt-3 rounded-lg border border-amber-300 px-4 py-2 font-semibold transition hover:bg-amber-100"
+                  >
+                    Récupérer le brouillon de cet appareil
+                  </button>
+                </div>
+              )}
+
+              {submitError && (
+              <p
+                className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700"
+                role="alert"
+              >
+                {submitError}
+              </p>
             )}
 
             <form
@@ -450,6 +591,7 @@ export default function Alumni() {
                     value={form.nom}
                     onChange={handleChange}
                     required
+                    maxLength={100}
                     placeholder="Votre nom"
                     className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
@@ -474,6 +616,7 @@ export default function Alumni() {
                     value={form.prenom}
                     onChange={handleChange}
                     required
+                    maxLength={100}
                     placeholder="Votre prénom"
                     className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
@@ -697,12 +840,34 @@ export default function Alumni() {
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-blue-600 px-6 py-3.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                disabled={submitting}
+                className="w-full rounded-lg bg-blue-600 px-6 py-3.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Rejoindre le réseau Alumni
+                {submitting
+                  ? 'Enregistrement…'
+                  : isEditing
+                    ? 'Enregistrer les modifications'
+                    : 'Rejoindre le réseau Alumni'}
               </button>
 
+              {isEditing && (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setForm(EMPTY_FORM);
+                    setSubmitError('');
+                  }}
+                  className="w-full rounded-lg border border-slate-300 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Annuler les modifications
+                </button>
+              )}
+
             </form>
+              </>
+            )}
 
           </div>
 
@@ -738,7 +903,19 @@ export default function Alumni() {
 
           </div>
 
-          {alumni.length === 0 ? (
+          {loadingAlumni ? (
+
+            <p className="mt-10 text-center text-slate-500" role="status">
+              Chargement de l’annuaire Alumni…
+            </p>
+
+          ) : loadError ? (
+
+            <p className="mt-10 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+              {loadError}
+            </p>
+
+          ) : alumni.length === 0 ? (
 
             <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
 
@@ -757,121 +934,155 @@ export default function Alumni() {
 
           ) : (
 
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <>
+              <div className="alumni-directory-toolbar mt-8 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
+                <label className="relative min-w-0 flex-1">
+                  <span className="sr-only">Rechercher un Alumni</span>
+                  <Search
+                    size={18}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="search"
+                    value={directoryQuery}
+                    onChange={(event) => setDirectoryQuery(event.target.value)}
+                    placeholder="Rechercher un Alumni"
+                    className="alumni-directory-control w-full border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
 
-              {alumni.map((person) => (
+                <div className="grid grid-cols-2 gap-2 sm:flex">
+                  <label>
+                    <span className="sr-only">Rechercher par</span>
+                    <select
+                      value={directorySearchBy}
+                      onChange={(event) => setDirectorySearchBy(event.target.value)}
+                      className="alumni-directory-control h-full min-h-11 w-full border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-auto"
+                    >
+                      <option value="all">Tous les champs</option>
+                      <option value="nom">Nom</option>
+                      <option value="filiere">Filière</option>
+                      <option value="poste">Poste</option>
+                      <option value="entreprise">Entreprise</option>
+                      <option value="promotion">Promotion</option>
+                    </select>
+                  </label>
 
-                <article
-                  key={person.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                >
+                  <label>
+                    <span className="sr-only">Trier par</span>
+                    <select
+                      value={directorySortBy}
+                      onChange={(event) => setDirectorySortBy(event.target.value)}
+                      className="alumni-directory-control h-full min-h-11 w-full border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-auto"
+                    >
+                      <option value="">Ordre d’affichage</option>
+                      <option value="nom">Nom</option>
+                      <option value="promotion">Promotion</option>
+                      <option value="filiere">Filière</option>
+                      <option value="entreprise">Entreprise</option>
+                    </select>
+                  </label>
 
-                  <div className="h-2 bg-gradient-to-r from-blue-600 to-cyan-500" />
+                  <label>
+                    <span className="sr-only">Sens du tri</span>
+                    <select
+                      value={directorySortDirection}
+                      onChange={(event) => setDirectorySortDirection(event.target.value as 'asc' | 'desc')}
+                      className="alumni-directory-control h-full min-h-11 w-full border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-auto"
+                    >
+                      <option value="asc">Croissant</option>
+                      <option value="desc">Décroissant</option>
+                    </select>
+                  </label>
 
-                  <div className="p-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDirectoryQuery('');
+                      setDirectorySearchBy('all');
+                      setDirectorySortBy('');
+                      setDirectorySortDirection('asc');
+                    }}
+                    className="alumni-directory-control inline-flex min-h-11 items-center justify-center gap-2 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  >
+                    <RotateCcw size={15} aria-hidden="true" />
+                    Réinitialiser
+                  </button>
+                </div>
+              </div>
 
-                    {/* IDENTITE */}
-
-                    <div className="flex items-start gap-4">
-
+              {visibleAlumni.length === 0 ? (
+                <p className="mt-10 rounded-xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500">
+                  Aucun Alumni ne correspond à votre recherche.
+                </p>
+              ) : (
+                <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-8 lg:grid-cols-4">
+                  {visibleAlumni.map((person) => (
+                    <article
+                      key={person.id}
+                      className="alumni-directory-card group mx-auto w-full max-w-64 text-center transition duration-200 hover:-translate-y-1"
+                    >
                       {person.photo ? (
-
                         <img
                           src={person.photo}
                           alt={`Photo de ${person.prenom} ${person.nom}`}
-                          className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-blue-100"
+                          className="alumni-directory-photo mx-auto aspect-square w-full max-w-40 object-cover shadow-sm transition group-hover:shadow-md"
+                          loading="lazy"
                         />
-
                       ) : (
-
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-blue-600">
+                        <div
+                          className="alumni-directory-photo mx-auto flex aspect-square w-full max-w-40 items-center justify-center bg-gradient-to-br from-blue-100 to-cyan-100 text-4xl font-black text-blue-700"
+                          aria-label={`Aucune photo pour ${person.prenom} ${person.nom}`}
+                        >
                           {person.prenom.charAt(0)}
                           {person.nom.charAt(0)}
                         </div>
-
                       )}
 
-                      <div>
-
-                        <h3 className="text-xl font-bold text-slate-900">
+                      <div className="px-1 pt-4">
+                        <h3 className="text-base font-bold leading-snug text-slate-900 sm:text-lg">
                           {person.prenom} {person.nom}
                         </h3>
-
-                        <p className="mt-1 text-sm font-medium text-blue-600">
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                          {person.filiere}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {person.poste}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {person.entreprise}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
                           Promotion {person.promotion}
                         </p>
 
+                        {person.commentaire && (
+                          <div className="mt-4 border-t border-slate-200 pt-3 text-left">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                              Témoignage
+                            </p>
+                            <p className="mt-1 line-clamp-4 text-sm italic leading-5 text-slate-600">
+                              « {person.commentaire} »
+                            </p>
+                          </div>
+                        )}
+
+                        {person.isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => editProfile(person)}
+                            className="alumni-directory-control mt-4 w-full bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                          >
+                            Modifier mon profil
+                          </button>
+                        )}
                       </div>
-
-                    </div>
-
-                    {/* INFORMATIONS */}
-
-                    <div className="mt-6 space-y-4">
-
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Filière
-                        </p>
-
-                        <p className="mt-1 font-medium text-slate-700">
-                          {person.filiere}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Poste actuel
-                        </p>
-
-                        <p className="mt-1 font-medium text-slate-700">
-                          {person.poste}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Entreprise
-                        </p>
-
-                        <p className="mt-1 font-medium text-slate-700">
-                          {person.entreprise}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    {/* COMMENTAIRE */}
-
-                    {person.commentaire && (
-
-                      <div className="mt-6 border-t border-slate-100 pt-5">
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Témoignage
-                        </p>
-
-                        <p className="mt-2 text-sm italic leading-6 text-slate-600">
-                          « {person.commentaire} »
-                        </p>
-
-                      </div>
-
-                    )}
-
-                  </div>
-
-                </article>
-
-              ))}
-
-            </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
 
           )}
 

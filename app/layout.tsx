@@ -14,8 +14,10 @@ import { PWAInstallProvider } from "@/components/PWAInstallProvider";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
+  metadataBase: new URL("https://inptic-ga.org"),
   title:
     "Institut National de la Poste, des Technologies de l'Information et de la Communication",
+
 
   description:
     "Portail numérique de l'INPTIC",

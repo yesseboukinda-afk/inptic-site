@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { readStoredPrivateFile } from '@/lib/localStorage';
 import { getProfileDocumentPrefix } from '@/lib/documentStorage';
@@ -64,14 +65,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function siteAuditedGET(request: NextRequest) {
   try {
     const access = await validateDocumentAccess(
       request,
       request.nextUrl.searchParams.get('email'),
       request.nextUrl.searchParams.get('path'),
     );
-    if ('error' in access) return access.error;
+    if ('error' in access && access.error) return access.error;
 
     const file = await readStoredPrivateFile(DOCUMENT_BUCKET, access.path);
     if (!file) return NextResponse.json({ error: 'Document introuvable.' }, { status: 404 });
@@ -89,3 +90,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Document candidat indisponible.' }, { status: 503 });
   }
 }
+
+export const GET = withSiteAudit('Consultation de document candidat', siteAuditedGET);

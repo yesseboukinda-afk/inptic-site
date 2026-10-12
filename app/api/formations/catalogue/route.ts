@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeStaffRequest } from '@/lib/staff-storage';
 import { getPostgresPool } from '@/lib/postgres';
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'PostgreSQL indisponible.' }, { status: 503 });
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'PostgreSQL indisponible.' }, { status: 503 });
@@ -120,7 +121,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function siteAuditedDELETE(request: NextRequest) {
   const auth = await authorizeStaffRequest(request, 'formations', 'Accès réservé à l’administration des formations.');
   if (auth.error) return auth.error;
   if (!process.env.DATABASE_URL) return NextResponse.json({ error: 'PostgreSQL indisponible.' }, { status: 503 });
@@ -143,3 +144,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Suppression impossible.' }, { status: 503 });
   }
 }
+
+export const POST = withSiteAudit("Création de ressource de formation", siteAuditedPOST);
+export const PATCH = withSiteAudit("Modification de ressource de formation", siteAuditedPATCH);
+export const DELETE = withSiteAudit("Suppression de ressource de formation", siteAuditedDELETE);

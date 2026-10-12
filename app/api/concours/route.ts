@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
@@ -246,7 +247,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ data: items, count: items.length });
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
 
@@ -302,7 +303,7 @@ export async function POST(request: NextRequest) {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
 
@@ -358,7 +359,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function siteAuditedDELETE(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
 
@@ -384,3 +385,7 @@ export async function DELETE(request: NextRequest) {
 
   return NextResponse.json({ success: true, id });
 }
+
+export const POST = withSiteAudit("Création de concours", siteAuditedPOST);
+export const PATCH = withSiteAudit("Modification de concours", siteAuditedPATCH);
+export const DELETE = withSiteAudit("Suppression de concours", siteAuditedDELETE);

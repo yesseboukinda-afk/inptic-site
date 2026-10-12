@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser, hashPassword } from '@/lib/postgres-auth';
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const auth = await requireSuperAdmin(request);
   if (auth.error) return auth.error;
 
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function siteAuditedDELETE(request: NextRequest) {
   const auth = await requireSuperAdmin(request);
   if (auth.error) return auth.error;
 
@@ -209,3 +210,6 @@ export async function DELETE(request: NextRequest) {
     client.release();
   }
 }
+
+export const POST = withSiteAudit("Création de compte du personnel", siteAuditedPOST);
+export const DELETE = withSiteAudit("Suppression de compte du personnel", siteAuditedDELETE);

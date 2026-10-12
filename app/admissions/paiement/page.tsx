@@ -225,7 +225,7 @@ export default function PaiementPage() {
   }
 
   const isPaid = profile.paymentStatus === 'paid' || pollingStatus === 'success';
-  const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://inptic.ga');
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://inptic-ga.org');
   const verificationUrl = `${siteUrl}/quittance/${profile.paymentReference || profile.paymentTransactionId || 'OFFICIEL'}`;
   const quittanceQrSvg = generateQRCodeSVG(verificationUrl, { size: 160 });
 

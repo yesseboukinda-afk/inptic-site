@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 
 const GATEWAY_URL = process.env.SINGPAY_GATEWAY_URL || 'https://gateway.singpay.ga/v1';
@@ -75,7 +76,7 @@ function detectOperator(rawPhone: string): { operator: Operator; opCode: string 
   return null;
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!CLIENT_ID || !CLIENT_SECRET || !WALLET_ID) {
     return NextResponse.json(
       {
@@ -215,3 +216,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export const POST = withSiteAudit("Initiation de paiement Mobile Money", siteAuditedPOST);

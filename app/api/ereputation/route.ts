@@ -1,6 +1,8 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
+import frenchAdjectiveSentiment from '@/lib/ereputation/french-adjective-sentiment.json';
 
 type MentionItem = {
   id: string;
@@ -15,6 +17,9 @@ type MentionItem = {
 };
 
 type SourceStatus = 'available' | 'unavailable' | 'not_configured';
+type LexiconEntry = { polarity: number; subjectivity: number; confidence: number };
+
+const frenchAdjectiveEntries: Record<string, LexiconEntry> = frenchAdjectiveSentiment.entries;
 
 async function authorizeFacebookReply(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -47,13 +52,118 @@ function formatCommentDate(value: string | undefined) {
 }
 
 function classifySentiment(content: string): MentionItem['sentiment'] {
-  const lower = content.toLocaleLowerCase('fr');
-  if (/nul|incompétent|mauvais|scandale|problème|arnaque|faux|lent|plainte|déçu|décevant|pas\s+la\s+ligne|ne\s+(?:passes?|gagnes?)\s+pas.{0,60}concours/i.test(lower)) {
-    return 'negatif';
+  const words = content
+    .toLocaleLowerCase('fr')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .match(/[a-z0-9]+/g) ?? [];
+  const positiveTerms = [
+    'excellent', 'excellente', 'excellents', 'excellentes', 'super', 'super bien',
+    'merci', 'grand merci', 'merci beaucoup', 'bravo', 'felicitation', 'felicitations',
+    'felicite', 'felicitee', 'felicites', 'feliciter', 'felicitent', 'succes', 'reussite',
+    'reussi', 'reussie', 'reussis', 'reussies', 'top', 'genial', 'geniale', 'geniaux',
+    'geniales', 'superbe', 'superbes', 'formidable', 'formidables', 'fantastique',
+    'fantastiques', 'magnifique', 'magnifiques', 'parfait', 'parfaite', 'parfaits',
+    'parfaites', 'impeccable', 'impeccables', 'recommande', 'recommandes', 'recommandee',
+    'recommandees', 'recommander', 'satisfait', 'satisfaite', 'satisfaits', 'satisfaites',
+    'satisfaction', 'accueillant', 'accueillante', 'bon accueil', 'accueil chaleureux',
+    'accueil agreable', 'bien accueilli',
+    'bien accueillie', 'efficace', 'efficaces', 'competent', 'competente', 'competents',
+    'competentes', 'professionnel', 'professionnelle', 'professionnels', 'professionnelles',
+    'professionnalisme', 'a l ecoute', 'rapide', 'rapides', 'ponctuel', 'ponctuelle',
+    'ponctuels', 'ponctuelles', 'qualite', 'bonne formation', 'bonne organisation',
+    'utile', 'utiles', 'interessant', 'interessante', 'interessants', 'interessantes',
+    'clair', 'claire', 'clairs', 'claires', 'propre', 'rassurant', 'rassurante',
+    'disponible', 'disponibles', 'solution trouvee', 'bonne experience',
+    'tres bonne experience',
+    'admis', 'admise', 'admis au concours', 'pas decu', 'pas decue', 'pas mauvais',
+  ];
+  const negativeTerms = [
+    'nul', 'nulle', 'nuls', 'nulles', 'incompetent', 'incompetente', 'incompetents',
+    'incompetentes', 'mauvais', 'mauvaise', 'scandale', 'scandaleux',
+    'scandaleuse', 'probleme', 'problemes', 'arnaque', 'arnaques', 'escroquerie',
+    'escroqueries', 'faux', 'fausse',
+    'fausses', 'lent', 'lente', 'lents', 'lentes', 'plainte', 'plaintes', 'decu',
+    'decue', 'decus', 'decues', 'decevant', 'decevante', 'decevants', 'decevantes',
+    'pas la ligne', 'ne passe pas le concours', 'ne passent pas le concours',
+    'ne gagne pas le concours', 'ne gagnent pas le concours', 'honte', 'inadmissible',
+    'inacceptable', 'catastrophique', 'catastrophiques', 'horrible', 'horribles',
+    'lamentable', 'lamentables', 'mediocre', 'mediocres', 'desagreable', 'desagreables',
+    'insupportable', 'insupportables', 'detestable', 'detestables', 'desastre',
+    'desastreux',
+    'echec', 'echoue', 'echouee', 'difficile', 'difficulte', 'difficultes', 'complique',
+    'compliquee', 'retard', 'en retard', 'trop d attente', 'attente interminable',
+    'aucune reponse', 'pas de reponse', 'sans reponse', 'ignore', 'ignoree', 'ignores',
+    'ignorees', 'absent', 'absente', 'absence', 'manque de', 'panne', 'en panne', 'bug',
+    'ne fonctionne pas', 'ne marche pas', 'inaccessible', 'bloque', 'bloquee', 'bloques',
+    'bloquees', 'impossible', 'erreur', 'erreurs', 'refus', 'refuse', 'refusee', 'rejet',
+    'rejete', 'rejetee', 'corruption', 'favoritisme', 'discrimination', 'fraude', 'vol',
+    'mensonge', 'mensonges', 'insatisfait', 'insatisfaite', 'insatisfaits',
+    'insatisfaites', 'non satisfait', 'non satisfaite', 'mal organise', 'mal organisee',
+    'mauvaise experience', 'aucun moyen',
+    'pas de moyen', 'incapable', 'incapables', 'injuste', 'injustes', 'abusif',
+    'abusive', 'abusifs', 'abusives', 'irrespectueux', 'irrespectueuse', 'irrespect',
+    'regret', 'regrets', 'dommage', 'perte de temps', 'gaspillage',
+    'desorganise', 'desorganisee', 'pas serieux', 'pas serieuse', 'manque de serieux',
+    'aucun suivi', 'pas de suivi', 'inscription impossible', 'frais abusifs',
+    'trop cher', 'ne recommande pas', 'ne conseille pas', 'ne passes pas le concours',
+    'ne passent pas le concours', 'ne passe pas le concours', 'ne passes pas ce concours',
+    'ne passent pas ce concours', 'ne passe pas ce concours', 'ne gagnes pas le concours',
+    'ne gagnent pas le concours', 'ne gagne pas le concours', 'ne gagnes pas au concours',
+    'ne gagnent pas au concours', 'ne gagne pas au concours', 'pas recommande',
+    'pas recommandee', 'pas terrible', 'pas genial', 'pas geniale', 'pas top',
+  ];
+
+  const findMatches = (terms: string[]) => terms.flatMap((term) => {
+    const termWords = term.split(' ');
+    const positions: number[] = [];
+    for (let index = 0; index <= words.length - termWords.length; index += 1) {
+      if (termWords.every((word, offset) => words[index + offset] === word)) {
+        positions.push(index);
+      }
+    }
+    return positions.map((start) => ({ term, start, end: start + termWords.length }));
+  });
+  const isNegated = (start: number, end: number) => {
+    const previous = words.slice(Math.max(0, start - 4), start);
+    const negationIndex = previous.findLastIndex((word) =>
+      ['pas', 'plus', 'jamais', 'aucun', 'aucune', 'sans'].includes(word),
+    );
+    if (negationIndex !== -1) {
+      const interveningWords = previous.slice(negationIndex + 1);
+      const anotherSentimentTerm = [...positiveTerms, ...negativeTerms].some((term) => {
+        const termWords = term.split(' ');
+        return interveningWords.some((_, index) =>
+          termWords.every((word, offset) => interveningWords[index + offset] === word),
+        );
+      });
+      if (!anotherSentimentTerm) return true;
+    }
+
+    return previous.includes('ne') && words.slice(end, end + 3).includes('pas');
+  };
+
+  const positiveMatches = findMatches(positiveTerms);
+  const negativeMatches = findMatches(negativeTerms);
+  for (let index = 0; index < words.length; index += 1) {
+    const entry = frenchAdjectiveEntries[words[index]];
+    if (words[index] === 'tout' || !entry || entry.subjectivity <= 0 || entry.confidence < 0.7) continue;
+
+    const match = { term: words[index], start: index, end: index + 1 };
+    if (entry.polarity >= 0.1) positiveMatches.push(match);
+    if (entry.polarity <= -0.1) negativeMatches.push(match);
   }
-  if (/excellent|super|merci|bravo|félicit|succès|top|génial|recommande/i.test(lower)) {
-    return 'positif';
-  }
+  const hasNegative = negativeMatches.some(({ start, end }) => !isNegated(start, end))
+    || positiveMatches.some(({ term, start, end }) =>
+      !term.startsWith('pas ') && isNegated(start, end),
+    );
+  const hasPositive = positiveMatches.some(({ term, start, end }) =>
+    term.startsWith('pas ') || !isNegated(start, end),
+  );
+
+  if (hasPositive && hasNegative) return 'neutre';
+  if (hasNegative) return 'negatif';
+  if (hasPositive) return 'positif';
   return 'neutre';
 }
 
@@ -74,113 +184,121 @@ export async function GET(request: NextRequest) {
 
   const mentions: MentionItem[] = [...liveIngestedComments];
 
-  // Read recent comments on the Page's latest posts.
-  if (fbAccessToken) {
-    try {
-      const fields = 'id,message,created_time,permalink_url,comments.limit(25){id,message,created_time,from{id,name},permalink_url}';
-      const fbParams = new URLSearchParams({ fields, limit: '10', access_token: fbAccessToken });
-      const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0';
-      const fbGraphUrl = `https://graph.facebook.com/${graphVersion}/${facebookPageId}/feed?${fbParams}`;
-      const fbRes = await fetch(fbGraphUrl, forceRefresh ? { cache: 'no-store' } : { next: { revalidate: 60 } });
-      if (fbRes.ok) {
-        facebookSource = 'available';
-        const fbJson = await fbRes.json();
-        const posts = Array.isArray(fbJson.data) ? fbJson.data : [];
-        for (const post of posts) {
-          const comments = Array.isArray(post.comments?.data) ? post.comments.data : [];
-          for (const comment of comments) {
-            const messageText = typeof comment.message === 'string' ? comment.message.trim() : '';
-            if (!messageText || !comment.created_time) continue;
-            const authorName = typeof comment.from?.name === 'string' ? comment.from.name.trim() : '';
+  await Promise.all([
+    (async () => {
+      // Read recent comments on the Page's latest posts.
+      if (!fbAccessToken) return;
+      try {
+        const fields = 'id,message,created_time,permalink_url,comments.limit(25){id,message,created_time,from{id,name},permalink_url}';
+        const fbParams = new URLSearchParams({ fields, limit: '10', access_token: fbAccessToken });
+        const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0';
+        const fbGraphUrl = `https://graph.facebook.com/${graphVersion}/${facebookPageId}/feed?${fbParams}`;
+        const fbRes = await fetch(fbGraphUrl, {
+          ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (fbRes.ok) {
+          facebookSource = 'available';
+          const fbJson = await fbRes.json();
+          const posts = Array.isArray(fbJson.data) ? fbJson.data : [];
+          for (const post of posts) {
+            const comments = Array.isArray(post.comments?.data) ? post.comments.data : [];
+            for (const comment of comments) {
+              const messageText = typeof comment.message === 'string' ? comment.message.trim() : '';
+              if (!messageText || !comment.created_time) continue;
+              const authorName = typeof comment.from?.name === 'string' ? comment.from.name.trim() : '';
+              mentions.push({
+                id: `fb-live-${comment.id}`,
+                source: 'Page Facebook Officielle INPTIC',
+                author: authorName || 'Utilisateur Facebook',
+                content: messageText,
+                sentiment: classifySentiment(messageText),
+                createdAt: comment.created_time,
+                date: formatCommentDate(comment.created_time),
+                url: comment.permalink_url || post.permalink_url || `https://www.facebook.com/${comment.id}`,
+                platform: 'Facebook',
+              });
+            }
+          }
+        } else {
+          const fbJson = await fbRes.json().catch(() => null);
+          const errorCode = fbJson?.error?.code;
+          if (errorCode === 190) {
+            facebookError = 'Le jeton Facebook est invalide ou expiré. Renouvelez le jeton de la Page.';
+          } else if (errorCode === 10 || errorCode === 200) {
+            facebookError = 'Le jeton ne dispose pas des autorisations nécessaires pour lire les publications et commentaires de la Page.';
+          } else if (errorCode === 100) {
+            facebookError = 'La Page configurée est introuvable ou inaccessible avec ce jeton. Vérifiez FACEBOOK_PAGE_ID et l’accès du jeton.';
+          } else {
+            facebookError = `Facebook Graph API a refusé la requête (HTTP ${fbRes.status}${Number.isInteger(errorCode) ? `, code ${errorCode}` : ''}).`;
+          }
+        }
+      } catch (error) {
+        facebookError = error instanceof DOMException && error.name === 'TimeoutError'
+          ? 'Facebook n’a pas répondu dans le délai imparti. Les autres sources restent accessibles.'
+          : 'Impossible de joindre Facebook Graph API depuis le serveur.';
+      }
+    })(),
+    (async () => {
+      // YouTube Data API returns recent top-level comments for the configured channel.
+      if (!youtubeApiKey) return;
+      try {
+        let resolvedChannelId = youtubeChannelId;
+        if (!resolvedChannelId) {
+          const channelParams = new URLSearchParams({
+            part: 'id',
+            forHandle: youtubeChannelHandle,
+            key: youtubeApiKey,
+          });
+          const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?${channelParams}`, {
+            next: { revalidate: 3600 },
+          });
+          if (!channelRes.ok) throw new Error(`Résolution de la chaîne YouTube refusée (HTTP ${channelRes.status}).`);
+          const channelJson = await channelRes.json();
+          resolvedChannelId = channelJson.items?.[0]?.id;
+        }
+        if (!resolvedChannelId) throw new Error('Identifiant de chaîne YouTube introuvable.');
+
+        const youtubeParams = new URLSearchParams({
+          part: 'snippet',
+          allThreadsRelatedToChannelId: resolvedChannelId,
+          maxResults: '10',
+          order: 'time',
+          key: youtubeApiKey,
+        });
+        const youtubeRes = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${youtubeParams}`, {
+          ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+        });
+
+        if (youtubeRes.ok) {
+          youtubeSource = 'available';
+          const youtubeJson = await youtubeRes.json();
+          const threads = Array.isArray(youtubeJson.items) ? youtubeJson.items : [];
+          for (const thread of threads) {
+            const comment = thread.snippet?.topLevelComment;
+            const snippet = comment?.snippet;
+            const messageText = typeof snippet?.textDisplay === 'string' ? snippet.textDisplay.replace(/<[^>]*>/g, '').trim() : '';
+            if (!messageText || !snippet?.publishedAt) continue;
+            const videoId = thread.snippet?.videoId;
+            const commentId = comment.id || thread.id;
             mentions.push({
-              id: `fb-live-${comment.id}`,
-              source: 'Page Facebook Officielle INPTIC',
-              author: authorName || 'Utilisateur Facebook',
+              id: `yt-live-${commentId}`,
+              source: 'Chaîne YouTube INPTIC',
+              author: snippet.authorDisplayName || 'Utilisateur YouTube',
               content: messageText,
               sentiment: classifySentiment(messageText),
-              createdAt: comment.created_time,
-              date: formatCommentDate(comment.created_time),
-              url: comment.permalink_url || post.permalink_url || `https://www.facebook.com/${comment.id}`,
-              platform: 'Facebook',
+              createdAt: snippet.publishedAt,
+              date: formatCommentDate(snippet.publishedAt),
+              url: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${commentId}` : 'https://www.youtube.com',
+              platform: 'YouTube',
             });
           }
         }
-      } else {
-        const fbJson = await fbRes.json().catch(() => null);
-        const errorCode = fbJson?.error?.code;
-        if (errorCode === 190) {
-          facebookError = 'Le jeton Facebook est invalide ou expiré. Renouvelez le jeton de la Page.';
-        } else if (errorCode === 10 || errorCode === 200) {
-          facebookError = 'Le jeton ne dispose pas des autorisations nécessaires pour lire les publications et commentaires de la Page.';
-        } else if (errorCode === 100) {
-          facebookError = 'La Page configurée est introuvable ou inaccessible avec ce jeton. Vérifiez FACEBOOK_PAGE_ID et l’accès du jeton.';
-        } else {
-          facebookError = `Facebook Graph API a refusé la requête (HTTP ${fbRes.status}${Number.isInteger(errorCode) ? `, code ${errorCode}` : ''}).`;
-        }
+      } catch (err) {
+        console.error('Erreur YouTube Data API:', err);
       }
-    } catch {
-      facebookError = 'Impossible de joindre Facebook Graph API depuis le serveur.';
-    }
-  }
-
-  // YouTube Data API returns recent top-level comments for the configured channel.
-  if (youtubeApiKey) {
-    try {
-      let resolvedChannelId = youtubeChannelId;
-      if (!resolvedChannelId) {
-        const channelParams = new URLSearchParams({
-          part: 'id',
-          forHandle: youtubeChannelHandle,
-          key: youtubeApiKey,
-        });
-        const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?${channelParams}`, {
-          next: { revalidate: 3600 },
-        });
-        if (!channelRes.ok) throw new Error(`Résolution de la chaîne YouTube refusée (HTTP ${channelRes.status}).`);
-        const channelJson = await channelRes.json();
-        resolvedChannelId = channelJson.items?.[0]?.id;
-      }
-      if (!resolvedChannelId) throw new Error('Identifiant de chaîne YouTube introuvable.');
-
-      const youtubeParams = new URLSearchParams({
-        part: 'snippet',
-        allThreadsRelatedToChannelId: resolvedChannelId,
-        maxResults: '10',
-        order: 'time',
-        key: youtubeApiKey,
-      });
-      const youtubeRes = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${youtubeParams}`, {
-        ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
-      });
-
-      if (youtubeRes.ok) {
-        youtubeSource = 'available';
-        const youtubeJson = await youtubeRes.json();
-        const threads = Array.isArray(youtubeJson.items) ? youtubeJson.items : [];
-        for (const thread of threads) {
-          const comment = thread.snippet?.topLevelComment;
-          const snippet = comment?.snippet;
-          const messageText = typeof snippet?.textDisplay === 'string' ? snippet.textDisplay.replace(/<[^>]*>/g, '').trim() : '';
-          if (!messageText || !snippet?.publishedAt) continue;
-          const videoId = thread.snippet?.videoId;
-          const commentId = comment.id || thread.id;
-          mentions.push({
-            id: `yt-live-${commentId}`,
-            source: 'Chaîne YouTube INPTIC',
-            author: snippet.authorDisplayName || 'Utilisateur YouTube',
-            content: messageText,
-            sentiment: classifySentiment(messageText),
-            createdAt: snippet.publishedAt,
-            date: formatCommentDate(snippet.publishedAt),
-            url: videoId ? `https://www.youtube.com/watch?v=${videoId}&lc=${commentId}` : 'https://www.youtube.com',
-            platform: 'YouTube',
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Erreur YouTube Data API:', err);
-    }
-  }
+    })(),
+  ]);
 
   // 3. Interroger les flux RSS de presse et du web pour INPTIC Gabon
   try {
@@ -251,7 +369,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const authorizationError = await authorizeFacebookReply(request);
   if (authorizationError) return authorizationError;
 
@@ -338,7 +456,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 // Ingestion par Webhook ou publication manuelle d'un commentaire capturé
-export async function POST(req: NextRequest) {
+async function siteAuditedPOST(req: NextRequest) {
   try {
     const body = await req.json();
     const author = body.author || 'Visiteur Réseau Social';
@@ -372,3 +490,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }
+
+export const PATCH = withSiteAudit("Réponse à un commentaire de veille", siteAuditedPATCH);
+export const POST = withSiteAudit("Action de veille de réputation", siteAuditedPOST);

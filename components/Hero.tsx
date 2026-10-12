@@ -15,6 +15,7 @@ import {
   GraduationCap,
   X,
   Megaphone,
+  ChevronDown,
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -22,30 +23,6 @@ import Image from 'next/image';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Lottie } from 'lottie-react';
-
-/**
- * =========================================================
- * ANIMATIONS LOTTIE
- * =========================================================
- */
-
-import visit3dAnimation from '@/public/quickactions/visit3d.json';
-import applicationAnimation from '@/public/quickactions/candidature.json';
-import alumniAnimation from '@/public/quickactions/alumni.json';
-
-/**
- * Association entre une action et son animation Lottie.
- *
- * Les actions "bot" et "andg" utilisent leurs icônes/logos
- * classiques.
- */
-const quickActionAnimations = {
-  visit3d: visit3dAnimation,
-  application: applicationAnimation,
-  alumni: alumniAnimation,
-} as const;
 
 /**
  * =========================================================
@@ -79,8 +56,8 @@ const quickActions = [
     ariaLabel: 'Accéder à la plateforme Alumni',
   },
   {
-    key: 'andg',
-    label: 'ANDG',
+    key: 'andcg',
+    label: 'ANDCG',
     icon: GraduationCap,
     ariaLabel: 'Annuaire national des diplômés du Gabon',
   },
@@ -94,9 +71,13 @@ const quickActions = [
 
 const galleryImages = [
   '/institut/1.webp',
+  '/formations/informatique.webp',
   '/institut/2.webp',
+  '/formations/telecommunications.webp',
   '/institut/3.webp',
+  '/formations/management-tic.webp',
   '/institut/4.webp',
+  '/formations/multimedia-internet.webp',
   '/institut/5.webp',
 ];
 
@@ -119,7 +100,34 @@ type FormationRecommendation = {
   keywords: string[];
   domains: string[];
   levels: string[];
+  bacTypes: string[];
   href: string;
+};
+
+const gabonBaccalaureatTypes = [
+  { value: 'A1', label: 'A1' },
+  { value: 'A2', label: 'A2' },
+  { value: 'B', label: 'B' },
+  { value: 'C', label: 'C' },
+  { value: 'D', label: 'D' },
+  { value: 'S', label: 'S' },
+  { value: 'F1', label: 'F1' },
+  { value: 'F2', label: 'F2' },
+  { value: 'F3', label: 'F3' },
+  { value: 'F4', label: 'F4' },
+  { value: 'ACC', label: 'ACC' },
+  { value: 'CG', label: 'CG' },
+  { value: 'autre', label: 'Autre type de baccalauréat' },
+] as const;
+
+const bacSeriesEquivalences: Record<string, string[]> = {
+  A: ['A1', 'A2', 'B'],
+  C: ['C', 'D', 'S'],
+  D: ['C', 'D', 'S'],
+  E: ['F1', 'F2', 'F3', 'F4'],
+  F: ['F1', 'F2', 'F3', 'F4'],
+  G: ['ACC', 'CG'],
+  H: ['A1', 'A2', 'B', 'ACC', 'CG'],
 };
 
 /**
@@ -145,6 +153,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/genie-logiciel',
   },
 
@@ -163,6 +172,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/cybersecurite',
   },
 
@@ -182,6 +192,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/telecoms',
   },
 
@@ -201,6 +212,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['management-tic'],
     levels: ['dts', 'licence'],
+    bacTypes: ['A', 'C', 'D', 'G', 'H', 'autre'],
     href: '/formations',
   },
 
@@ -220,6 +232,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['audiovisuel'],
     levels: ['dts', 'licence'],
+    bacTypes: ['A', 'E', 'F', 'H', 'autre'],
     href: '/formations',
   },
 
@@ -239,6 +252,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['management-tic'],
     levels: ['dts', 'licence'],
+    bacTypes: ['A', 'G', 'H', 'autre'],
     href: '/formations/postes-logistique',
   },
 
@@ -256,6 +270,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/telecoms',
   },
 
@@ -274,6 +289,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/cybersecurite',
   },
 
@@ -293,6 +309,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/genie-logiciel',
   },
 
@@ -311,6 +328,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['reseaux-systemes'],
     levels: ['licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations',
   },
 
@@ -330,6 +348,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['management-tic'],
     levels: ['licence'],
+    bacTypes: ['A', 'G', 'H', 'autre'],
     href: '/formations',
   },
 
@@ -349,6 +368,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['management-tic'],
     levels: ['licence'],
+    bacTypes: ['A', 'G', 'H', 'autre'],
     href: '/formations',
   },
 
@@ -360,6 +380,7 @@ const formationRecommendations: FormationRecommendation[] = [
     keywords: ['son', 'audio', 'audiovisuel', 'production'],
     domains: ['audiovisuel'],
     levels: ['licence'],
+    bacTypes: ['A', 'E', 'F', 'H', 'autre'],
     href: '/formations',
   },
 
@@ -377,6 +398,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['audiovisuel'],
     levels: ['licence'],
+    bacTypes: ['A', 'E', 'F', 'H', 'autre'],
     href: '/formations',
   },
 
@@ -394,6 +416,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['qualifiante'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/telecoms',
   },
 
@@ -412,6 +435,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['qualifiante'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations/genie-logiciel',
   },
 
@@ -429,6 +453,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['qualifiante', 'certifiante'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations',
   },
 
@@ -440,6 +465,7 @@ const formationRecommendations: FormationRecommendation[] = [
     keywords: ['big data', 'donnees', 'data', 'analyse'],
     domains: ['certifiante'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'autre'],
     href: '/formations',
   },
 
@@ -456,6 +482,7 @@ const formationRecommendations: FormationRecommendation[] = [
     ],
     domains: ['certifiante'],
     levels: ['dts', 'licence'],
+    bacTypes: ['C', 'D', 'E', 'F', 'autre'],
     href: '/formations',
   },
 ];
@@ -473,6 +500,16 @@ function normalizeSearchValue(value: string) {
     .toLowerCase();
 }
 
+function formationMatchesBacType(
+  formation: FormationRecommendation,
+  bacType: string,
+) {
+  if (bacType === 'autre') return true;
+  return formation.bacTypes.some((series) =>
+    (bacSeriesEquivalences[series] ?? [series]).includes(bacType),
+  );
+}
+
 /**
  * =========================================================
  * RECHERCHE DE FORMATIONS
@@ -484,6 +521,9 @@ function findFormationMatches(
   domain: string,
   level: string,
 ) {
+  const bacType = level.startsWith('bac:')
+    ? level.slice('bac:'.length)
+    : '';
   const normalizedQuery = normalizeSearchValue(
     query.trim(),
   );
@@ -493,6 +533,11 @@ function findFormationMatches(
     .filter(Boolean);
 
   return formationRecommendations
+    .filter((formation) =>
+      !bacType ||
+      (formationMatchesBacType(formation, bacType) &&
+        formation.levels.includes('dts')),
+    )
     .map((formation) => {
       const keywordMatches =
         formation.keywords.filter((keyword) => {
@@ -517,14 +562,18 @@ function findFormationMatches(
 
       const levelMatch =
         level &&
+        !bacType &&
         formation.levels.includes(level)
           ? 1
           : 0;
+      const bacMatch =
+        bacType && formationMatchesBacType(formation, bacType) ? 5 : 0;
 
       const score =
         keywordMatches * 3 +
         domainMatch +
-        levelMatch;
+        levelMatch +
+        bacMatch;
 
       return {
         formation,
@@ -563,6 +612,9 @@ export default function Hero() {
   const [formationLevel, setFormationLevel] =
     useState('');
 
+  const [selectedBacSeries, setSelectedBacSeries] =
+    useState('');
+
   const [formationMatches, setFormationMatches] =
     useState<
       ReturnType<typeof findFormationMatches>
@@ -578,7 +630,7 @@ export default function Hero() {
    */
 
   return (
-    <section className="relative min-h-[560px] overflow-hidden bg-slate-900 pb-20 sm:min-h-[600px] md:min-h-[510px] md:pb-0">
+    <section className="relative min-h-[560px] overflow-hidden bg-slate-900 pb-20 sm:min-h-[600px] md:min-h-[510px] md:pb-12 xl:pb-0">
 
       {/* =====================================================
           HERO BACKGROUND
@@ -588,35 +640,33 @@ export default function Hero() {
         <div className="hero-slider-track flex h-full w-max">
 
           {sliderImages.map((image, index) => (
-            <div
-              key={`${image}-${index}`}
-              className="relative h-full w-screen shrink-0"
-            >
-              <Image
-                src={image}
-                alt=""
-                fill
-                priority={index === 0}
-                loading={
-                  index === 0 ? undefined : 'lazy'
-                }
-                sizes="100vw"
-                quality={65}
-                className="object-cover object-center saturate-105 contrast-[1.02]"
-                aria-hidden="true"
-              />
-
               <div
-                className="absolute inset-0 bg-slate-950/35"
-                aria-hidden="true"
-              />
-            </div>
+                key={`${image}-${index}`}
+                className="relative h-full w-screen shrink-0 bg-slate-950"
+              >
+                <Image
+                  src={image}
+                  alt=""
+                  fill
+                  priority={index === 0}
+                  loading={
+                    index === 0 ? undefined : 'lazy'
+                  }
+                  sizes="100vw"
+                  quality={65}
+                  className="object-cover object-center saturate-105 contrast-[1.02]"
+                  aria-hidden="true"
+                />
+
+                <div
+                  className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-slate-950/45 to-slate-950/55"
+                  aria-hidden="true"
+                />
+              </div>
           ))}
 
         </div>
       </div>
-
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-slate-950/45 to-slate-950/55" />
 
       {/* =====================================================
           HERO CONTENT
@@ -688,69 +738,123 @@ export default function Hero() {
                   findFormationMatches(
                     '',
                     formationDomain,
-                    formationLevel,
+                    formationLevel === 'bac' && selectedBacSeries
+                      ? `bac:${selectedBacSeries}`
+                      : formationLevel,
                   ),
                 );
 
                 setFormationDomain('');
                 setFormationLevel('');
+                setSelectedBacSeries('');
                 setShowFormationResults(true);
               }}
             >
 
-              <select
-                className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
-                aria-label={t('hero.studyDomain')}
-                value={formationDomain}
-                onChange={(event) =>
-                  setFormationDomain(event.target.value)
-                }
-              >
-                <option value="">
-                  {t('hero.studyDomain')}
-                </option>
+              <div className="relative min-w-0">
+                <select
+                  className="min-h-12 w-full min-w-0 appearance-none border border-slate-200 bg-white py-3 pl-3 pr-10 text-sm leading-normal text-slate-800 transition-colors duration-200 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 sm:text-base md:min-h-14 md:px-4 md:pr-11"
+                  aria-label={t('hero.studyDomain')}
+                  value={formationDomain}
+                  onChange={(event) =>
+                    setFormationDomain(event.target.value)
+                  }
+                >
+                  <option value="">
+                    {t('hero.studyDomain')}
+                  </option>
 
-                <option value="management-tic">
-                  {t('hero.management')}
-                </option>
+                  <option value="management-tic">
+                    {t('hero.management')}
+                  </option>
 
-                <option value="reseaux-systemes">
-                  {t('hero.networks')}
-                </option>
+                  <option value="reseaux-systemes">
+                    {t('hero.networks')}
+                  </option>
 
-                <option value="audiovisuel">
-                  {t('hero.audiovisual')}
-                </option>
+                  <option value="audiovisuel">
+                    {t('hero.audiovisual')}
+                  </option>
 
-                <option value="qualifiante">
-                  {t('hero.qualifying')}
-                </option>
+                  <option value="qualifiante">
+                    {t('hero.qualifying')}
+                  </option>
 
-                <option value="certifiante">
-                  {t('hero.certifying')}
-                </option>
-              </select>
+                  <option value="certifiante">
+                    {t('hero.certifying')}
+                  </option>
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 md:right-4"
+                  aria-hidden="true"
+                />
+              </div>
 
-              <select
-                className="w-full appearance-none rounded-lg bg-white p-3 text-base text-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 md:p-4"
-                aria-label={t('hero.studyLevel')}
-                value={formationLevel}
-                onChange={(event) =>
-                  setFormationLevel(event.target.value)
-                }
-              >
-                <option value="">
-                  {t('hero.level')}
-                </option>
+              <div className="relative min-w-0">
+                <select
+                  className="min-h-12 w-full min-w-0 appearance-none border border-slate-200 bg-white py-3 pl-3 pr-10 text-sm leading-normal text-slate-800 transition-colors duration-200 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 sm:text-base md:min-h-14 md:px-4 md:pr-11"
+                  aria-label={t('hero.studyLevel')}
+                  value={formationLevel}
+                  onChange={(event) => {
+                    setFormationLevel(event.target.value);
+                    setSelectedBacSeries('');
+                  }}
+                >
+                  <option value="">
+                    {t('hero.studyLevel')}
+                  </option>
 
-                <option value="dts">
-                  DTS
-                </option>
+                  <option value="dts">
+                    DTS
+                  </option>
 
-                <option value="licence">
-                  Licence
-                </option>
-              </select>
+                  <option value="licence">
+                    Licence
+                  </option>
+
+                  <option value="bac">
+                    Baccalauréat
+                  </option>
+
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 md:right-4"
+                  aria-hidden="true"
+                />
+              </div>
+
+              {formationLevel === 'bac' && (
+                <fieldset className="min-w-0">
+                  <legend className="mb-2 text-sm font-semibold text-white">
+                    Série du baccalauréat gabonais
+                  </legend>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {gabonBaccalaureatTypes.map(({ value, label }) => {
+                      const isSelected = selectedBacSeries === value;
+                      const optionLabel = value === 'autre'
+                        ? 'Autre'
+                        : `Bac ${label}`;
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-label={value === 'autre' ? label : optionLabel}
+                          aria-pressed={isSelected}
+                          onClick={() => setSelectedBacSeries(value)}
+                          className={`aspect-square min-w-0 rounded-lg border px-1 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 focus:ring-offset-slate-900 sm:text-sm ${
+                            isSelected
+                              ? 'border-[#D4AF37] bg-[#D4AF37] text-slate-950 shadow-md'
+                              : 'border-white/25 bg-white/10 text-white hover:border-white/60 hover:bg-white/20'
+                          }`}
+                        >
+                          {optionLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
 
               <button
                 type="submit"
@@ -780,8 +884,7 @@ export default function Hero() {
               FORMATION RESULTS
               ================================================= */}
 
-          {showFormationResults &&
-            formationMatches.length > 0 && (
+          {showFormationResults && (
               <div
                 className="formation-results-enter absolute inset-0 z-30 rounded-2xl border border-white/30 bg-slate-950 p-4 shadow-2xl sm:p-5"
                 aria-live="polite"
@@ -820,41 +923,32 @@ export default function Hero() {
 
                 </div>
 
-                <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
-
-                  {formationMatches.map((match) => (
-                    <Link
-                      key={match.title}
-                      href={match.href}
-                      className="block rounded-lg bg-white/95 p-3 text-slate-900 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-300"
-                    >
-
-                      <div className="flex items-start justify-between gap-3">
-
-                        <div>
-                          <p className="font-bold">
-                            {match.title}
-                          </p>
-
-                          <p className="text-xs text-slate-600">
-                            {match.department}
-                          </p>
+                {formationMatches.length > 0 ? (
+                  <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
+                    {formationMatches.map((match) => (
+                      <Link
+                        key={match.title}
+                        href={match.href}
+                        className="formation-result-card block rounded-lg bg-white/95 p-3 text-slate-900 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-bold">{match.title}</p>
+                            <p className="text-xs text-slate-600">{match.department}</p>
+                          </div>
+                          <span className="formation-result-score shrink-0 text-xs font-bold text-blue-700">
+                            {match.score}%
+                          </span>
                         </div>
-
-                        <span className="shrink-0 text-xs font-bold text-blue-700">
-                          {match.score}%
-                        </span>
-
-                      </div>
-
-                      <p className="mt-2 text-sm text-slate-700">
-                        {match.description}
-                      </p>
-
-                    </Link>
-                  ))}
-
-                </div>
+                        <p className="mt-2 text-sm text-slate-700">{match.description}</p>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-6 rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-slate-200">
+                    Aucune filière ne correspond à la fois au domaine et au baccalauréat sélectionnés. Essayez un autre domaine.
+                  </p>
+                )}
 
               </div>
             )}
@@ -867,7 +961,7 @@ export default function Hero() {
           QUICK ACTIONS - MOBILE
           ===================================================== */}
 
-      <div className="relative z-20 mt-6 grid grid-cols-5 gap-1.5 px-3 md:hidden">
+      <div className="relative z-20 mt-5 grid grid-cols-5 gap-2 px-3 sm:mt-6 sm:gap-3 sm:px-4 xl:hidden">
 
         {quickActions.map(
           ({
@@ -884,13 +978,6 @@ export default function Hero() {
             const isSelected =
               selectedAction === actionKey;
 
-            const animation =
-              actionKey in quickActionAnimations
-                ? quickActionAnimations[
-                    actionKey as keyof typeof quickActionAnimations
-                  ]
-                : undefined;
-
             /**
              * Contenu commun des boutons mobiles.
              */
@@ -898,54 +985,65 @@ export default function Hero() {
               <div
                 className={`
                   flex
-                  min-h-[68px]
+                  min-h-[72px]
                   w-full
+                  min-w-0
                   flex-col
                   items-center
                   justify-center
-                  gap-1.5
+                  gap-2
                   rounded-xl
                   border
-                  border-white/20
-                  bg-slate-900/85
+                  border-white/15
+                  bg-gradient-to-b
+                  from-slate-800/95
+                  to-slate-950/95
                   px-1
-                  py-2
+                  py-2.5
                   text-center
-                  shadow-xl
-                  backdrop-blur-md
-                  transition-all
-                  duration-300
-                  hover:scale-105
-                  hover:border-[#D4AF37]/80
-                  hover:bg-slate-900
+                  shadow-lg
+                  shadow-slate-950/20
+                  transition-[border-color,background-color,box-shadow,transform]
+                  duration-200
+                  hover:-translate-y-0.5
+                  hover:border-blue-300/40
+                  hover:shadow-xl
+                  active:translate-y-0
+                  active:scale-[0.98]
                   ${
                     isSelected
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#F4D06F] ring-2 ring-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.3)]'
+                      ? 'border-amber-300/50 from-slate-800 to-slate-900 text-amber-200 shadow-[0_8px_24px_rgba(245,158,11,0.10)]'
                       : 'text-white'
                   }
                 `}
               >
 
-                {animation ? (
-                  <Lottie
-                    src={animation}
-                    autoplay
-                    loop
-                    className="h-8 w-8 shrink-0"
-                  />
-                ) : (
-                  <Icon
-                    size={18}
-                    aria-hidden="true"
-                    className={
-                      isSelected
-                        ? 'text-[#F4D06F]'
-                        : 'text-white'
-                    }
-                  />
-                )}
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center">
+                  {actionKey === 'andcg' ? (
+                    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-md bg-white p-0.5 shadow-sm">
+                      <Image
+                        src="/backlinks/ANDCG.svg"
+                        alt="Logo ANDCG"
+                        width={32}
+                        height={32}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <Icon
+                      size={18}
+                      aria-hidden="true"
+                      className={
+                        isSelected
+                          ? 'text-[#F4D06F]'
+                          : 'text-white'
+                      }
+                    />
+                  )}
+                </div>
 
-                <span className="text-[10px] font-semibold leading-tight">
+                <span className="max-w-full text-[9px] font-semibold leading-tight sm:text-[11px]">
                   {localizedLabel}
                 </span>
 
@@ -955,7 +1053,7 @@ export default function Hero() {
             /**
              * ANDG
              */
-            if (actionKey === 'andg') {
+            if (actionKey === 'andcg') {
               return (
                 <a
                   key={actionKey}
@@ -963,22 +1061,9 @@ export default function Hero() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={localizedAriaLabel}
-                  className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
+                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                 >
-                  <div className="flex min-h-[68px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-slate-950/90 px-1 py-2 text-center shadow-xl">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white p-1">
-                      <img
-                        src="/backlinks/ANDCG.svg"
-                        alt="Logo ANDCG - Annuaire National des Diplômés et Certifiés du Gabon"
-                        className="h-full w-full object-contain"
-                        loading="lazy"
-                      />
-                    </span>
-
-                    <span className="text-[10px] font-semibold leading-tight text-white">
-                      {localizedLabel}
-                    </span>
-                  </div>
+                  {content}
                 </a>
               );
             }
@@ -1002,7 +1087,7 @@ export default function Hero() {
                         : '/concours'
                   }
                   aria-label={localizedAriaLabel}
-                  className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
+                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                 >
                   {content}
                 </Link>
@@ -1024,7 +1109,7 @@ export default function Hero() {
                   );
                 }}
                 aria-label={localizedAriaLabel}
-                className="block focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-slate-950"
+                className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
               >
                 {content}
               </button>
@@ -1038,7 +1123,7 @@ export default function Hero() {
           QUICK ACTIONS - DESKTOP
           ===================================================== */}
 
-      <div className="absolute bottom-20 right-5 z-30 hidden w-[96px] flex-col gap-2 rounded-2xl border border-white/25 bg-slate-950/95 p-2 text-center text-xs shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-right-8 duration-1000 xl:flex">
+      <div className="absolute bottom-20 right-5 z-30 hidden w-[100px] flex-col gap-1.5 rounded-2xl border border-white/15 bg-slate-950/90 p-2 text-center text-xs shadow-2xl shadow-slate-950/40 backdrop-blur-md animate-in fade-in slide-in-from-right-8 duration-700 xl:flex">
 
         {quickActions.map(
           ({
@@ -1055,36 +1140,35 @@ export default function Hero() {
             const isSelected =
               selectedAction === actionKey;
 
-            const animation =
-              actionKey in quickActionAnimations
-                ? quickActionAnimations[
-                    actionKey as keyof typeof quickActionAnimations
-                  ]
-                : undefined;
-
             /**
              * Taille uniforme de toutes les actions.
              */
             const commonClassName = `
               flex
-              min-h-[68px]
+              min-h-[72px]
               w-full
+              min-w-0
               flex-col
               items-center
               justify-center
-              gap-1
-              rounded-lg
-              px-1.5
+              gap-2
+              rounded-xl
+              border
+              border-transparent
+              px-1
               py-2
-              transition-all
+              transition-[border-color,background-color,box-shadow,transform]
               duration-200
-              focus:outline-none
-              focus:ring-2
-              focus:ring-white/70
+              hover:-translate-y-0.5
+              hover:border-blue-300/25
+              hover:bg-white/[0.06]
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-blue-300
               ${
                 isSelected
-                  ? 'bg-[#D4AF37]/20 text-[#F4D06F] ring-1 ring-[#D4AF37]/70 shadow-[0_0_0_1px_rgba(212,175,55,0.7)]'
-                  : 'text-white hover:bg-white/10'
+                  ? 'border-amber-300/30 bg-amber-300/[0.08] text-amber-200 shadow-[0_8px_24px_rgba(245,158,11,0.08)]'
+                  : 'text-white'
               }
             `;
 
@@ -1094,7 +1178,7 @@ export default function Hero() {
              * =================================================
              */
 
-            if (actionKey === 'andg') {
+            if (actionKey === 'andcg') {
               return (
                 <a
                   key={actionKey}
@@ -1105,12 +1189,14 @@ export default function Hero() {
                   aria-label={localizedAriaLabel}
                 >
 
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white p-1">
-                    <img
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white p-0.5 shadow-sm">
+                    <Image
                       src="/backlinks/ANDCG.svg"
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full object-contain"
+                      alt="Logo ANDCG"
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
                     />
                   </span>
 
@@ -1153,19 +1239,20 @@ export default function Hero() {
                   aria-label={localizedAriaLabel}
                 >
 
-                  {animation && (
-                    <Lottie
-                      src={animation}
-                      autoplay
-                      loop
-                      className="h-8 w-8 shrink-0"
-                    />
-                  )}
+                  <Icon
+                    size={20}
+                    aria-hidden="true"
+                    className={
+                      isSelected
+                        ? 'text-amber-200'
+                        : 'text-white'
+                    }
+                  />
 
                   <span
                     className={`text-[10px] font-semibold leading-tight ${
                       isSelected
-                        ? 'text-[#F4D06F]'
+                        ? 'text-amber-200'
                         : 'text-white'
                     }`}
                   >
@@ -1198,11 +1285,11 @@ export default function Hero() {
               >
 
                 <Icon
-                  size={18}
+                  size={20}
                   aria-hidden="true"
                   className={
                     isSelected
-                      ? 'text-[#F4D06F]'
+                      ? 'text-amber-200'
                       : 'text-white'
                   }
                 />
@@ -1210,7 +1297,7 @@ export default function Hero() {
                 <span
                   className={`text-[10px] font-semibold leading-tight ${
                     isSelected
-                      ? 'text-[#F4D06F]'
+                      ? 'text-amber-200'
                       : 'text-white'
                   }`}
                 >

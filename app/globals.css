@@ -214,6 +214,37 @@ html.dark .text-gray-500 {
   color: #cbd5e1 !important;
 }
 
+.alumni-directory-toolbar,
+.alumni-directory-photo {
+  border-radius: 0.875rem !important;
+}
+
+.alumni-directory-control {
+  border-radius: 0.625rem !important;
+}
+
+html.dark .formation-result-card {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark .formation-result-card:hover {
+  background-color: #334155 !important;
+}
+
+html.dark .formation-result-score {
+  color: #67e8f9 !important;
+}
+
+html.dark .director-message {
+  background-color: #1e293b !important;
+  border: 1px solid #334155;
+}
+
+html.dark .director-message .text-blue-700 {
+  color: #67e8f9 !important;
+}
+
 html.dark .border-slate-200,
 html.dark .border-slate-300,
 html.dark .border-gray-200,
@@ -462,44 +493,76 @@ a, button, input, select {
     transform: translateX(0);
   }
 
-  16% {
+  8.33% {
     transform: translateX(0);
   }
 
-  20% {
+  11.11% {
     transform: translateX(-100vw);
   }
 
-  36% {
+  19.44% {
     transform: translateX(-100vw);
   }
 
-  40% {
+  22.22% {
     transform: translateX(-200vw);
   }
 
-  56% {
+  30.56% {
     transform: translateX(-200vw);
   }
 
-  60% {
+  33.33% {
     transform: translateX(-300vw);
   }
 
-  76% {
+  41.67% {
     transform: translateX(-300vw);
   }
 
-  80% {
+  44.44% {
     transform: translateX(-400vw);
   }
 
-  96% {
+  52.78% {
     transform: translateX(-400vw);
+  }
+
+  55.56% {
+    transform: translateX(-500vw);
+  }
+
+  63.89% {
+    transform: translateX(-500vw);
+  }
+
+  66.67% {
+    transform: translateX(-600vw);
+  }
+
+  75% {
+    transform: translateX(-600vw);
+  }
+
+  77.78% {
+    transform: translateX(-700vw);
+  }
+
+  86.11% {
+    transform: translateX(-700vw);
+  }
+
+  88.89% {
+    transform: translateX(-800vw);
+  }
+
+  97.22% {
+    transform: translateX(-800vw);
   }
 
   100% {
-    transform: translateX(-500vw);
+    transform: translateX(-900vw);
   }
 }
 

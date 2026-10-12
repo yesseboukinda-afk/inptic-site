@@ -91,7 +91,7 @@ export default function QuittanceVerificationPage() {
     );
   }
 
-  const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://inptic.ga';
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://inptic-ga.org';
   const qrSvg = generateQRCodeSVG(`${siteUrl}/quittance/${reference}`, { size: 140 });
 
   return (

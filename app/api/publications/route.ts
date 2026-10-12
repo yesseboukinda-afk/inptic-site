@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
@@ -201,7 +202,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ data: items, count: items.length });
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
 
@@ -257,7 +258,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
 
@@ -318,7 +319,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function siteAuditedDELETE(request: NextRequest) {
   const auth = await authorizeStaff(request);
   if (auth.error) return auth.error;
 
@@ -343,3 +344,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Impossible de supprimer la publication.' }, { status: 503 });
   }
 }
+
+export const POST = withSiteAudit("Création de publication scientifique", siteAuditedPOST);
+export const PATCH = withSiteAudit("Modification de publication scientifique", siteAuditedPATCH);
+export const DELETE = withSiteAudit("Suppression de publication scientifique", siteAuditedDELETE);

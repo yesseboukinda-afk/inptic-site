@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        ...(openRouterKey ? { 'HTTP-Referer': 'https://inptic.ga', 'X-Title': 'INPTIC Translator' } : {}),
+        ...(openRouterKey ? { 'HTTP-Referer': 'https://inptic-ga.org', 'X-Title': 'INPTIC Translator' } : {}),
       },
       body: JSON.stringify({
         model,

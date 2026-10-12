@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendAuthEmail } from '@/lib/auth-email';
@@ -6,7 +7,7 @@ import { getAuthSiteUrl, hashOpaqueToken, hashPassword, serializeAuthUser } from
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   if (!hasAuthMailConfig()) {
     return NextResponse.json({ error: 'Le service de confirmation e-mail n’est pas configuré.' }, { status: 503 });
   }
@@ -115,3 +116,5 @@ function escapeHtml(value: string) {
 function hasAuthMailConfig() {
   return Boolean(process.env.RESEND_API_KEY && (process.env.AUTH_FROM_EMAIL || process.env.NEWSLETTER_FROM_EMAIL));
 }
+
+export const POST = withSiteAudit("Création de compte candidat", siteAuditedPOST);

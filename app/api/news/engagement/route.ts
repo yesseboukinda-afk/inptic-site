@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const articleSlug = typeof body?.articleSlug === 'string' ? body.articleSlug.trim() : '';
   const action = body?.action as EngagementAction;
@@ -216,3 +217,5 @@ export async function POST(request: NextRequest) {
     client.release();
   }
 }
+
+export const POST = withSiteAudit("Interaction avec une actualité", siteAuditedPOST);

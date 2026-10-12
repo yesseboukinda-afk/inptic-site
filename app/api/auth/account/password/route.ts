@@ -1,10 +1,11 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser, hashPassword, verifyPassword } from '@/lib/postgres-auth';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
     return NextResponse.json({ error: 'Session requise. Reconnecte-toi pour modifier ton compte.' }, { status: 401 });
@@ -68,3 +69,5 @@ export async function POST(request: NextRequest) {
     client.release();
   }
 }
+
+export const POST = withSiteAudit("Changement de mot de passe", siteAuditedPOST);

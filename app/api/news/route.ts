@@ -1,3 +1,4 @@
+import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { canAccessStaffService } from '@/lib/roles';
 import { strapi } from '@/lib/strapi';
@@ -244,7 +245,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function siteAuditedPOST(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
   if (!process.env.DATABASE_URL) {
@@ -354,7 +355,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ error: 'Aucune base de données configurée pour enregistrer.' }, { status: 500 });
 }
 
-export async function PATCH(request: NextRequest) {
+async function siteAuditedPATCH(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
   if (!process.env.DATABASE_URL) {
@@ -478,7 +479,7 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ error: 'Aucune base de données disponible pour modifier.' }, { status: 500 });
 }
 
-export async function DELETE(request: NextRequest) {
+async function siteAuditedDELETE(request: NextRequest) {
   const authorization = await authorizeCommunication(request);
   if (authorization.error) return authorization.error;
   if (!process.env.DATABASE_URL) {
@@ -516,3 +517,7 @@ export async function DELETE(request: NextRequest) {
 
   return NextResponse.json({ error: 'Base de données non configurée.' }, { status: 500 });
 }
+
+export const POST = withSiteAudit("Création d’actualité", siteAuditedPOST);
+export const PATCH = withSiteAudit("Modification d’actualité", siteAuditedPATCH);
+export const DELETE = withSiteAudit("Suppression d’actualité", siteAuditedDELETE);

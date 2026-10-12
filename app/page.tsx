@@ -2,11 +2,12 @@
 
 import Hero from "@/components/Hero";
 import AnnouncementsCarousel from "@/components/AnnouncementsCarousel";
+import HomeAgenda from "@/components/HomeAgenda";
 import Link from 'next/link';
+import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
-  CalendarDays,
   Users,
   BookOpen,
   Globe2,
@@ -15,10 +16,30 @@ import {
 export default function Home() {
   const { t } = useTranslation();
   const formations = [
-    [t('home.informatique'), t('home.informatiqueText'), "/formations/genie-logiciel"],
-    [t('home.multimedia'), t('home.multimediaText'), "/formations"],
-    [t('home.telecom'), t('home.telecomText'), "/formations/telecoms"],
-    [t('home.management'), t('home.managementText'), "/formations"],
+    {
+      title: t('home.informatique'),
+      description: t('home.informatiqueText'),
+      href: "/formations/genie-logiciel",
+      image: "/formations/informatique.webp",
+    },
+    {
+      title: t('home.multimedia'),
+      description: t('home.multimediaText'),
+      href: "/formations",
+      image: "/formations/multimedia-internet.webp",
+    },
+    {
+      title: t('home.telecom'),
+      description: t('home.telecomText'),
+      href: "/formations/telecoms",
+      image: "/formations/telecommunications.webp",
+    },
+    {
+      title: t('home.management'),
+      description: t('home.managementText'),
+      href: "/formations",
+      image: "/formations/management-tic.webp",
+    },
   ];
 
   return (
@@ -124,12 +145,20 @@ export default function Home() {
             </a>
           </div>
           <div className="grid md:grid-cols-4 gap-5 mt-6">
-            {formations.map(([title, description, href]) => (
+            {formations.map(({ title, description, href, image }) => (
               <article
                 key={title}
                 className="bg-white border rounded-2xl p-5 hover:shadow-lg transition"
               >
-                <div className="h-28 bg-slate-100 rounded-xl mb-5" />
+                <div className="relative h-28 overflow-hidden rounded-xl mb-5">
+                  <Image
+                    src={image}
+                    alt={title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 25vw"
+                  />
+                </div>
                 <h3 className="font-bold text-lg">{title}</h3>
                 <p className="text-sm text-slate-500 mt-2 min-h-12">{description}</p>
                 <p className="text-xs mt-4">{t('home.diploma')}</p>
@@ -145,7 +174,7 @@ export default function Home() {
         </section>
         <section
           id="admissions"
-          className="my-12 bg-slate-950 text-white rounded-3xl p-10 grid md:grid-cols-3 gap-8"
+          className="my-12 overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.10),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.10),_transparent_30%),linear-gradient(135deg,#0b1220_0%,#111827_45%,#0f172a_100%)] p-10 text-white shadow-[0_18px_45px_rgba(15,23,42,0.35)] grid md:grid-cols-3 gap-8"
         >
           <div>
             <h2 className="text-3xl font-black">{t('home.apply')}</h2>
@@ -160,10 +189,7 @@ export default function Home() {
             </a>
           </div>
           <div>
-            <h3 className="font-bold">{t('home.agenda')}</h3>
-            <p className="mt-4">28 MAI — {t('home.openDay')}</p>
-            <p className="mt-4">05 JUIN — {t('home.companiesForum')}</p>
-            <p className="mt-4">12 JUIN — {t('home.aiConference')}</p>
+            <HomeAgenda />
           </div>
           <div>
             <h3 className="font-bold">{t('home.keyFigures')}</h3>
