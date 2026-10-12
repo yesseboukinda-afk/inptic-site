@@ -127,7 +127,6 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
       <div class="photo-wrapper">${photo}</div>
       <div class="identity">
         <strong class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</strong>
-        <span class="position">${escapeHtml(profile.position)}</span>
         <span class="department">${escapeHtml(profile.department)}</span>
         <span class="matr">MATRICULE : ${escapeHtml(profile.matricule)}</span>
       </div>
@@ -294,16 +293,6 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         .card-front--compact .name { font-size: 7.5pt; }
         .card-front--dense .name { font-size: 6.5pt; }
         .card-front--dense .identity { line-height: 1; }
-        }
-        .position {
-          max-width: 100%;
-          overflow: hidden;
-          margin-top: 0.5mm;
-          color: #262626;
-          font-size: 6.5pt;
-          font-weight: 700;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
         .department {
           max-width: 100%;
@@ -523,7 +512,7 @@ export default function AdminRHPage() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Données
-  const [profiles, setProfiles] = useState<RHProfile[]>([]);
+  const [allProfiles, setAllProfiles] = useState<RHProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<RHAuditLog[]>([]);
   const [auditLogCount, setAuditLogCount] = useState(0);
   const [profilesError, setProfilesError] = useState('');
@@ -637,6 +626,10 @@ export default function AdminRHPage() {
   }, []);
 
   const isReadOnly = userRole === 'rh_consultation';
+  const profiles = useMemo(
+    () => (showArchived ? allProfiles : allProfiles.filter((profile) => !profile.isArchived)),
+    [allProfiles, showArchived],
+  );
 
   // Chargement des profils
   const loadProfiles = async () => {
@@ -644,14 +637,14 @@ export default function AdminRHPage() {
     setLoading(true);
     setProfilesError('');
     try {
-      const res = await fetch(`/api/rh/profiles?archived=${showArchived ? '1' : '0'}`, {
+      const res = await fetch('/api/rh/profiles?archived=1', {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Chargement RH impossible (${res.status}).`);
       if (!Array.isArray(json.data)) throw new Error('Réponse invalide lors du chargement des employés.');
-      setProfiles(json.data);
+      setAllProfiles(json.data);
     } catch (err) {
       console.error('Erreur chargement profils:', err);
       setProfilesError(err instanceof Error ? err.message : 'Impossible de charger la liste des employés.');
@@ -688,18 +681,7 @@ export default function AdminRHPage() {
       loadProfiles();
       loadAuditLogs();
     }
-
-    const refreshInterval = window.setInterval(() => {
-      if (token) {
-        void loadProfiles();
-        void loadAuditLogs();
-      }
-    }, 30_000);
-
-    return () => {
-      window.clearInterval(refreshInterval);
-    };
-  }, [token, showArchived]);
+  }, [token]);
 
   // Profils filtrés
   const filteredProfiles = useMemo(() => {
@@ -1400,6 +1382,16 @@ export default function AdminRHPage() {
             {/* Actions : Ajouter, Import, Export */}
             <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
+                onClick={() => void loadProfiles()}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-100 transition disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>{loading ? 'Actualisation...' : 'Actualiser la liste'}</span>
+              </button>
+
+              <button
                 onClick={handleExportCSV}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
               >
@@ -1790,7 +1782,6 @@ export default function AdminRHPage() {
                             >
                               {selectedForCard.firstName} {selectedForCard.lastName}
                             </p>
-                            <p className="w-full truncate text-[7px] font-bold text-neutral-800">{selectedForCard.position}</p>
                             <p className="w-full truncate text-[6px] font-semibold text-slate-600">{selectedForCard.department}</p>
                             <p className="mt-[1%] text-[6px] font-mono font-bold text-[#293b9d]">MATRICULE : {selectedForCard.matricule}</p>
                           </div>
