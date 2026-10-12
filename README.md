@@ -12,14 +12,14 @@ Le bouton Assistant et la page `/chatbot` utilisent `/api/chat`, qui appelle
 Google Gemini côté serveur. Configurez `GEMINI_API_KEY` dans `.env.local` pour
 le développement et dans les variables d'environnement du déploiement. La clé
 ne doit jamais être préfixée par `NEXT_PUBLIC_`. Le modèle par défaut est
-`gemini-2.5-pro`; `GEMINI_MODEL` permet de le remplacer. La recherche Google
+`gemini-3.1-pro-preview`; `GEMINI_MODEL` permet de le remplacer. La recherche Google
 groundée et l'exécution Python sont activées pour aider aux recherches récentes
 et aux calculs. Les sources Web renvoyées par Google sont affichées dans les
 réponses. Le modèle Pro et ces outils peuvent répondre plus lentement et entraîner
 des coûts supérieurs à Gemini Flash.
 
 Pour le déploiement LWS, renseigner `GEMINI_API_KEY` dans les variables
-d'environnement du serveur Node.js, avec `GEMINI_MODEL=gemini-2.5-pro` et
+d'environnement du serveur Node.js, avec `GEMINI_MODEL=gemini-3.1-pro-preview` et
 `GEMINI_TTS_MODEL=gemini-3.8-flash-tts` si ces modèles sont disponibles pour la
 clé et le projet Google utilisés. La même clé sert aux réponses textuelles et
 à la génération vocale. Ne jamais copier la clé dans Git, une variable

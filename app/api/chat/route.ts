@@ -118,7 +118,7 @@ Directives clés :
 Contexte du site :\n${siteKnowledge}`;
 
     const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.1-pro-preview';
     const openAiKey = process.env.OPENAI_API_KEY;
     const openRouterKey = process.env.OPENROUTER_API_KEY;
 
