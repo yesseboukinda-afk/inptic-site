@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
+import { Lottie } from 'lottie-react';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
 import { getRolePath, getStaffRole, isDirectorRole, isRHRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
@@ -169,6 +170,30 @@ export default function Candidat() {
   const [msg, setMsg] = useState('');
   const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false);
   const [isSignupPasswordVisible, setIsSignupPasswordVisible] = useState(false);
+  const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+  const loginNavigationTimer = useRef<number | null>(null);
+  const isPasswordLoginInProgress = useRef(false);
+
+  const navigateAfterLogin = (destination: string, method: 'push' | 'replace', animate: boolean) => {
+    isPasswordLoginInProgress.current = false;
+    if (loginNavigationTimer.current !== null) {
+      window.clearTimeout(loginNavigationTimer.current);
+      loginNavigationTimer.current = null;
+    }
+
+    if (!animate) {
+      setShowLoginSuccess(false);
+      router[method](destination);
+      return;
+    }
+
+    setShowLoginSuccess(true);
+    loginNavigationTimer.current = window.setTimeout(() => {
+      setShowLoginSuccess(false);
+      loginNavigationTimer.current = null;
+      router[method](destination);
+    }, 1400);
+  };
 
   const handleSocialAuth = async (provider: (typeof socialProviders)[number]['provider']) => {
     const providerName = socialProviders.find((item) => item.provider === provider)?.name ?? provider;
@@ -190,7 +215,7 @@ export default function Candidat() {
   }, [msg]);
 
   useEffect(() => {
-    const routeAuthenticatedUser = (user: any) => {
+    const routeAuthenticatedUser = (user: any, animate: boolean) => {
       const profile = buildAuthProfile(user);
       const role = normalizeRole(user?.app_metadata?.role);
       localStorage.removeItem('inptic_user');
@@ -200,16 +225,16 @@ export default function Candidat() {
       if (isSuperAdminRole(role)) {
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role }));
-        router.replace('/admin');
+        navigateAfterLogin('/admin', 'replace', animate);
       } else if (isRHRole(role)) {
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin', service: 'rh' }));
-        router.replace('/admin/rh');
+        navigateAfterLogin('/admin/rh', 'replace', animate);
       } else if (role === 'scolarite') {
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role }));
-        router.replace('/scolarite');
+        navigateAfterLogin('/scolarite', 'replace', animate);
       } else if (isDirectorRole(role)) {
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role }));
-        router.replace('/directeur');
+        navigateAfterLogin('/directeur', 'replace', animate);
       } else if (getStaffRole(role)) {
         const staffRole = getStaffRole(role);
         localStorage.setItem(
@@ -221,21 +246,23 @@ export default function Candidat() {
             service: user?.user_metadata?.service ?? user?.user_metadata?.department,
           }),
         );
-        router.replace(getRolePath(
+        navigateAfterLogin(getRolePath(
           staffRole,
           profile.email,
           user?.user_metadata?.service ?? user?.user_metadata?.department,
-        ));
+        ), 'replace', animate);
       } else {
         persistLocalProfile(profile);
-        router.replace(getCandidateDestination(profile));
+        navigateAfterLogin(getCandidateDestination(profile), 'replace', animate);
       }
       window.dispatchEvent(new Event('auth-state-changed'));
     };
 
     const { data: { subscription } } = authClient.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        routeAuthenticatedUser(session.user);
+        if (event !== 'SIGNED_IN' || !isPasswordLoginInProgress.current) {
+          routeAuthenticatedUser(session.user, event === 'SIGNED_IN');
+        }
       }
       if (event === 'SIGNED_OUT') {
         localStorage.removeItem('inptic_user');
@@ -257,11 +284,17 @@ export default function Candidat() {
     } else if (query.has('authError')) {
       setMsg('La validation du lien ou la connexion a échoué. Réessayez.');
     }
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (loginNavigationTimer.current !== null) {
+        window.clearTimeout(loginNavigationTimer.current);
+      }
+    };
   }, [router]);
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
+    isPasswordLoginInProgress.current = true;
 
     try {
       const { data, error } = await authClient.auth.signInWithPassword({
@@ -310,7 +343,7 @@ export default function Candidat() {
         localStorage.setItem('inptic_staff', JSON.stringify({ email: profile.email, name: profile.name, role: 'admin' }));
         localStorage.setItem('inptic_directeur', JSON.stringify({ email: profile.email, name: profile.name, role: normalizedRole }));
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push('/admin');
+        navigateAfterLogin('/admin', 'push', true);
         return;
       }
 
@@ -322,7 +355,7 @@ export default function Candidat() {
           JSON.stringify({ email: profile.email, name: profile.name || 'Gestionnaire RH', role: 'admin', service: 'rh' })
         );
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push('/admin/rh');
+        navigateAfterLogin('/admin/rh', 'push', true);
         return;
       }
 
@@ -334,7 +367,7 @@ export default function Candidat() {
           JSON.stringify({ email: profile.email, name: profile.name || 'Direction de la Scolarité', role: 'scolarite', service: 'scolarite' })
         );
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push('/scolarite');
+        navigateAfterLogin('/scolarite', 'push', true);
         return;
       }
 
@@ -345,7 +378,7 @@ export default function Candidat() {
           JSON.stringify({ email: profile.email, name: profile.name || 'Directeur général', role: 'directeur' })
         );
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push('/directeur');
+        navigateAfterLogin('/directeur', 'push', true);
         return;
       }
 
@@ -361,11 +394,11 @@ export default function Candidat() {
           }),
         );
         window.dispatchEvent(new Event('auth-state-changed'));
-        router.push(getRolePath(
+        navigateAfterLogin(getRolePath(
           staffRole,
           profile.email,
           user?.user_metadata?.service ?? user?.user_metadata?.department,
-        ));
+        ), 'push', true);
         return;
       }
 
@@ -389,8 +422,14 @@ export default function Candidat() {
       }
 
       setMsg('Connexion réussie.');
-      router.push(getCandidateDestination(profile));
+      navigateAfterLogin(getCandidateDestination(profile), 'push', true);
     } catch (error) {
+      isPasswordLoginInProgress.current = false;
+      if (loginNavigationTimer.current !== null) {
+        window.clearTimeout(loginNavigationTimer.current);
+        loginNavigationTimer.current = null;
+      }
+      setShowLoginSuccess(false);
       const message = error instanceof Error ? translateAuthError(error.message, t) : t('auth.genericError');
       setMsg(message);
     }
@@ -499,6 +538,27 @@ export default function Candidat() {
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-12">
+      {showLoginSuccess && (
+        <div
+          role="status"
+          aria-live="assertive"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+        >
+          <div className="flex flex-col items-center text-center text-white">
+            <div className="flex h-80 w-80 max-w-[85vw] items-center justify-center rounded-full bg-white shadow-[0_0_100px_rgba(74,222,128,0.35)]">
+              <Lottie
+                src="/icons8-check-50.json"
+                autoplay
+                loop={false}
+                className="h-full w-full"
+                aria-label="Connexion validée"
+              />
+            </div>
+            <p className="mt-6 text-2xl font-black tracking-wide sm:text-3xl">Connexion validée</p>
+            <p className="mt-2 text-sm font-medium text-slate-200">Bienvenue à l’INPTIC</p>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-5xl grid gap-8 rounded-3xl bg-white p-6 md:grid-cols-[1.1fr_1fr] md:p-10">
         <section className="rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 p-8 text-white">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">{t('common.login')}</p>

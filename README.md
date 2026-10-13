@@ -117,6 +117,10 @@ index PostgreSQL nécessaires à l'application. Il cible PostgreSQL 13 ou plus
 récent. Pour ce déploiement neuf, aucune donnée de l'ancien hébergement n'est
 importée.
 
+Pour une base existante, exécuter `scripts/14_migrate_rh_direction_service.sql`
+avant de déployer la nouvelle version RH. Ce script sépare les anciennes
+affectations en direction et service sans supprimer la valeur historique.
+
 Pour créer automatiquement la base puis son schéma, le script
 `scripts/create-lws-database.sh` requiert `psql` et un compte PostgreSQL ayant le
 droit `CREATEDB` :

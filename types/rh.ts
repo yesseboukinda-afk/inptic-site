@@ -107,7 +107,9 @@ export type RHProfile = {
   email: string;
   photoUrl: string;
   // Données administratives
-  department: string; // Direction ou service
+  direction: string;
+  service: string;
+  department: string; // Champ historique conservé pour les intégrations existantes
   position: string; // Intitulé de fonction
   status: RHStaffStatus;
   contractType: RHContractType;

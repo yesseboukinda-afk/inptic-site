@@ -67,7 +67,6 @@ import {
   RHGender,
   RHQRStatus,
   RHAuditLog,
-  RH_DEPARTMENTS,
   RHPublicWhitelist,
 } from '@/types/rh';
 import { generateQRCodeSVG } from '@/lib/qrcode';
@@ -95,6 +94,120 @@ const getProfileFileName = (profile: RHProfile) =>
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '') || `profil_${profile.id}`;
+
+const escapeXml = (value: unknown) =>
+  String(value ?? '').replace(/[<>&'"]/g, (character) => {
+    const entities: Record<string, string> = {
+      '<': '&lt;',
+      '>': '&gt;',
+      '&': '&amp;',
+      "'": '&apos;',
+      '"': '&quot;',
+    };
+    return entities[character];
+  });
+
+const xlsxInlineCell = (column: string, row: number, value: unknown) =>
+  `<c r="${column}${row}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`;
+
+const renderSvgAsPng = async (svg: string) => {
+  const imageUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const image = document.createElement('img');
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Impossible de préparer un QR Code pour le fichier Excel.'));
+      image.src = imageUrl;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Le navigateur ne peut pas générer les images QR du fichier Excel.');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const png = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('La création d’une image QR a échoué.'));
+      }, 'image/png');
+    });
+    return new Uint8Array(await png.arrayBuffer());
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+};
+
+const createProfilesExcel = async (profiles: RHProfile[], origin: string) => {
+  const headers = ['Matricule', 'Nom', 'Prénom', 'Direction', 'Service', 'Poste', 'Statut', 'État QR', 'QR Code', 'Lien QR'];
+  const files: Record<string, Uint8Array> = {};
+  const mediaRelationships: string[] = [];
+  const anchors: string[] = [];
+  const rows: string[] = [
+    `<row r="1">${headers.map((header, index) => xlsxInlineCell(String.fromCharCode(65 + index), 1, header)).join('')}</row>`,
+  ];
+
+  for (let index = 0; index < profiles.length; index++) {
+    const profile = profiles[index];
+    const rowNumber = index + 2;
+    const qrUrl = `${origin}/agent/${profile.qrToken || profile.id}`;
+    const cells = [
+      profile.matricule,
+      profile.lastName,
+      profile.firstName,
+      profile.direction,
+      profile.service,
+      profile.position,
+      profile.status,
+      profile.qrStatus,
+      '',
+      qrUrl,
+    ].map((value, cellIndex) => cellIndex === 8 ? '' : xlsxInlineCell(String.fromCharCode(65 + cellIndex), rowNumber, value));
+    rows.push(`<row r="${rowNumber}" ht="96" customHeight="1">${cells.join('')}</row>`);
+
+    const imageNumber = index + 1;
+    const qrPng = await renderSvgAsPng(generateQRCodeSVG(qrUrl, { size: 400 }));
+    files[`xl/media/image${imageNumber}.png`] = qrPng;
+    mediaRelationships.push(
+      `<Relationship Id="rId${imageNumber}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${imageNumber}.png"/>`,
+    );
+    anchors.push(
+      `<xdr:oneCellAnchor><xdr:from><xdr:col>8</xdr:col><xdr:colOff>50000</xdr:colOff><xdr:row>${index + 1}</xdr:row><xdr:rowOff>60000</xdr:rowOff></xdr:from><xdr:ext cx="900000" cy="900000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imageNumber}" name="QR ${escapeXml(profile.matricule)}" descr="QR Code de ${escapeXml(profile.firstName)} ${escapeXml(profile.lastName)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${imageNumber}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`,
+    );
+  }
+
+  const lastRow = profiles.length + 1;
+  files['[Content_Types].xml'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`,
+  );
+  files['_rels/.rels'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+  );
+  files['xl/workbook.xml'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Personnel INPTIC" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+  );
+  files['xl/_rels/workbook.xml.rels'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
+  );
+  files['xl/worksheets/sheet1.xml'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:J${lastRow}"/><cols><col min="1" max="1" width="20" customWidth="1"/><col min="2" max="3" width="24" customWidth="1"/><col min="4" max="6" width="34" customWidth="1"/><col min="7" max="8" width="16" customWidth="1"/><col min="9" max="9" width="18" customWidth="1"/><col min="10" max="10" width="58" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><drawing r:id="rId1"/></worksheet>`,
+  );
+  files['xl/worksheets/_rels/sheet1.xml.rels'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`,
+  );
+  files['xl/drawings/drawing1.xml'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anchors.join('')}</xdr:wsDr>`,
+  );
+  files['xl/drawings/_rels/drawing1.xml.rels'] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${mediaRelationships.join('')}</Relationships>`,
+  );
+
+  const archive = zipSync(files, { level: 6 });
+  return new Blob([archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+};
 
 const getCardNameVariant = (profile: Pick<RHProfile, 'firstName' | 'lastName'>) => {
   const nameLength = `${profile.firstName} ${profile.lastName}`.length;
@@ -148,7 +261,7 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       <meta charset="utf-8" />
       <title>Cartes professionnelles INPTIC</title>
       <style>
-        @page { size: 55mm 85mm; margin: 0; }
+        @page { size: 55mm 85mm portrait; margin: 0; }
         * { box-sizing: border-box; }
         html, body {
           width: 55mm;
@@ -362,6 +475,19 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
           body { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #e2e8f0; }
           .card-face { box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
         }
+        @media print {
+          html, body { width: 55mm !important; margin: 0 !important; padding: 0 !important; }
+          .card-face {
+            width: 55mm !important;
+            height: 85mm !important;
+            min-width: 55mm !important;
+            max-width: 55mm !important;
+            margin: 0 !important;
+            break-after: page;
+            page-break-after: always;
+          }
+          .card-face:last-child { break-after: auto; page-break-after: auto; }
+        }
       </style>
     </head>
     <body>
@@ -510,7 +636,9 @@ export default function AdminRHPage() {
 
   // Filtres
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDept, setSelectedDept] = useState('all');
+  const [selectedDirection, setSelectedDirection] = useState('all');
+  const [selectedService, setSelectedService] = useState('all');
+  const [selectedPosition, setSelectedPosition] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showArchived, setShowArchived] = useState(false);
 
@@ -528,6 +656,8 @@ export default function AdminRHPage() {
   const [importFileName, setImportFileName] = useState('');
   const [importReport, setImportReport] = useState<{ success: number; errors: string[] } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingAudit, setIsExportingAudit] = useState(false);
 
   // Formulaire Employé
   const [formMatricule, setFormMatricule] = useState('');
@@ -539,7 +669,8 @@ export default function AdminRHPage() {
   const [formPhone, setFormPhone] = useState('+241 ');
   const [formEmail, setFormEmail] = useState('@inptic.ga');
   const [formPhotoUrl, setFormPhotoUrl] = useState('');
-  const [formDept, setFormDept] = useState<string>(RH_DEPARTMENTS[0]);
+  const [formDirection, setFormDirection] = useState('');
+  const [formService, setFormService] = useState('');
   const [formPosition, setFormPosition] = useState('');
   const [formStatus, setFormStatus] = useState<RHStaffStatus>('contractuel');
   const [formContract, setFormContract] = useState<RHContractType>('CDI');
@@ -619,6 +750,17 @@ export default function AdminRHPage() {
     () => (showArchived ? allProfiles : allProfiles.filter((profile) => !profile.isArchived)),
     [allProfiles, showArchived],
   );
+  const organizationOptions = useMemo(() => {
+    const uniqueSorted = (values: string[]) =>
+      [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, 'fr', { sensitivity: 'base' }),
+      );
+    return {
+      directions: uniqueSorted(allProfiles.map((profile) => profile.direction)),
+      services: uniqueSorted(allProfiles.map((profile) => profile.service)),
+      positions: uniqueSorted(allProfiles.map((profile) => profile.position)),
+    };
+  }, [allProfiles]);
 
   // Chargement des profils
   const loadProfiles = async () => {
@@ -676,8 +818,14 @@ export default function AdminRHPage() {
   const filteredProfiles = useMemo(() => {
     let list = profiles;
 
-    if (selectedDept !== 'all') {
-      list = list.filter((p) => p.department.toLowerCase() === selectedDept.toLowerCase());
+    if (selectedDirection !== 'all') {
+      list = list.filter((p) => p.direction.toLowerCase() === selectedDirection.toLowerCase());
+    }
+    if (selectedService !== 'all') {
+      list = list.filter((p) => p.service.toLowerCase() === selectedService.toLowerCase());
+    }
+    if (selectedPosition !== 'all') {
+      list = list.filter((p) => p.position.toLowerCase() === selectedPosition.toLowerCase());
     }
 
     if (selectedStatus !== 'all') {
@@ -692,13 +840,15 @@ export default function AdminRHPage() {
           p.lastName.toLowerCase().includes(q) ||
           p.matricule.toLowerCase().includes(q) ||
           p.position.toLowerCase().includes(q) ||
+          p.direction.toLowerCase().includes(q) ||
+          p.service.toLowerCase().includes(q) ||
           p.department.toLowerCase().includes(q) ||
           p.email.toLowerCase().includes(q)
       );
     }
 
     return list;
-  }, [profiles, selectedDept, selectedStatus, searchQuery]);
+  }, [profiles, selectedDirection, selectedService, selectedPosition, selectedStatus, searchQuery]);
 
   const exportableProfiles = useMemo(
     () => filteredProfiles.filter((profile) => !profile.isArchived && profile.qrStatus === 'actif' && profile.qrToken),
@@ -722,9 +872,11 @@ export default function AdminRHPage() {
     });
 
     // Répartition par direction
-    const depts: Record<string, number> = {};
+    const directions: Record<string, number> = {};
+    const services: Record<string, number> = {};
     profiles.forEach((p) => {
-      depts[p.department] = (depts[p.department] || 0) + 1;
+      if (p.direction) directions[p.direction] = (directions[p.direction] || 0) + 1;
+      if (p.service) services[p.service] = (services[p.service] || 0) + 1;
     });
 
     // Répartition par tranche d'âge
@@ -759,7 +911,7 @@ export default function AdminRHPage() {
       else anciennetes.plus10++;
     });
 
-    return { total, active, archived, males, females, statuts, depts, ages, anciennetes };
+    return { total, active, archived, males, females, statuts, directions, services, ages, anciennetes };
   }, [profiles]);
 
   // Formulaire : Ouvrir création
@@ -774,7 +926,8 @@ export default function AdminRHPage() {
     setFormPhone('+241 ');
     setFormEmail('');
     setFormPhotoUrl('');
-    setFormDept(RH_DEPARTMENTS[0]);
+    setFormDirection('');
+    setFormService('');
     setFormPosition('');
     setFormStatus('contractuel');
     setFormContract('CDI');
@@ -797,7 +950,8 @@ export default function AdminRHPage() {
     setFormPhone(p.phone || '');
     setFormEmail(p.email || '');
     setFormPhotoUrl(p.photoUrl || '');
-    setFormDept(p.department);
+    setFormDirection(p.direction);
+    setFormService(p.service);
     setFormPosition(p.position);
     setFormStatus(p.status);
     setFormContract(p.contractType);
@@ -868,7 +1022,9 @@ export default function AdminRHPage() {
       phone: formPhone,
       email: formEmail,
       photoUrl: formPhotoUrl,
-      department: formDept,
+      direction: formDirection,
+      service: formService,
+      department: [formDirection, formService].filter(Boolean).join(' / '),
       position: formPosition,
       status: formStatus,
       contractType: formContract,
@@ -1027,8 +1183,9 @@ export default function AdminRHPage() {
       'Sexe',
       'Date de Naissance',
       'Lieu de Naissance',
-      'Direction / Service',
-      'Fonction',
+      'Direction',
+      'Service',
+      'Poste',
       'Statut',
       'Type Contrat',
       'Date Embauche',
@@ -1045,7 +1202,8 @@ export default function AdminRHPage() {
       `"${p.gender}"`,
       `"${p.birthDate}"`,
       `"${p.birthPlace}"`,
-      `"${p.department}"`,
+      `"${p.direction}"`,
+      `"${p.service}"`,
       `"${p.position}"`,
       `"${p.status}"`,
       `"${p.contractType}"`,
@@ -1062,6 +1220,64 @@ export default function AdminRHPage() {
     link.href = URL.createObjectURL(blob);
     link.download = `inptic_personnel_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
+  };
+
+  const handleExportProfilesExcel = async () => {
+    const activeProfiles = allProfiles.filter((profile) => !profile.isArchived);
+    if (activeProfiles.length === 0) {
+      window.alert('Aucun profil à exporter.');
+      return;
+    }
+    setIsExportingExcel(true);
+    try {
+      const workbook = await createProfilesExcel(activeProfiles, window.location.origin);
+      const objectUrl = URL.createObjectURL(workbook);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `personnel_inptic_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error('Erreur export Excel du personnel avec QR Codes:', error);
+      window.alert(error instanceof Error ? error.message : 'L’export Excel avec QR Codes a échoué.');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleExportRHAuditLogs = async () => {
+    if (!token) return;
+    setIsExportingAudit(true);
+    try {
+      const response = await fetch('/api/rh/profiles?logs=1&export=1', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Impossible d’exporter le journal RH.');
+      if (!Array.isArray(result.logs)) throw new Error('La réponse du journal RH est invalide.');
+      const headers = ['Date et heure', 'Utilisateur', 'Action', 'ID cible', 'Employé cible', 'Détails', 'Adresse IP'];
+      const quote = (value: unknown) => {
+        const text = String(value ?? '');
+        const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+        return `"${safeText.replace(/"/g, '""')}"`;
+      };
+      const rows = result.logs.map((log: RHAuditLog) => [
+        log.timestamp, log.userEmail, log.action, log.targetId, log.targetName, log.details, log.ipAddress,
+      ]);
+      const content = '\uFEFF' + [headers, ...rows].map((row) => row.map(quote).join(';')).join('\r\n');
+      const objectUrl = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' }));
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `journal_rh_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error('Erreur export du journal RH:', error);
+      window.alert(error instanceof Error ? error.message : 'L’export du journal RH a échoué.');
+    } finally {
+      setIsExportingAudit(false);
+    }
   };
 
   const handleImportFileSelection = async (file: File) => {
@@ -1111,7 +1327,8 @@ export default function AdminRHPage() {
       matricule: findColumn(['matricule']),
       nom: findColumn(['nom'], ['nom complet', 'name']),
       prenom: findColumn(['prenom'], ['prenom', 'first name']),
-      direction: findColumn(['direction', 'service']),
+      direction: findColumn(['direction']),
+      service: findColumn(['service']),
       fonction: findColumn(['fonction', 'poste']),
       email: findColumn(['email', 'courriel']),
       telephone: findColumn(['telephone', 'tel', 'phone']),
@@ -1131,7 +1348,10 @@ export default function AdminRHPage() {
       };
       const nom = getCell(colIndex.nom);
       const prenom = getCell(colIndex.prenom);
-      const direction = getCell(colIndex.direction);
+      const suppliedDirection = getCell(colIndex.direction);
+      const suppliedService = getCell(colIndex.service);
+      const direction = /^service\b/i.test(suppliedDirection) ? '' : suppliedDirection;
+      const service = suppliedService || (/^service\b/i.test(suppliedDirection) ? suppliedDirection : '');
       const fonction = getCell(colIndex.fonction);
       const suppliedMatricule = getCell(colIndex.matricule);
       const matricule =
@@ -1139,7 +1359,7 @@ export default function AdminRHPage() {
       const email = getCell(colIndex.email);
       const telephone = getCell(colIndex.telephone);
 
-      if (![nom, prenom, direction, fonction, suppliedMatricule, email, telephone].some(Boolean)) {
+      if (![nom, prenom, direction, service, fonction, suppliedMatricule, email, telephone].some(Boolean)) {
         continue;
       }
 
@@ -1161,7 +1381,9 @@ export default function AdminRHPage() {
             matricule,
             firstName: prenom,
             lastName: nom,
-            department: direction,
+            direction,
+            service,
+            department: [direction, service].filter(Boolean).join(' / '),
             position: fonction,
             email,
             phone: telephone,
@@ -1329,16 +1551,42 @@ export default function AdminRHPage() {
                 />
               </div>
 
-              {/* Filtre Direction */}
+              {/* Filtres organisationnels */}
               <select
-                value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
+                value={selectedDirection}
+                onChange={(e) => setSelectedDirection(e.target.value)}
                 className="max-w-[200px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
               >
                 <option value="all">Toutes les directions</option>
-                {RH_DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                {organizationOptions.directions.map((direction) => (
+                  <option key={direction} value={direction}>
+                    {direction}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value)}
+                className="max-w-[200px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">Tous les services</option>
+                {organizationOptions.services.map((service) => (
+                  <option key={service} value={service}>
+                    {service}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedPosition}
+                onChange={(e) => setSelectedPosition(e.target.value)}
+                className="max-w-[200px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="all">Tous les postes</option>
+                {organizationOptions.positions.map((position) => (
+                  <option key={position} value={position}>
+                    {position}
                   </option>
                 ))}
               </select>
@@ -1385,7 +1633,17 @@ export default function AdminRHPage() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
               >
                 <Download size={14} />
-                <span>Export Excel / CSV</span>
+                <span>Export CSV filtré</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleExportProfilesExcel()}
+                disabled={isExportingExcel || loading}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-xs hover:bg-emerald-100 transition disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FileSpreadsheet size={14} />
+                <span>{isExportingExcel ? 'Création Excel…' : `Personnel actif + QR (${allProfiles.filter((profile) => !profile.isArchived).length})`}</span>
               </button>
 
               {!isReadOnly && (
@@ -1421,8 +1679,9 @@ export default function AdminRHPage() {
                 <thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-3.5">Matricule &amp; Agent</th>
-                    <th className="px-4 py-3.5">Direction / Service</th>
-                    <th className="px-4 py-3.5">Fonction &amp; Statut</th>
+                    <th className="px-4 py-3.5">Direction</th>
+                    <th className="px-4 py-3.5">Service</th>
+                    <th className="px-4 py-3.5">Poste &amp; Statut</th>
                     <th className="px-4 py-3.5">Ancienneté</th>
                     <th className="px-4 py-3.5">QR Code</th>
                     <th className="px-4 py-3.5 text-right">Actions</th>
@@ -1431,20 +1690,20 @@ export default function AdminRHPage() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-500">
+                      <td colSpan={7} className="py-12 text-center text-slate-500">
                         <RefreshCw size={24} className="mx-auto animate-spin text-blue-600" />
                         <p className="mt-2 font-medium">Chargement des profils...</p>
                       </td>
                     </tr>
                   ) : profilesError ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-red-700">
+                      <td colSpan={7} className="py-12 text-center text-red-700">
                         {profilesError}
                       </td>
                     </tr>
                   ) : filteredProfiles.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-500">
+                      <td colSpan={7} className="py-12 text-center text-slate-500">
                         Aucun employé ne correspond aux filtres sélectionnés.
                       </td>
                     </tr>
@@ -1482,7 +1741,12 @@ export default function AdminRHPage() {
 
                           {/* Direction */}
                           <td className="px-4 py-3">
-                            <span className="font-medium text-slate-800">{p.department}</span>
+                            <span className="font-medium text-slate-800">{p.direction || '—'}</span>
+                          </td>
+
+                          {/* Service */}
+                          <td className="px-4 py-3">
+                            <span className="font-medium text-slate-800">{p.service || '—'}</span>
                           </td>
 
                           {/* Fonction & Statut */}
@@ -1639,7 +1903,7 @@ export default function AdminRHPage() {
                             {p.firstName} {p.lastName}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {p.position} • {p.department}
+                            {[p.position, p.direction, p.service].filter(Boolean).join(' • ')}
                           </p>
                           <span className="font-mono text-[10px] text-slate-400">
                             Token: {p.qrToken.slice(0, 18)}...
@@ -1879,13 +2143,13 @@ export default function AdminRHPage() {
 
           {/* Graphiques et Répartitions */}
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Répartition par Direction / Service */}
+            {/* Répartition par direction et service */}
             <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
               <h3 className="text-sm font-black text-slate-900">
-                Effectif par Direction &amp; Service
+                Effectif par direction
               </h3>
               <div className="mt-4 space-y-3">
-                {Object.entries(stats.depts).map(([dept, count]) => {
+                {Object.entries(stats.directions).map(([dept, count]) => {
                   const percent = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
                   return (
                     <div key={dept}>
@@ -1900,6 +2164,23 @@ export default function AdminRHPage() {
                           className="h-full rounded-full bg-blue-600 transition-all duration-500"
                           style={{ width: `${percent}%` }}
                         />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <h3 className="mt-6 text-sm font-black text-slate-900">Effectif par service</h3>
+              <div className="mt-4 space-y-3">
+                {Object.entries(stats.services).map(([service, count]) => {
+                  const percent = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+                  return (
+                    <div key={service}>
+                      <div className="flex justify-between text-xs font-semibold text-slate-700">
+                        <span className="truncate max-w-[280px]">{service}</span>
+                        <span>{count} ({percent}%)</span>
+                      </div>
+                      <div className="mt-1 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-cyan-600 transition-all duration-500" style={{ width: `${percent}%` }} />
                       </div>
                     </div>
                   );
@@ -1969,6 +2250,15 @@ export default function AdminRHPage() {
             <p className="mt-1 text-xs text-slate-500">
               Traçabilité des créations, modifications, révocations, archivages et scans de cartes professionnelles.
             </p>
+            <button
+              type="button"
+              onClick={() => void handleExportRHAuditLogs()}
+              disabled={!token || auditLogCount === 0 || isExportingAudit}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-800 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download size={15} />
+              {isExportingAudit ? 'Préparation du fichier…' : 'Exporter tous les logs RH (CSV)'}
+            </button>
 
             {auditLogsError && (
               <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
@@ -2202,24 +2492,39 @@ export default function AdminRHPage() {
                 </div>
               </div>
 
-              {/* Affectation & Fonction */}
-              <div className="grid gap-3 sm:grid-cols-2">
+              {/* Affectation & Poste */}
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700">Direction / Service *</label>
-                  <select
-                    value={formDept}
-                    onChange={(e) => setFormDept(e.target.value)}
+                  <label className="block text-xs font-bold text-slate-700">Direction *</label>
+                  <input
+                    type="text"
+                    required={!editingProfile}
+                    list="rh-directions"
+                    value={formDirection}
+                    onChange={(e) => setFormDirection(e.target.value)}
+                    placeholder="Ex. Direction Générale"
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                  >
-                    {RH_DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  <datalist id="rh-directions">
+                    {organizationOptions.directions.map((direction) => <option key={direction} value={direction} />)}
+                  </datalist>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700">Fonction / Intitulé de poste *</label>
+                  <label className="block text-xs font-bold text-slate-700">Service</label>
+                  <input
+                    type="text"
+                    list="rh-services"
+                    value={formService}
+                    onChange={(e) => setFormService(e.target.value)}
+                    placeholder="Ex. Service Informatique"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
+                  />
+                  <datalist id="rh-services">
+                    {organizationOptions.services.map((service) => <option key={service} value={service} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700">Poste / Fonction *</label>
                   <input
                     type="text"
                     required
@@ -2573,7 +2878,7 @@ export default function AdminRHPage() {
             </label>
 
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-[11px] text-slate-600 font-mono">
-              En-têtes acceptés : Matricule, Nom, Prénom, Direction, Fonction, Email, Téléphone
+              En-têtes acceptés : Matricule, Nom, Prénom, Direction, Service, Poste (ou Fonction), Email, Téléphone
             </div>
 
             <textarea
@@ -2584,7 +2889,7 @@ export default function AdminRHPage() {
                 setImportFileName('');
                 setImportReport(null);
               }}
-              placeholder={`Matricule;Nom;Prénom;Direction;Fonction;Email&#10;INPTIC-042;MBOUMBA;Jean;Service Scolarité;Agent;jean@inptic.ga`}
+              placeholder={`Matricule;Nom;Prénom;Direction;Service;Poste;Email&#10;INPTIC-042;MBOUMBA;Jean;Direction Générale;Service Scolarité;Agent;jean@inptic.ga`}
               className="mt-4 w-full rounded-xl border border-slate-200 p-3 text-xs font-mono focus:border-blue-500 focus:outline-none"
             />
 

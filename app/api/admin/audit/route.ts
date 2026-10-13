@@ -19,11 +19,64 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(Number(params.get('limit')) || 50, 1), 100);
   const offset = Math.max(Number(params.get('offset')) || 0, 0);
   const search = params.get('q')?.trim().slice(0, 120) || '';
+  const scope = params.get('scope') === 'rh' ? 'rh' : 'site';
   const service = params.get('service')?.trim().slice(0, 80) || '';
   const from = params.get('from') || '';
   const to = params.get('to') || '';
+  const exportAll = params.get('export') === '1';
   const conditions: string[] = [];
   const values: unknown[] = [];
+
+  if (scope === 'rh') {
+    if (search) {
+      values.push(`%${search}%`);
+      const index = values.length;
+      conditions.push(`(
+        user_email ILIKE $${index} OR action ILIKE $${index} OR target_name ILIKE $${index}
+        OR details ILIKE $${index} OR ip_address ILIKE $${index}
+      )`);
+    }
+    if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      values.push(from);
+      conditions.push(`timestamp >= $${values.length}::date`);
+    }
+    if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      values.push(to);
+      conditions.push(`timestamp < ($${values.length}::date + INTERVAL '1 day')`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    try {
+      const pool = getPostgresPool();
+      const countResult = await pool.query<{ total: string }>(
+        `SELECT COUNT(*)::text AS total FROM public.rh_audit_logs ${where}`,
+        values,
+      );
+      const pageValues = exportAll ? values : [...values, limit, offset];
+      const pagination = exportAll ? '' : `LIMIT $${pageValues.length - 1} OFFSET $${pageValues.length}`;
+      const logsResult = await pool.query(
+        `SELECT id, user_id, user_email, action, target_id, target_name, details, ip_address, timestamp
+         FROM public.rh_audit_logs
+         ${where}
+         ORDER BY timestamp DESC, id DESC
+         ${pagination}`,
+        pageValues,
+      );
+
+      return NextResponse.json({
+        logs: logsResult.rows,
+        total: Number(countResult.rows[0]?.total || 0),
+        limit: exportAll ? Number(countResult.rows[0]?.total || 0) : limit,
+        offset: exportAll ? 0 : offset,
+      }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+      console.error(
+        '[Admin audit RH GET] PostgreSQL error:',
+        error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+      );
+      return NextResponse.json({ error: 'Impossible de charger le journal des opérations RH.' }, { status: 503 });
+    }
+  }
 
   if (search) {
     values.push(`%${search}%`);
@@ -54,22 +107,23 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(*)::text AS total FROM public.site_audit_logs ${where}`,
       values,
     );
-    const pageValues = [...values, limit, offset];
+    const pageValues = exportAll ? values : [...values, limit, offset];
+    const pagination = exportAll ? '' : `LIMIT $${pageValues.length - 1} OFFSET $${pageValues.length}`;
     const logsResult = await pool.query(
       `SELECT id, actor_id, actor_email, actor_name, actor_role, service, direction,
               action, http_method, route, outcome, response_status, created_at, completed_at
        FROM public.site_audit_logs
        ${where}
        ORDER BY created_at DESC, id DESC
-       LIMIT $${pageValues.length - 1} OFFSET $${pageValues.length}`,
+       ${pagination}`,
       pageValues,
     );
 
     return NextResponse.json({
       logs: logsResult.rows,
       total: Number(countResult.rows[0]?.total || 0),
-      limit,
-      offset,
+      limit: exportAll ? Number(countResult.rows[0]?.total || 0) : limit,
+      offset: exportAll ? 0 : offset,
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'

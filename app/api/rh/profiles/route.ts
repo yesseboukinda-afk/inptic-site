@@ -32,6 +32,8 @@ const SEED_PROFILES: RHProfile[] = [
     phone: '+241 77 12 34 56',
     email: 'arsene.bekale@inptic.ga',
     photoUrl: '/banniere/DG.webp',
+    direction: 'Direction Générale (DG)',
+    service: '',
     department: 'Direction Générale (DG)',
     position: 'Directeur Général',
     status: 'titulaire',
@@ -67,6 +69,8 @@ const SEED_PROFILES: RHProfile[] = [
     phone: '+241 66 98 76 54',
     email: 'pauline.ndong@inptic.ga',
     photoUrl: '/banniere/DGA.webp',
+    direction: 'Direction Générale Adjointe (DGA)',
+    service: '',
     department: 'Direction Générale Adjointe (DGA)',
     position: 'Directrice Générale Adjointe',
     status: 'titulaire',
@@ -102,6 +106,8 @@ const SEED_PROFILES: RHProfile[] = [
     phone: '+241 74 55 44 33',
     email: 'marc.essono@inptic.ga',
     photoUrl: '',
+    direction: 'Direction des Ressources Techniques et de l’Innovation (DRTI)',
+    service: '',
     department: 'Direction des Ressources Techniques et de l’Innovation (DRTI)',
     position: 'Directeur des Ressources Techniques et de l’Innovation',
     status: 'titulaire',
@@ -137,6 +143,8 @@ const SEED_PROFILES: RHProfile[] = [
     phone: '+241 62 11 22 33',
     email: 'christelle.mboumba@inptic.ga',
     photoUrl: '',
+    direction: '',
+    service: 'Service Informatique et SI (SRSIAT)',
     department: 'Service Informatique et SI (SRSIAT)',
     position: 'Responsable Systèmes, Réseaux et Sécurité',
     status: 'contractuel',
@@ -172,6 +180,8 @@ const SEED_PROFILES: RHProfile[] = [
     phone: '+241 77 99 88 77',
     email: 'franck.koumba@inptic.ga',
     photoUrl: '',
+    direction: '',
+    service: 'Service Scolarité',
     department: 'Service Scolarité',
     position: 'Gestionnaire des Admissions et Dossiers Étudiants',
     status: 'contractuel',
@@ -277,6 +287,14 @@ function mapRHProfile(d: any): RHProfile {
     archivedValue === true ||
     archivedValue === 1 ||
     (typeof archivedValue === 'string' && ['true', 't', '1'].includes(archivedValue.trim().toLowerCase()));
+  const legacyDepartment = typeof d.department === 'string' ? d.department : '';
+  const isLegacyService = /^service\b/i.test(legacyDepartment.trim());
+  const direction = typeof d.direction === 'string' && d.direction.trim()
+    ? d.direction
+    : isLegacyService ? '' : legacyDepartment;
+  const service = typeof d.service === 'string' && d.service.trim()
+    ? d.service
+    : isLegacyService ? legacyDepartment : '';
 
   return {
     id: String(d.id),
@@ -289,7 +307,9 @@ function mapRHProfile(d: any): RHProfile {
     phone: d.phone || '',
     email: d.email || '',
     photoUrl: d.photo_url || '',
-    department: d.department,
+    direction,
+    service,
+    department: [direction, service].filter(Boolean).join(' / ') || legacyDepartment,
     position: d.position,
     status: d.status,
     contractType: d.contract_type,
@@ -321,6 +341,7 @@ export async function GET(request: NextRequest) {
   const department = searchParams.get('department');
   const query = searchParams.get('q');
   const getAuditLogs = searchParams.get('logs') === '1';
+  const exportAuditLogs = searchParams.get('export') === '1';
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
@@ -329,8 +350,11 @@ export async function GET(request: NextRequest) {
   if (getAuditLogs) {
     try {
       const pool = getPostgresPool();
+      const logsQuery = exportAuditLogs
+        ? 'SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC'
+        : 'SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100';
       const [logsResult, countResult] = await Promise.all([
-        pool.query('SELECT * FROM public.rh_audit_logs ORDER BY timestamp DESC LIMIT 100'),
+        pool.query(logsQuery),
         pool.query<{ total: string }>('SELECT COUNT(*)::text AS total FROM public.rh_audit_logs'),
       ]);
       return NextResponse.json({
@@ -372,7 +396,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (department && department !== 'all') {
-    profiles = profiles.filter((p) => p.department.toLowerCase() === department.toLowerCase());
+    profiles = profiles.filter(
+      (p) =>
+        p.direction.toLowerCase() === department.toLowerCase() ||
+        p.service.toLowerCase() === department.toLowerCase() ||
+        p.department.toLowerCase() === department.toLowerCase(),
+    );
   }
 
   if (query && query.trim()) {
@@ -383,6 +412,8 @@ export async function GET(request: NextRequest) {
         p.lastName.toLowerCase().includes(q) ||
         p.matricule.toLowerCase().includes(q) ||
         p.position.toLowerCase().includes(q) ||
+        p.direction.toLowerCase().includes(q) ||
+        p.service.toLowerCase().includes(q) ||
         p.department.toLowerCase().includes(q)
     );
   }
@@ -396,6 +427,16 @@ async function siteAuditedPOST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const allowIncomplete = body?.allowIncomplete === true;
+  const legacyDepartment = typeof body?.department === 'string' ? body.department.trim() : '';
+  const legacyService = /^service\b/i.test(legacyDepartment);
+  const direction =
+    typeof body?.direction === 'string'
+      ? body.direction.trim()
+      : legacyService ? '' : legacyDepartment;
+  const service =
+    typeof body?.service === 'string'
+      ? body.service.trim()
+      : legacyService ? legacyDepartment : '';
   if (
     !body ||
     typeof body.matricule !== 'string' ||
@@ -403,14 +444,14 @@ async function siteAuditedPOST(request: NextRequest) {
     (!allowIncomplete &&
       (typeof body.firstName !== 'string' ||
         typeof body.lastName !== 'string' ||
-        typeof body.department !== 'string' ||
+        typeof direction !== 'string' ||
         typeof body.position !== 'string' ||
         !body.firstName.trim() ||
         !body.lastName.trim() ||
-        !body.department.trim() ||
+        !direction ||
         !body.position.trim())) ||
     (allowIncomplete &&
-      [body.firstName, body.lastName, body.department, body.position, body.email, body.phone].some(
+      [body.firstName, body.lastName, body.direction, body.service, body.department, body.position, body.email, body.phone].some(
         (value) => value !== undefined && typeof value !== 'string',
       ))
   ) {
@@ -418,7 +459,7 @@ async function siteAuditedPOST(request: NextRequest) {
       {
         error: allowIncomplete
           ? 'Le matricule est obligatoire et les autres champs doivent être du texte.'
-          : 'Nom, prénom, matricule, direction et fonction sont obligatoires.',
+          : 'Nom, prénom, matricule, direction et poste sont obligatoires.',
       },
       { status: 400 }
     );
@@ -445,7 +486,9 @@ async function siteAuditedPOST(request: NextRequest) {
     phone: body.phone || '',
     email: body.email || '',
     photoUrl: body.photoUrl || '',
-    department: typeof body.department === 'string' ? body.department.trim() : '',
+    direction,
+    service,
+    department: [direction, service].filter(Boolean).join(' / ') || legacyDepartment,
     position: typeof body.position === 'string' ? body.position.trim() : '',
     status: body.status || 'contractuel',
     contractType: body.contractType || 'CDI',
@@ -473,17 +516,17 @@ async function siteAuditedPOST(request: NextRequest) {
     const { rows } = await getPostgresPool().query(
       `INSERT INTO public.rh_profiles
          (matricule, first_name, last_name, gender, birth_date, birth_place, phone,
-          email, photo_url, department, position, status, contract_type, hire_date,
+          email, photo_url, direction, service, department, position, status, contract_type, hire_date,
           job_description, is_archived, qr_token, qr_status, qr_generated_at,
           public_whitelist, history)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-               $15, FALSE, $16, 'actif', $17, $18, $19)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+               $17, FALSE, $18, 'actif', $19, $20, $21)
        RETURNING id`,
       [
         newProfile.matricule, newProfile.firstName, newProfile.lastName, newProfile.gender,
         newProfile.birthDate, newProfile.birthPlace, newProfile.phone, newProfile.email,
-        newProfile.photoUrl, newProfile.department, newProfile.position, newProfile.status,
-        newProfile.contractType, newProfile.hireDate, newProfile.jobDescription,
+        newProfile.photoUrl, newProfile.direction, newProfile.service, newProfile.department,
+        newProfile.position, newProfile.status, newProfile.contractType, newProfile.hireDate, newProfile.jobDescription,
         newProfile.qrToken, now, JSON.stringify(newProfile.publicWhitelist),
         JSON.stringify(newProfile.history),
       ],
@@ -509,6 +552,12 @@ async function siteAuditedPOST(request: NextRequest) {
     }
     if (databaseError.code === '22007' || databaseError.code === '22008') {
       return NextResponse.json({ error: 'Une date du profil est invalide. Vérifiez les dates saisies.' }, { status: 400 });
+    }
+    if (databaseError.code === '42703' && ['direction', 'service'].includes(databaseError.column || '')) {
+      return NextResponse.json(
+        { error: 'La base RH doit être migrée avec scripts/14_migrate_rh_direction_service.sql.' },
+        { status: 503 },
+      );
     }
     if (databaseError.code === '42P01' || databaseError.code === '42703') {
       return NextResponse.json({ error: 'Le schéma RH de la base n’est pas à jour. Contactez l’administrateur avec la référence ' + requestId + '.' }, { status: 503 });
@@ -634,8 +683,35 @@ async function siteAuditedPATCH(request: NextRequest) {
     if (body.phone !== undefined) updates.phone = body.phone;
     if (body.email !== undefined) updates.email = body.email;
     if (body.photoUrl !== undefined) updates.photoUrl = body.photoUrl;
-    if (body.department) updates.department = body.department;
-    if (body.position) updates.position = body.position;
+    if (body.direction !== undefined || body.service !== undefined || body.department !== undefined) {
+      const legacyDepartment = typeof body.department === 'string' ? body.department.trim() : '';
+      const legacyService = /^service\b/i.test(legacyDepartment);
+      const hasLegacyDepartment = body.department !== undefined;
+      const nextDirection =
+        body.direction !== undefined
+          ? typeof body.direction === 'string' ? body.direction.trim() : null
+          : hasLegacyDepartment
+            ? legacyService ? '' : legacyDepartment
+            : profile.direction;
+      const nextService =
+        body.service !== undefined
+          ? typeof body.service === 'string' ? body.service.trim() : null
+          : hasLegacyDepartment
+            ? legacyService ? legacyDepartment : ''
+            : profile.service;
+      if (nextDirection === null || nextService === null) {
+        return NextResponse.json({ error: 'La direction et le service doivent être du texte.' }, { status: 400 });
+      }
+      updates.direction = nextDirection;
+      updates.service = nextService;
+      updates.department = [nextDirection, nextService].filter(Boolean).join(' / ') || legacyDepartment;
+    }
+    if (body.position !== undefined) {
+      if (typeof body.position !== 'string' || !body.position.trim()) {
+        return NextResponse.json({ error: 'Le poste est obligatoire.' }, { status: 400 });
+      }
+      updates.position = body.position.trim();
+    }
     if (body.status) updates.status = body.status;
     if (body.contractType) updates.contractType = body.contractType;
     if (body.hireDate) updates.hireDate = body.hireDate;
@@ -653,6 +729,8 @@ async function siteAuditedPATCH(request: NextRequest) {
     phone: 'phone',
     email: 'email',
     photoUrl: 'photo_url',
+    direction: 'direction',
+    service: 'service',
     department: 'department',
     position: 'position',
     status: 'status',
@@ -694,12 +772,18 @@ async function siteAuditedPATCH(request: NextRequest) {
   } catch (error) {
     const databaseError =
       error && typeof error === 'object'
-        ? (error as { code?: string; constraint?: string })
+        ? (error as { code?: string; constraint?: string; column?: string })
         : {};
     if (databaseError.code === '23505' && databaseError.constraint?.includes('matricule')) {
       return NextResponse.json(
         { error: 'Ce matricule est déjà attribué à un autre profil. Chaque profil doit avoir un matricule unique.' },
         { status: 409 },
+      );
+    }
+    if (databaseError.code === '42703' && ['direction', 'service'].includes(databaseError.column || '')) {
+      return NextResponse.json(
+        { error: 'La base RH doit être migrée avec scripts/14_migrate_rh_direction_service.sql.' },
+        { status: 503 },
       );
     }
     console.error('Erreur PostgreSQL lors de la mise à jour du profil RH:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');

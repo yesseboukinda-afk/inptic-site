@@ -136,7 +136,12 @@ export async function GET(
   if (whitelist.lastName) publicData.lastName = profileData.last_name;
   if (whitelist.firstName) publicData.firstName = profileData.first_name;
   if (whitelist.position) publicData.position = profileData.position;
-  if (whitelist.department) publicData.department = profileData.department;
+  if (whitelist.department) {
+    publicData.direction = profileData.direction || '';
+    publicData.service = profileData.service || '';
+    publicData.department =
+      [publicData.direction, publicData.service].filter(Boolean).join(' / ') || profileData.department;
+  }
   if (whitelist.status) publicData.agentStatus = profileData.status;
 
   // Données sensibles activables uniquement par admin

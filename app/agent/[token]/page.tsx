@@ -2,14 +2,13 @@ import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import { Lottie } from 'lottie-react';
 import {
   AlertTriangle,
   Building2,
-  CheckCircle2,
   ExternalLink,
   Mail,
   Phone,
-  ShieldAlert,
   ShieldCheck,
   XCircle,
   Award,
@@ -74,7 +73,12 @@ async function getAgentData(token: string, requestHeaders: Pick<Headers, 'get'>)
   if (whitelist.lastName) publicData.lastName = profileData.last_name;
   if (whitelist.firstName) publicData.firstName = profileData.first_name;
   if (whitelist.position) publicData.position = profileData.position;
-  if (whitelist.department) publicData.department = profileData.department;
+  if (whitelist.department) {
+    publicData.direction = profileData.direction || '';
+    publicData.service = profileData.service || '';
+    publicData.department =
+      [publicData.direction, publicData.service].filter(Boolean).join(' / ') || profileData.department;
+  }
   if (whitelist.status) publicData.agentStatus = profileData.status;
 
   if (whitelist.gender) publicData.gender = profileData.gender;
@@ -202,162 +206,214 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
       })
     : '';
   const fullName = [agent.firstName, agent.lastName].filter(Boolean).join(' ');
+  const organizationLabel = [agent.direction, agent.service]
+    .filter((value: string | undefined) => Boolean(value?.trim()))
+    .join(' / ') || agent.department;
   const hasPublicIdentity = Boolean(
-    agent.photoUrl || fullName || agent.position || agent.department
+    agent.photoUrl || fullName || agent.position || organizationLabel
   );
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4 py-10 text-slate-900">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl">
-        <div className="h-2 bg-gradient-to-r from-blue-900 via-blue-700 to-cyan-500" />
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0c3540] px-4 py-8 text-slate-900 sm:py-12">
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-16 h-72 w-72 border-[28px] border-[#1d6970]/30" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 -right-20 h-96 w-96 border-[36px] border-[#55a88f]/20" />
 
-        <div className="bg-gradient-to-br from-slate-50 to-blue-50/70 p-5 sm:p-7">
-          <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
-            <Image
-              src="/logoinptic.png"
-              alt="Logo INPTIC"
-              width={320}
-              height={100}
-              className="h-10 w-auto object-contain object-left"
-            />
-            <Image
-              src="/rh/gabon-emblem.png"
-              alt="Emblème de la République gabonaise"
-              width={473}
-              height={319}
-              className="h-12 w-20 rounded-md border border-slate-200 bg-white p-1 object-contain"
-            />
-          </div>
+      <article className="relative w-full max-w-md overflow-hidden border-[6px] border-[#104e58] bg-[#e5f3eb] shadow-[0_28px_80px_rgba(0,0,0,0.4)]">
+        <div className="flex items-center justify-between gap-4 border-b-[5px] border-[#104e58] bg-[#d5ebdf] px-4 py-4 sm:px-6">
+          <Image
+            src="/logoinptic.png"
+            alt="Logo de l’Institut INPTIC"
+            width={320}
+            height={100}
+            priority
+            className="h-10 w-auto max-w-[68%] object-contain object-left"
+          />
+          <Image
+            src="/rh/gabon-emblem.png"
+            alt="Emblème de la République gabonaise"
+            width={473}
+            height={319}
+            className="h-12 w-[4.5rem] border border-[#b8d1c5] bg-white p-1 object-contain"
+          />
+        </div>
 
-          <div className="mt-4 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-              République gabonaise • INPTIC
-            </p>
-            <h1 className="mt-1 text-lg font-black tracking-wide text-slate-900">
-              BADGE PROFESSIONNEL
-            </h1>
-            <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-emerald-800">
-              <ShieldCheck size={15} className="text-emerald-700" />
-              <span>Badge authentifié</span>
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#b7dfcf] via-[#d8eee3] to-[#9bcbb8] px-5 pb-5 pt-4 sm:px-6">
+          <div aria-hidden="true" className="absolute -right-14 top-5 h-32 w-32 rotate-45 border-[18px] border-white/20" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-[#315b5c]">
+                <Sparkles size={12} aria-hidden="true" />
+                République gabonaise • INPTIC
+              </p>
+              <h1 className="mt-1 text-xl font-black tracking-[0.12em] text-[#123f49] sm:text-2xl">
+                DIGITAL ID
+              </h1>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#38686a]">
+                Badge professionnel numérique
+              </p>
             </div>
-            <p className="mt-2 text-[10px] text-slate-500">
-              Certification numérique • DRTI INPTIC Gabon
-            </p>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center border-[3px] border-white bg-white shadow-lg ring-2 ring-[#2a8756]">
+              <Lottie
+                src="/icons8-check-50.json"
+                autoplay
+                loop={false}
+                className="h-full w-full"
+                aria-label="Badge authentifié"
+              />
+            </div>
+          </div>
+          <div className="relative mt-4 inline-flex items-center gap-2 border border-[#258452]/30 bg-white/75 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#17613d]">
+            <ShieldCheck size={14} aria-hidden="true" />
+            Identité authentifiée
           </div>
         </div>
 
-        {/* Identité Agent */}
-        {hasPublicIdentity && (
-          <div className="flex flex-col items-center px-6 pt-6 text-center sm:px-8">
-            {agent.photoUrl && (
-              <div className="relative h-32 w-32 overflow-hidden rounded-xl border-2 border-blue-800 bg-slate-100 shadow-lg ring-4 ring-blue-100">
-                <img
-                  src={agent.photoUrl}
-                  alt={fullName ? `Photo de ${fullName}` : 'Photo de l’agent'}
-                  className="h-full w-full object-cover"
-                />
-                <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-white" title="Actif" />
+        <div className="border-b-[5px] border-[#104e58] bg-[#f3faf5] p-4 sm:p-5">
+          {hasPublicIdentity ? (
+            <div className="flex items-center gap-4">
+              <div className="relative h-28 w-24 shrink-0 overflow-hidden border-[3px] border-[#1a5c63] bg-[#c5e0d3] shadow-md">
+                {agent.photoUrl ? (
+                  <img
+                    src={agent.photoUrl}
+                    alt={fullName ? `Photo de ${fullName}` : 'Photo de l’agent'}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-3xl font-black uppercase text-[#1a5c63]">
+                    {fullName.split(/\s+/).map((part: string) => part[0]).slice(0, 2).join('') || 'IN'}
+                  </span>
+                )}
+                <span className="absolute bottom-1 right-1 h-3.5 w-3.5 border-2 border-white bg-[#38a96b]" title="Profil actif" />
               </div>
-            )}
 
-            <div>
-              {fullName && (
-                <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-                  {fullName}
-                </h2>
-              )}
-              {agent.position && (
-                <p className="mt-1 text-sm font-black uppercase tracking-wider text-blue-800">
-                  {agent.position}
-                </p>
-              )}
-              {agent.department && (
-                <p className="mt-1 text-xs font-medium text-slate-600">
-                  {agent.department}
-                </p>
-              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#578178]">Titulaire du badge</p>
+                {fullName && (
+                  <h2 className="mt-1 break-words text-xl font-black uppercase leading-tight text-[#123f49] sm:text-2xl">
+                    {fullName}
+                  </h2>
+                )}
+                {agent.position && (
+                  <p className="mt-2 break-words border-l-[3px] border-[#3d9d79] pl-2 text-xs font-extrabold uppercase leading-snug text-[#266c66]">
+                    {agent.position}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="py-4 text-center text-sm font-semibold text-[#315b5c]">
+              Les informations d’identité ne sont pas autorisées à l’affichage public.
+            </div>
+          )}
+        </div>
 
-        {/* Détails du badge */}
-        <div className="mx-5 my-6 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs sm:mx-7">
+        <div className="space-y-2.5 bg-[#e5f3eb] px-4 py-4 sm:px-5">
           {agent.matricule && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Matricule professionnel :</span>
-              <span className="text-right font-mono text-sm font-black text-blue-900">{agent.matricule}</span>
+            <div className="flex items-center justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#54766b]">Matricule</span>
+              <span className="text-right font-mono text-sm font-black text-[#123f49]">{agent.matricule}</span>
             </div>
           )}
-
+          {agent.direction && (
+            <div className="flex items-start gap-3 border-b border-[#bdd8ca] pb-2">
+              <Building2 size={15} className="mt-0.5 shrink-0 text-[#26796b]" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-[#54766b]">Direction</p>
+                <p className="mt-0.5 break-words text-xs font-bold text-[#123f49]">{agent.direction}</p>
+              </div>
+            </div>
+          )}
+          {agent.service && (
+            <div className="flex items-start gap-3 border-b border-[#bdd8ca] pb-2">
+              <Building2 size={15} className="mt-0.5 shrink-0 text-[#26796b]" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-[#54766b]">Service</p>
+                <p className="mt-0.5 break-words text-xs font-bold text-[#123f49]">{agent.service}</p>
+              </div>
+            </div>
+          )}
+          {!agent.direction && !agent.service && agent.department && (
+            <div className="flex items-start gap-3 border-b border-[#bdd8ca] pb-2">
+              <Building2 size={15} className="mt-0.5 shrink-0 text-[#26796b]" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-[#54766b]">Affectation</p>
+                <p className="mt-0.5 break-words text-xs font-bold text-[#123f49]">{agent.department}</p>
+              </div>
+            </div>
+          )}
           {agent.agentStatus && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Statut professionnel :</span>
-              <span className="font-medium capitalize text-slate-800">{agent.agentStatus}</span>
+            <div className="flex items-center justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#54766b]">Statut</span>
+              <span className="border border-[#3e9c6e]/30 bg-[#d7f0df] px-2 py-1 text-[10px] font-black uppercase text-[#17613d]">
+                {agent.agentStatus}
+              </span>
             </div>
           )}
-
           {agent.gender && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Genre :</span>
-              <span className="font-medium text-slate-800">
+            <div className="flex items-center justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#54766b]">Genre</span>
+              <span className="text-xs font-semibold text-[#123f49]">
                 {agent.gender === 'F' ? 'Féminin' : agent.gender === 'M' ? 'Masculin' : agent.gender}
               </span>
             </div>
           )}
-
           {birthDateFormatted && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Date de naissance :</span>
-              <span className="font-medium text-slate-800">{birthDateFormatted}</span>
+            <div className="flex items-center justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#54766b]">Date de naissance</span>
+              <span className="text-right text-xs font-semibold text-[#123f49]">{birthDateFormatted}</span>
             </div>
           )}
-
           {agent.birthPlace && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Lieu de naissance :</span>
-              <span className="text-right font-medium text-slate-800">{agent.birthPlace}</span>
+            <div className="flex items-center justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#54766b]">Lieu de naissance</span>
+              <span className="text-right text-xs font-semibold text-[#123f49]">{agent.birthPlace}</span>
             </div>
           )}
-
           {agent.email && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">E-mail officiel :</span>
-              <span className="break-all text-right font-medium text-slate-800">{agent.email}</span>
+            <div className="flex items-start justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#54766b]">
+                <Mail size={13} aria-hidden="true" /> E-mail
+              </span>
+              <span className="break-all text-right text-xs font-semibold text-[#123f49]">{agent.email}</span>
             </div>
           )}
-
           {agent.phone && (
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Téléphone pro :</span>
-              <span className="font-medium text-slate-800">{agent.phone}</span>
+            <div className="flex items-center justify-between gap-3 border-b border-[#bdd8ca] pb-2">
+              <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#54766b]">
+                <Phone size={13} aria-hidden="true" /> Téléphone
+              </span>
+              <span className="text-right text-xs font-semibold text-[#123f49]">{agent.phone}</span>
             </div>
           )}
-
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-slate-500">Horodatage du contrôle :</span>
-            <span className="text-right font-medium text-slate-700">{nowFormatted}</span>
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[#54766b]">Vérifié le</span>
+            <span className="text-right text-[10px] font-semibold text-[#315b5c]">{nowFormatted}</span>
           </div>
         </div>
 
-        {/* Pied de certification */}
-        <div className="mx-5 mb-5 rounded-xl bg-slate-900 p-4 text-center text-xs leading-relaxed text-slate-200 sm:mx-7">
-          <div className="inline-flex items-center gap-1.5 font-bold text-white">
-            <Award size={15} />
-            <span>République Gabonaise • INPTIC</span>
+        <div className="bg-[#103f49] px-5 py-4 text-center text-[#d7eee4]">
+          <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-white">
+            <Award size={16} aria-hidden="true" />
+            <span>Certification officielle INPTIC</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-300">
-            Ce titre d&apos;accès numérique certifie que le titulaire est membre actif du personnel de l&apos;Institut National de la Poste, des Technologies de l&apos;Information et de la Communication.
+          <p className="mt-2 text-[10px] leading-relaxed text-[#c2ded2]">
+            Ce badge numérique confirme que son titulaire est membre actif du personnel de l’Institut National de la Poste, des Technologies de l’Information et de la Communication.
+          </p>
+          <p className="mt-3 border-t border-white/15 pt-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#9ec9b8]">
+            Contrôle enregistré • DRTI
           </p>
         </div>
 
-        <Link
-          href="/"
-          className="mx-5 mb-6 inline-flex w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-lg bg-blue-900 px-5 py-3 text-xs font-bold text-white shadow-lg transition hover:bg-blue-800 sm:mx-7 sm:w-[calc(100%-3.5rem)]"
-        >
-          <span>Accéder au site officiel INPTIC</span>
-          <ExternalLink size={14} />
-        </Link>
-      </div>
+        <div className="bg-[#0c3540] px-4 py-3 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center gap-2 border border-[#a7d8c2]/50 bg-[#1c5960] px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white transition hover:bg-[#26736d]"
+          >
+            <span>Site officiel INPTIC</span>
+            <ExternalLink size={13} aria-hidden="true" />
+          </Link>
+        </div>
+      </article>
     </main>
   );
 }
