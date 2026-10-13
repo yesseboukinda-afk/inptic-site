@@ -127,7 +127,6 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
       <div class="photo-wrapper">${photo}</div>
       <div class="identity">
         <strong class="name">${escapeHtml(profile.firstName)} ${escapeHtml(profile.lastName)}</strong>
-        <span class="department">${escapeHtml(profile.department)}</span>
         <span class="matr">MATRICULE : ${escapeHtml(profile.matricule)}</span>
       </div>
       <div class="front-footer">
@@ -293,16 +292,6 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         .card-front--compact .name { font-size: 7.5pt; }
         .card-front--dense .name { font-size: 6.5pt; }
         .card-front--dense .identity { line-height: 1; }
-        }
-        .department {
-          max-width: 100%;
-          overflow: hidden;
-          margin-top: 0.35mm;
-          color: #4b5563;
-          font-size: 5.5pt;
-          font-weight: 600;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
         .matr {
           margin-top: 0.6mm;
@@ -1782,7 +1771,6 @@ export default function AdminRHPage() {
                             >
                               {selectedForCard.firstName} {selectedForCard.lastName}
                             </p>
-                            <p className="w-full truncate text-[6px] font-semibold text-slate-600">{selectedForCard.department}</p>
                             <p className="mt-[1%] text-[6px] font-mono font-bold text-[#293b9d]">MATRICULE : {selectedForCard.matricule}</p>
                           </div>
                           <div className="absolute inset-x-0 bottom-0 flex h-[15%] items-end justify-end bg-[#55afe0] px-[4%] pb-[3%] text-[7px] font-bold text-white">
