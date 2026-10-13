@@ -144,7 +144,7 @@ export type RHAuditLog = {
   ipAddress?: string;
 };
 
-export const RH_DEPARTMENTS = [
+export const RH_DIRECTIONS = [
   'Direction Générale (DG)',
   'Direction Générale Adjointe (DGA)',
   'Direction des Études et de la Pédagogie',
@@ -156,6 +156,9 @@ export const RH_DEPARTMENTS = [
   'Département Management et Commerce',
   'Département Management des TIC',
   'Département Audiovisuel',
+] as const;
+
+export const RH_SERVICES = [
   'Service Scolarité',
   'Service Logistique et Achat',
   'Service Social',
@@ -166,6 +169,11 @@ export const RH_DEPARTMENTS = [
   'Service Planification et Évaluation',
   'Service Veille Technologique et VAE',
   'Service Maintenance et Assistance Technique',
+] as const;
+
+export const RH_DEPARTMENTS = [
+  ...RH_DIRECTIONS,
+  ...RH_SERVICES,
 ] as const;
 
 export const DEFAULT_PUBLIC_WHITELIST: RHPublicWhitelist = {

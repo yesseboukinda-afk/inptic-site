@@ -66,6 +66,8 @@ import {
   RHContractType,
   RHGender,
   RHQRStatus,
+  RH_DIRECTIONS,
+  RH_SERVICES,
   RHAuditLog,
   RHPublicWhitelist,
 } from '@/types/rh';
@@ -756,8 +758,8 @@ export default function AdminRHPage() {
         a.localeCompare(b, 'fr', { sensitivity: 'base' }),
       );
     return {
-      directions: uniqueSorted(allProfiles.map((profile) => profile.direction)),
-      services: uniqueSorted(allProfiles.map((profile) => profile.service)),
+      directions: uniqueSorted([...RH_DIRECTIONS, ...allProfiles.map((profile) => profile.direction)]),
+      services: uniqueSorted([...RH_SERVICES, ...allProfiles.map((profile) => profile.service)]),
       positions: uniqueSorted(allProfiles.map((profile) => profile.position)),
     };
   }, [allProfiles]);
@@ -1462,9 +1464,9 @@ export default function AdminRHPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleOpenCreate}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-[#e6c141] transition"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-slate-950 shadow-md transition hover:bg-[#e6c141] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
               >
-                <Plus size={16} />
+                <Plus size={18} />
                 <span>Nouvel Employé</span>
               </button>
 
@@ -1622,17 +1624,17 @@ export default function AdminRHPage() {
                 type="button"
                 onClick={() => void loadProfiles()}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-100 transition disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 shadow-xs transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
                 <span>{loading ? 'Actualisation...' : 'Actualiser la liste'}</span>
               </button>
 
               <button
                 onClick={handleExportCSV}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
-                <Download size={14} />
+                <Download size={17} />
                 <span>Export CSV filtré</span>
               </button>
 
@@ -1640,9 +1642,9 @@ export default function AdminRHPage() {
                 type="button"
                 onClick={() => void handleExportProfilesExcel()}
                 disabled={isExportingExcel || loading}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-xs hover:bg-emerald-100 transition disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800 shadow-xs transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <FileSpreadsheet size={14} />
+                <FileSpreadsheet size={17} />
                 <span>{isExportingExcel ? 'Création Excel…' : `Personnel actif + QR (${allProfiles.filter((profile) => !profile.isArchived).length})`}</span>
               </button>
 
@@ -1654,17 +1656,17 @@ export default function AdminRHPage() {
                       setImportReport(null);
                       setShowImportModal(true);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   >
-                    <Upload size={14} />
+                    <Upload size={17} />
                     <span>Import CSV</span>
                   </button>
 
                   <button
                     onClick={handleOpenCreate}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 transition"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                   >
-                    <Plus size={16} />
+                    <Plus size={18} />
                     <span>Nouvel Employé</span>
                   </button>
                 </>
@@ -1788,21 +1790,23 @@ export default function AdminRHPage() {
 
                           {/* Actions */}
                           <td className="px-4 py-3 text-right">
-                            <div className="inline-flex items-center gap-1.5">
+                            <div className="inline-flex items-center gap-2">
                               <button
                                 onClick={() => setViewingProfile(p)}
                                 title="Voir la fiche complète"
-                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                                aria-label={`Voir la fiche complète de ${p.firstName} ${p.lastName}`}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                               >
-                                <Eye size={15} />
+                                <Eye size={19} />
                               </button>
 
                               <button
                                 onClick={() => setSelectedForCard(p)}
                                 title="Carte professionnelle & QR"
-                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#D4AF37]"
+                                aria-label={`Carte professionnelle et QR de ${p.firstName} ${p.lastName}`}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-amber-50 hover:text-[#D4AF37] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                               >
-                                <QrCode size={15} />
+                                <QrCode size={19} />
                               </button>
 
                               {!isReadOnly && (
@@ -1810,26 +1814,29 @@ export default function AdminRHPage() {
                                   <button
                                     onClick={() => handleOpenEdit(p)}
                                     title="Modifier"
-                                    className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-emerald-600"
+                                    aria-label={`Modifier le profil de ${p.firstName} ${p.lastName}`}
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                   >
-                                    <Edit size={15} />
+                                    <Edit size={19} />
                                   </button>
 
                                   {isArch ? (
                                     <button
                                       onClick={() => handleSpecialAction(p.id, 'restore')}
                                       title="Restaurer l'employé"
-                                      className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
+                                      aria-label={`Restaurer le profil de ${p.firstName} ${p.lastName}`}
+                                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-emerald-600 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                     >
-                                      <CheckCircle2 size={15} />
+                                      <CheckCircle2 size={19} />
                                     </button>
                                   ) : (
                                     <button
                                       onClick={() => setArchivingProfile(p)}
                                       title="Archiver (Soft delete)"
-                                      className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                      aria-label={`Archiver le profil de ${p.firstName} ${p.lastName}`}
+                                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                                     >
-                                      <Archive size={15} />
+                                      <Archive size={19} />
                                     </button>
                                   )}
                                 </>
@@ -2471,8 +2478,8 @@ export default function AdminRHPage() {
                         <User size={18} className="text-slate-400" />
                       )}
                     </div>
-                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs">
-                      <Upload size={13} />
+                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-xs transition hover:bg-slate-50">
+                      <Upload size={17} />
                       <span>Parcourir...</span>
                       <input
                         type="file"
@@ -2496,32 +2503,30 @@ export default function AdminRHPage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700">Direction *</label>
-                  <input
-                    type="text"
+                  <select
                     required={!editingProfile}
-                    list="rh-directions"
                     value={formDirection}
                     onChange={(e) => setFormDirection(e.target.value)}
-                    placeholder="Ex. Direction Générale"
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                  />
-                  <datalist id="rh-directions">
-                    {organizationOptions.directions.map((direction) => <option key={direction} value={direction} />)}
-                  </datalist>
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">Sélectionner une direction</option>
+                    {organizationOptions.directions.map((direction) => (
+                      <option key={direction} value={direction}>{direction}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700">Service</label>
-                  <input
-                    type="text"
-                    list="rh-services"
+                  <select
                     value={formService}
                     onChange={(e) => setFormService(e.target.value)}
-                    placeholder="Ex. Service Informatique"
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                  />
-                  <datalist id="rh-services">
-                    {organizationOptions.services.map((service) => <option key={service} value={service} />)}
-                  </datalist>
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">Sélectionner un service</option>
+                    {organizationOptions.services.map((service) => (
+                      <option key={service} value={service}>{service}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700">Poste / Fonction *</label>
@@ -2706,14 +2711,14 @@ export default function AdminRHPage() {
                   type="button"
                   disabled={formSaving || photoUploading}
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-11 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={formSaving || photoUploading}
-                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:opacity-50"
+                  className="min-h-11 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {photoUploading ? 'Lecture de la photo…' : formSaving ? (formSaveStep === 1 ? 'Enregistrement...' : 'Actualisation...') : 'Enregistrer'}
                 </button>
@@ -2913,14 +2918,14 @@ export default function AdminRHPage() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700"
+                className="min-h-11 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 Fermer
               </button>
               <button
                 onClick={handleExecuteImport}
                 disabled={isImporting || !importText.trim()}
-                className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isImporting ? 'Importation en cours…' : "Lancer l'importation"}
               </button>
