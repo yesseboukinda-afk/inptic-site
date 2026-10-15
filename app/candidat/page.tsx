@@ -537,7 +537,12 @@ export default function Candidat() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-12">
+    <main
+      className="min-h-screen bg-cover bg-center bg-fixed px-4 py-12"
+      style={{
+        backgroundImage: "linear-gradient(rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.2)), url('/banniere/linux.jpg')",
+      }}
+    >
       {showLoginSuccess && (
         <div
           role="status"
@@ -559,8 +564,8 @@ export default function Candidat() {
           </div>
         </div>
       )}
-      <div className="mx-auto max-w-5xl grid gap-8 rounded-3xl bg-white p-6 md:grid-cols-[1.1fr_1fr] md:p-10">
-        <section className="rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 p-8 text-white">
+      <div className="mx-auto grid max-w-5xl gap-8 rounded-3xl border border-white/30 bg-white/10 p-6 shadow-2xl backdrop-blur-md md:grid-cols-[1.1fr_1fr] md:p-10">
+        <section className="rounded-2xl border border-white/15 bg-gradient-to-br from-blue-700/50 to-cyan-600/30 p-8 text-white shadow-lg backdrop-blur-md">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-100">{t('common.login')}</p>
           <h1 className="mt-3 text-4xl font-black">{t('pages.account')}</h1>
           <p className="mt-4 max-w-md text-sm leading-7 text-blue-50">
@@ -619,7 +624,7 @@ export default function Candidat() {
 
         <section className="flex items-center">
           {mode === 'login' ? (
-            <form onSubmit={login} className="w-full">
+            <form onSubmit={login} className="w-full rounded-2xl border border-white/30 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
               <h2 className="text-2xl font-bold text-slate-900">{t('candidate.login')}</h2>
               <p className="mt-2 text-sm text-slate-500">{t('candidate.accountAccess')}</p>
 
@@ -672,7 +677,7 @@ export default function Candidat() {
               </button>
             </form>
           ) : mode === 'forgot' ? (
-            <form onSubmit={requestPasswordReset} className="w-full">
+            <form onSubmit={requestPasswordReset} className="w-full rounded-2xl border border-white/30 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
               <h2 className="text-2xl font-bold text-slate-900">{t('candidate.recoverTitle')}</h2>
               <p className="mt-2 text-sm text-slate-500">{t('candidate.recoverText')}</p>
 
@@ -703,7 +708,7 @@ export default function Candidat() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleSignup} className="w-full">
+            <form onSubmit={handleSignup} className="w-full rounded-2xl border border-white/30 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
               <h2 className="text-2xl font-bold text-slate-900">{t('candidate.signupTitle')}</h2>
               <p className="mt-2 text-sm text-slate-500">{t('candidate.signupText')}</p>
 
