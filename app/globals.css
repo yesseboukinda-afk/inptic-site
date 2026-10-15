@@ -144,6 +144,16 @@ html {
   }
 }
 
+.candidate-login-background {
+  background-image: linear-gradient(rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.2)), url('/banniere/binary.webp');
+}
+
+@media (max-width: 767px) {
+  .candidate-login-background {
+    background-image: linear-gradient(rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.2)), url('/banniere/mobile.jpg');
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .student-section-page {
     animation: none;

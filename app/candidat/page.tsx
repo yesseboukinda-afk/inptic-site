@@ -538,10 +538,7 @@ export default function Candidat() {
 
   return (
     <main
-      className="min-h-screen bg-cover bg-center bg-fixed px-4 py-12"
-      style={{
-        backgroundImage: "linear-gradient(rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.2)), url('/banniere/linux.jpg')",
-      }}
+      className="candidate-login-background min-h-screen bg-cover bg-center bg-fixed px-4 py-12"
     >
       {showLoginSuccess && (
         <div
