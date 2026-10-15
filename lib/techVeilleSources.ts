@@ -62,6 +62,7 @@ export const RSS_SOURCES = [
   { name: 'Dark Reading', url: 'https://www.darkreading.com/rss.xml', region: 'International' },
   { name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/', region: 'International' },
   { name: 'Schneier on Security', url: 'https://www.schneier.com/feed/atom/', region: 'International' },
+  { name: 'GitHub Changelog', url: 'https://github.blog/changelog/feed/', region: 'International' },
 
   { name: 'Apple Newsroom', url: 'https://www.apple.com/newsroom/rss-feed.rss', region: 'Marques' },
 ] as const;
