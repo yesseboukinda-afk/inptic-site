@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   History,
+  Mail,
   Megaphone,
   Plus,
   Search,
@@ -84,6 +85,13 @@ const managementAreas = [
     href: '/annonces/gestion',
     icon: Megaphone,
     color: 'violet',
+  },
+  {
+    title: 'Abonnés à la newsletter',
+    description: 'Consulter les inscriptions et bloquer ou supprimer une adresse.',
+    href: '/admin/newsletter',
+    icon: Mail,
+    color: 'blue',
   },
   {
     title: 'Recherche et publications scientifiques',

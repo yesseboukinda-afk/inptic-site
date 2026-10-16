@@ -49,7 +49,7 @@ async function siteAuditedPOST(req: NextRequest) {
   let existingSubscriber;
   try {
     const { rows } = await getPostgresPool().query(
-      `SELECT is_active, subscribed_at, confirmation_sent_at
+      `SELECT is_active, is_blocked, subscribed_at, confirmation_sent_at
        FROM public.subscribers WHERE email = $1`,
       [email],
     );
@@ -60,6 +60,13 @@ async function siteAuditedPOST(req: NextRequest) {
       { error: 'Impossible de vérifier votre inscription pour le moment. Veuillez réessayer plus tard.' },
       { status: 503 },
     );
+  }
+
+  if (existingSubscriber?.is_blocked) {
+    return NextResponse.json({
+      success: true,
+      message: 'Votre demande a été prise en compte.',
+    });
   }
 
   if (existingSubscriber?.is_active && existingSubscriber.confirmation_sent_at) {
@@ -78,7 +85,7 @@ async function siteAuditedPOST(req: NextRequest) {
        VALUES ($1, $2, TRUE, NULL)
        ON CONFLICT (email) DO UPDATE
        SET subscribed_at = EXCLUDED.subscribed_at,
-           is_active = TRUE,
+           is_active = NOT public.subscribers.is_blocked,
            confirmation_sent_at = NULL`,
       [email, subscribedAt],
     );

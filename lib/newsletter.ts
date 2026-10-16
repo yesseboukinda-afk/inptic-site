@@ -110,7 +110,7 @@ async function dispatchPublicationNewsletter(
   let subscribers;
   try {
     const { rows } = await getPostgresPool().query(
-      'SELECT email, unsubscribe_token FROM public.subscribers WHERE is_active = TRUE',
+      'SELECT email, unsubscribe_token FROM public.subscribers WHERE is_active = TRUE AND is_blocked = FALSE',
     );
     subscribers = rows;
   } catch (error) {
