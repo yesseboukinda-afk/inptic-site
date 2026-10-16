@@ -145,7 +145,7 @@ html {
 }
 
 .candidate-login-background {
-  background-image: linear-gradient(rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.2)), url('/banniere/binary.webp');
+  background-image: linear-gradient(rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.2)), url('/institut/1.webp');
 }
 
 @media (max-width: 767px) {
@@ -488,6 +488,38 @@ a, button, input, select {
     width: 22px;
     height: 22px;
     display: block;
+  }
+}
+
+/* Keep header navigation available when older browsers ignore Tailwind v4 breakpoints. */
+.site-header-desktop-actions {
+  display: none !important;
+}
+
+.site-header-mobile-actions {
+  display: flex !important;
+}
+
+.site-primary-nav {
+  display: none !important;
+}
+
+.site-mobile-nav {
+  display: block !important;
+}
+
+@media screen and (min-width: 1024px) {
+  .site-header-desktop-actions {
+    display: flex !important;
+  }
+
+  .site-header-mobile-actions,
+  .site-mobile-nav {
+    display: none !important;
+  }
+
+  .site-primary-nav {
+    display: block !important;
   }
 }
 

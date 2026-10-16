@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, LoaderCircle } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +49,7 @@ export default function ResetPasswordPage() {
     }
 
     setIsSubmitting(true);
+    setMessage('Veuillez patienter un instant : nous enregistrons votre nouveau mot de passe.');
     try {
       const response = await fetch('/api/auth/password/reset', {
         method: 'POST',
@@ -78,7 +79,7 @@ export default function ResetPasswordPage() {
         <h1 className="mt-6 text-3xl font-black text-slate-900">{t('pages.newPassword')}</h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">{t('pages.passwordIntro')}</p>
 
-        <form onSubmit={updatePassword} className="mt-8">
+        <form onSubmit={updatePassword} className="mt-8" aria-busy={isSubmitting}>
           <div className="relative">
             <input
               required
@@ -124,13 +125,19 @@ export default function ResetPasswordPage() {
           <button
             type="submit"
             disabled={!isReady || isSubmitting}
-            className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {t('pages.savePassword')}
+            {isSubmitting && <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />}
+            {isSubmitting ? 'Enregistrement...' : t('pages.savePassword')}
           </button>
         </form>
 
-        {message && <p className="mt-4 text-sm text-slate-600">{message}</p>}
+        {message && (
+          <p role="status" aria-live="polite" className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+            {isSubmitting && <LoaderCircle size={16} className="shrink-0 animate-spin text-blue-600" aria-hidden="true" />}
+            {message}
+          </p>
+        )}
       </section>
     </main>
   );

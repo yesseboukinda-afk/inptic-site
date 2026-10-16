@@ -306,7 +306,7 @@ export default function Header() {
             <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-auto sm:h-9 md:h-10" />
           </Link>
 
-          <div className="ml-auto hidden lg:flex items-center gap-3">
+          <div className="site-header-desktop-actions ml-auto hidden items-center gap-3 lg:flex">
             <form onSubmit={handleSearchSubmit} className="hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
               <input
                 type="search"
@@ -399,7 +399,7 @@ export default function Header() {
             )}
           </div>
 
-          <div className="ml-auto flex items-center gap-2 lg:hidden">
+          <div className="site-header-mobile-actions ml-auto flex items-center gap-2 lg:hidden">
             {hasStaffDashboard ? (
               <>
                 <Link href={dashboardHref} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={dashboardLabel}>
@@ -479,7 +479,7 @@ export default function Header() {
         </div>
       </header>
 
-      <nav className="main-nav sticky top-[4.5rem] z-30 hidden shadow-md transition-colors duration-300 lg:block" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu principal">
+      <nav className="site-primary-nav main-nav sticky top-[4.5rem] z-30 hidden shadow-md transition-colors duration-300 lg:block" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu principal">
         <div className="container-x flex flex-wrap gap-2 md:gap-6 items-center min-h-12 text-sm px-4 md:px-0">
           <Link href="/" className="nav-link transition-all duration-200 py-3 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
             {t('common.home')}
@@ -599,7 +599,7 @@ export default function Header() {
       </nav>
 
       {mobileMenuOpen && (
-        <nav id="mobile-menu" ref={mobileMenuRef} className="main-nav fixed inset-x-0 bottom-0 top-16 z-[60] overflow-y-auto overscroll-contain border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200 md:top-[4.5rem] lg:hidden" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu mobile">
+        <nav id="mobile-menu" ref={mobileMenuRef} className="site-mobile-nav main-nav fixed inset-x-0 bottom-0 top-16 z-[60] overflow-y-auto overscroll-contain border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200 md:top-[4.5rem] lg:hidden" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu mobile">
           <div className="container-x space-y-2 px-4 py-4">
             <div className="mb-4 md:hidden flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
               <input type="search" placeholder={t('common.search')} aria-label={t('common.search')} className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 text-base" />
