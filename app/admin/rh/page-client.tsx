@@ -263,26 +263,39 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       <meta charset="utf-8" />
       <title>Cartes professionnelles INPTIC</title>
       <style>
-        @page { size: 110mm 85mm; margin: 0; }
+        @page { size: A4 landscape; margin: 0; }
         * { box-sizing: border-box; }
         html, body {
-          width: 110mm;
+          width: 297mm;
           margin: 0;
           padding: 0;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
+        .print-sheet {
+          display: grid;
+          grid-template-columns: repeat(2, 110mm);
+          grid-template-rows: repeat(2, 85mm);
+          justify-content: center;
+          align-content: center;
+          gap: 4mm;
+          width: 297mm;
+          height: 210mm;
+          margin: 0;
+          break-after: page;
+          page-break-after: always;
+        }
+        .print-sheet:last-child { break-after: auto; page-break-after: auto; }
         .card-pair {
           display: flex;
           flex-direction: row;
           width: 110mm;
           height: 85mm;
           margin: 0;
-          break-after: page;
-          page-break-after: always;
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
-        .card-pair:last-child { break-after: auto; page-break-after: auto; }
         .card-face {
           position: relative;
           flex: 0 0 55mm;
@@ -485,20 +498,27 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         @media screen {
           html, body { width: auto; }
           body { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #e2e8f0; }
-          .card-pair { box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
+          .print-sheet { flex: 0 0 auto; background: #fff; box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
+          .card-pair { box-shadow: 0 0 0 0.2mm #cbd5e1; }
         }
         @media print {
-          html, body { width: 110mm !important; margin: 0 !important; padding: 0 !important; }
+          html, body { width: 297mm !important; margin: 0 !important; padding: 0 !important; }
+          .print-sheet {
+            display: grid !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            margin: 0 !important;
+            break-after: page;
+            page-break-after: always;
+          }
+          .print-sheet:last-child { break-after: auto; page-break-after: auto; }
           .card-pair {
             display: flex !important;
             flex-direction: row !important;
             width: 110mm !important;
             height: 85mm !important;
             margin: 0 !important;
-            break-after: page;
-            page-break-after: always;
           }
-          .card-pair:last-child { break-after: auto; page-break-after: auto; }
           .card-face {
             flex: 0 0 55mm !important;
             width: 55mm !important;
@@ -511,7 +531,13 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       </style>
     </head>
     <body>
-      ${profiles.map((profile) => `<div class="card-pair">${getPrintableCardMarkup(profile, origin)}</div>`).join('')}
+      ${Array.from({ length: Math.ceil(profiles.length / 4) }, (_, sheetIndex) => `
+        <main class="print-sheet">
+          ${profiles.slice(sheetIndex * 4, sheetIndex * 4 + 4).map((profile) =>
+            `<div class="card-pair">${getPrintableCardMarkup(profile, origin)}</div>`,
+          ).join('')}
+        </main>
+      `).join('')}
       <script>
         window.onload = () => {
           setTimeout(() => window.print(), 500);
@@ -1711,7 +1737,7 @@ export default function AdminRHPage() {
                 </span>
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                Chaque recto et verso est généré au format exact 55 × 85 mm dans un seul PDF.
+                4 paires par feuille A4 paysage ; chaque face mesure 55 × 85 mm. Impression à 100 %, sans recto-verso.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2200,7 +2226,7 @@ export default function AdminRHPage() {
                       </p>
                     </div>
                     <p className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-[11px] leading-5 text-blue-900">
-                      Impression recto-verso au format 55 × 85 mm. Dans la fenêtre d’impression, choisissez une impression recto-verso avec retournement sur le bord court et une échelle de 100 %.
+                      Le recto et le verso sont côte à côte sur une feuille A4 paysage. Choisissez l’échelle 100 % et désactivez l’impression recto-verso ; chaque face conserve le format 55 × 85 mm.
                     </p>
                   </div>
                 ) : (
