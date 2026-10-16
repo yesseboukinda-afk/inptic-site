@@ -569,12 +569,12 @@ export default function Candidat() {
             {t('candidate.intro')}
           </p>
 
-          <div className="mt-8 flex justify-center gap-3 md:flex-col md:items-stretch">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row md:flex-col md:items-stretch">
             <button
               type="button"
               onClick={() => setMode('login')}
               aria-label="Je me connecte"
-              className={`mobile-icon-action rounded-xl px-4 py-3 font-semibold transition ${
+              className={`mobile-icon-action min-w-0 flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                 mode === 'login' ? 'bg-white text-blue-700' : 'bg-blue-500/20 text-white border border-blue-300/30'
               }`}
             >
@@ -585,7 +585,7 @@ export default function Candidat() {
               type="button"
               onClick={() => setMode('signup')}
               aria-label={t('candidate.joinExam')}
-              className={`mobile-icon-action rounded-xl px-4 py-3 font-semibold transition ${
+              className={`mobile-icon-action min-w-0 flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                 mode === 'signup' ? 'bg-white text-blue-700' : 'bg-blue-500/20 text-white border border-blue-300/30'
               }`}
             >
@@ -596,7 +596,7 @@ export default function Candidat() {
               type="button"
               onClick={() => setMode('forgot')}
               aria-label={t('candidate.forgot')}
-              className={`mobile-icon-action rounded-xl px-4 py-3 font-semibold transition ${
+              className={`mobile-icon-action min-w-0 flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                 mode === 'forgot' ? 'bg-white text-blue-700' : 'bg-blue-500/20 text-white border border-blue-300/30'
               }`}
             >

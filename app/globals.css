@@ -437,8 +437,7 @@ a, button, input, select {
 }
 
 @media (max-width: 767px) {
-  .navbar-icon-only,
-  .mobile-icon-action {
+  .navbar-icon-only {
     width: 44px;
     min-width: 44px;
     max-width: 44px;
@@ -453,21 +452,17 @@ a, button, input, select {
     margin-inline: 0;
   }
 
-  .navbar-icon-only + .navbar-icon-only,
-  .mobile-icon-action + .mobile-icon-action {
+  .navbar-icon-only + .navbar-icon-only {
     margin-left: 0.75rem;
   }
 
-  .navbar-icon-only .btn-label,
-  .mobile-icon-action .btn-label {
+  .navbar-icon-only .btn-label {
     display: none;
   }
 
   .navbar-icon-only > svg,
   .navbar-icon-only > img,
-  .navbar-icon-only .icon-slot,
-  .mobile-icon-action > svg,
-  .mobile-icon-action > img {
+  .navbar-icon-only .icon-slot {
     width: 18px;
     height: 18px;
     min-width: 18px;
