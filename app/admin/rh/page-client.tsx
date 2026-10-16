@@ -430,12 +430,11 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         .card-front--compact .name { font-size: 7.5pt; }
         .card-front--dense .name { font-size: 6.5pt; }
         .card-front--dense .identity { line-height: 1; }
-        }
         .matr {
           margin-top: 0.6mm;
           color: #26399b;
           font-family: Calibri, Arial, sans-serif;
-          font-size: 4.5pt;
+          font-size: 3.75pt;
           font-weight: 800;
         }
         .front-footer {
