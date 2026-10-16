@@ -82,6 +82,30 @@ export default function Contact() {
               </div>
             </div>
 
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="p-6">
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">Nous trouver</p>
+                <h3 className="mt-2 text-xl font-bold text-slate-900">Localisation de l’INPTIC</h3>
+                <p className="mt-1 text-sm text-slate-600">Feu tricolores Gros Bouquet, Libreville, Gabon</p>
+              </div>
+              <iframe
+                title="Carte centrée sur l’INPTIC à Libreville"
+                src="https://www.google.com/maps?q=INPTIC%2C%20Libreville%2C%20Gabon&output=embed"
+                className="block h-72 w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=INPTIC%2C%20Libreville%2C%20Gabon"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block px-6 py-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 hover:text-blue-900"
+              >
+                Ouvrir l’itinéraire dans Google Maps
+              </a>
+            </div>
+
           </aside>
         </div>
       </section>
