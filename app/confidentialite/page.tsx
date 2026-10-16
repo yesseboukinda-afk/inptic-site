@@ -14,6 +14,10 @@ export default function ConfidentialitePage() {
 
         <div className="mt-8 space-y-6 text-sm leading-7 text-slate-700 md:text-base">
           {paragraphs.map((key) => <p key={key}>{t(`public.privacy.${key}`)}</p>)}
+          <section id="cookies" className="space-y-2">
+            <h2 className="text-lg font-bold text-slate-900">{t('cookieConsent.title')}</h2>
+            <p>{t('cookieConsent.privacyDetails')}</p>
+          </section>
         </div>
       </div>
     </main>

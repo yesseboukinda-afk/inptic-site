@@ -1,8 +1,13 @@
 import { resources } from '@/next.config';
+import { cookieConsentCopy } from '@/lib/cookie-consent-copy';
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 const supportedLngs = Object.keys(resources) as Array<keyof typeof resources>;
+
+for (const [language, translation] of Object.entries(cookieConsentCopy)) {
+  Object.assign(resources[language as keyof typeof resources].translation, { cookieConsent: translation });
+}
 
 function deepMerge(target: any, source: any) {
   if (!target) return source;

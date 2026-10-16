@@ -215,7 +215,9 @@ export default function ConcoursPage() {
       localStorage.setItem('inptic_users', JSON.stringify(updatedUsers));
       window.dispatchEvent(new Event('auth-state-changed'));
       setPreRegistrationMessage('Préinscription enregistrée. Votre dossier est en attente de complément.');
-      router.push(`/admissions/depot${currentConcours ? `?concours=${encodeURIComponent(currentConcours.slug)}` : ''}`);
+      const destinationParams = new URLSearchParams({ newsletterReminder: '1' });
+      if (currentConcours) destinationParams.set('concours', currentConcours.slug);
+      router.push(`/admissions/depot?${destinationParams.toString()}`);
     } catch (error) {
       setPreRegistrationError(error instanceof Error ? error.message : 'Préinscription impossible.');
     } finally {

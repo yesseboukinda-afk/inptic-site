@@ -10,8 +10,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 import I18nProvider from "@/components/I18nProvider";
 import PWARegister from "@/components/PWARegister";
 import { PWAInstallProvider } from "@/components/PWAInstallProvider";
-
-import { Analytics } from "@vercel/analytics/next";
+import CookieConsent from "@/components/CookieConsent";
 
 export const metadata = {
   title:
@@ -74,7 +73,7 @@ export default function RootLayout({
 
             <ScrollReveal />
 
-            <Analytics />
+            <CookieConsent />
           </I18nProvider>
         </PWAInstallProvider>
       </body>

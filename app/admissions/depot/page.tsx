@@ -20,9 +20,12 @@ export default function DepotPage() {
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; category: string; type: string; data: string }>>([]);
   const [uploadError, setUploadError] = useState('');
   const [concoursSlug, setConcoursSlug] = useState('');
+  const [showNewsletterReminder, setShowNewsletterReminder] = useState(false);
 
   useEffect(() => {
-    setConcoursSlug(new URLSearchParams(window.location.search).get('concours') || '');
+    const searchParams = new URLSearchParams(window.location.search);
+    setConcoursSlug(searchParams.get('concours') || '');
+    setShowNewsletterReminder(searchParams.get('newsletterReminder') === '1');
     const syncUser = async () => {
       const stored = localStorage.getItem('inptic_user');
       if (stored) {
@@ -240,6 +243,23 @@ export default function DepotPage() {
               {t('depotPage.viewTracking', 'Voir mon suivi de dossier')}
             </Link>
           </div>
+
+          {showNewsletterReminder && (
+            <div
+              role="status"
+              className="mb-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p>
+                Votre préinscription au concours est enregistrée. Inscrivez-vous à la newsletter pour ne manquer aucune actualité ni information importante.
+              </p>
+              <a
+                href="/#newsletter"
+                className="shrink-0 rounded-lg bg-amber-400 px-4 py-2 text-center font-bold text-slate-950 hover:bg-amber-300"
+              >
+                Découvrir la newsletter
+              </a>
+            </div>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
             {/* Formulaire principal */}

@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Image from "next/image";
 import InstallPWA from "@/components/InstallPWA";
+import { COOKIE_PREFERENCES_EVENT } from "@/lib/cookie-consent";
 
 export default function Footer() {
   const [email, setEmail] = useState("");
@@ -231,7 +232,7 @@ export default function Footer() {
           </div>
 
           {/* Newsletter */}
-          <div>
+          <div id="newsletter">
             <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-white">
               {t("footer.newsletterTitle")}
             </h3>
@@ -344,6 +345,14 @@ export default function Footer() {
                   "Textes et lois"
                 )}
               </a>
+
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event(COOKIE_PREFERENCES_EVENT))}
+                className="transition-colors duration-200 hover:text-[#D4AF37]"
+              >
+                {t("cookieConsent.settings", "Préférences cookies")}
+              </button>
 
             </div>
 

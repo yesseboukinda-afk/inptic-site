@@ -1,2 +1,29 @@
-import {NextRequest,NextResponse} from 'next/server';import {strapi} from '@/lib/strapi';
-export async function GET(req:NextRequest){const q=req.nextUrl.searchParams.get('q')?.trim()||'';if(!q)return NextResponse.json({data:[]});try{const [f,n]=await Promise.all([strapi(`/formations?filters[title][$containsi]=${encodeURIComponent(q)}&populate=*`),strapi(`/actualites?filters[title][$containsi]=${encodeURIComponent(q)}&populate=*`)]);return NextResponse.json({formations:f,actualites:n})}catch(e){return NextResponse.json({error:'Recherche indisponible'},{status:502})}}
+import { NextRequest, NextResponse } from 'next/server';
+import { strapi } from '@/lib/strapi';
+
+function buildSearchPath(collection: 'formations' | 'actualites', query: string) {
+  const params = new URLSearchParams({
+    'filters[title][$containsi]': query,
+    'fields[0]': 'title',
+    'fields[1]': 'name',
+    'fields[2]': 'description',
+  });
+
+  return `/${collection}?${params.toString()}`;
+}
+
+export async function GET(request: NextRequest) {
+  const query = request.nextUrl.searchParams.get('q')?.trim() || '';
+  if (!query) return NextResponse.json({ data: [] });
+
+  try {
+    const [formations, actualites] = await Promise.all([
+      strapi(buildSearchPath('formations', query)),
+      strapi(buildSearchPath('actualites', query)),
+    ]);
+
+    return NextResponse.json({ formations, actualites });
+  } catch {
+    return NextResponse.json({ error: 'Recherche indisponible' }, { status: 502 });
+  }
+}
