@@ -3,14 +3,14 @@
 import { useTranslation } from 'react-i18next';
 
 const partnerLogos = [
-  { name: 'CNOU', src: '/partners/cnou.png' },
-  { name: 'Cisco', src: '/partners/cisco.png' },
-  { name: 'Moov Africa', src: '/partners/moov-africa.jpg' },
-  { name: 'SPIN', src: '/partners/spin.png' },
-  { name: 'Comilog', src: '/partners/comilog.png' },
-  { name: 'Ministère', src: '/partners/minister.png' },
-  { name: 'ANBG', src: '/partners/anbg.png' },
-  { name: 'Arcep', src: '/partners/arcep.png' },
+  { name: 'CNOU', src: '/partners/cnou.png', url: 'https://www.cnou.ga/' },
+  { name: 'Cisco', src: '/partners/cisco.png', url: 'https://www.cisco.com/' },
+  { name: 'Moov Africa', src: '/partners/moov-africa.jpg', url: 'https://www.moov-africa.ga/' },
+  { name: 'SPIN', src: '/partners/spin.png', url: 'https://spin.ga/' },
+  { name: 'Comilog', src: '/partners/comilog.png', url: 'https://comilog.eramet.com/' },
+  { name: 'Ministère', src: '/partners/minister.png', url: 'https://economie-numerique.gouv.ga/' },
+  { name: 'ANBG', src: '/partners/anbg.png', url: 'https://anbg.online/' },
+  { name: 'Arcep', src: '/partners/arcep.png', url: 'https://www.arcep.ga/' },
 ];
 
 export default function Entreprises() {
@@ -76,14 +76,21 @@ export default function Entreprises() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {partnerLogos.map((partner) => (
-              <div key={partner.name} className="flex min-h-[180px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+              <a
+                key={partner.name}
+                href={partner.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Visiter le site de ${partner.name} (nouvel onglet)`}
+                className="flex min-h-[180px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              >
                 <img
                   src={partner.src}
                   alt={partner.name}
                   className="max-h-20 w-full object-contain grayscale-[0.15]"
                   loading="lazy"
                 />
-              </div>
+              </a>
             ))}
           </div>
         </div>

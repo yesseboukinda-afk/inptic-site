@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   BookOpen,
+  Bot,
   BriefcaseBusiness,
   LoaderCircle,
   FileText,
@@ -92,6 +93,13 @@ const managementAreas = [
     href: '/admin/newsletter',
     icon: Mail,
     color: 'blue',
+  },
+  {
+    title: 'Configuration du moteur IA',
+    description: 'Choisir et tester le fournisseur du chatbot, son modèle et ses identifiants.',
+    href: '/admin/ai-settings',
+    icon: Bot,
+    color: 'indigo',
   },
   {
     title: 'Recherche et publications scientifiques',

@@ -263,27 +263,37 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
       <meta charset="utf-8" />
       <title>Cartes professionnelles INPTIC</title>
       <style>
-        @page { size: 55mm 85mm portrait; margin: 0; }
+        @page { size: 110mm 85mm; margin: 0; }
         * { box-sizing: border-box; }
         html, body {
-          width: 55mm;
+          width: 110mm;
           margin: 0;
           padding: 0;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        .card-face {
-          position: relative;
-          width: 55mm;
+        .card-pair {
+          display: flex;
+          flex-direction: row;
+          width: 110mm;
           height: 85mm;
           margin: 0;
-          overflow: hidden;
-          background: #fff;
           break-after: page;
           page-break-after: always;
         }
-        .card-face:last-child { break-after: auto; page-break-after: auto; }
+        .card-pair:last-child { break-after: auto; page-break-after: auto; }
+        .card-face {
+          position: relative;
+          flex: 0 0 55mm;
+          width: 55mm;
+          height: 85mm;
+          min-width: 55mm;
+          max-width: 55mm;
+          margin: 0;
+          overflow: hidden;
+          background: #fff;
+        }
         .card-front {
           display: flex;
           flex-direction: column;
@@ -475,25 +485,33 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         @media screen {
           html, body { width: auto; }
           body { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #e2e8f0; }
-          .card-face { box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
+          .card-pair { box-shadow: 0 4px 20px rgb(15 23 42 / 0.2); }
         }
         @media print {
-          html, body { width: 55mm !important; margin: 0 !important; padding: 0 !important; }
+          html, body { width: 110mm !important; margin: 0 !important; padding: 0 !important; }
+          .card-pair {
+            display: flex !important;
+            flex-direction: row !important;
+            width: 110mm !important;
+            height: 85mm !important;
+            margin: 0 !important;
+            break-after: page;
+            page-break-after: always;
+          }
+          .card-pair:last-child { break-after: auto; page-break-after: auto; }
           .card-face {
+            flex: 0 0 55mm !important;
             width: 55mm !important;
             height: 85mm !important;
             min-width: 55mm !important;
             max-width: 55mm !important;
             margin: 0 !important;
-            break-after: page;
-            page-break-after: always;
           }
-          .card-face:last-child { break-after: auto; page-break-after: auto; }
         }
       </style>
     </head>
     <body>
-      ${profiles.map((profile) => getPrintableCardMarkup(profile, origin)).join('')}
+      ${profiles.map((profile) => `<div class="card-pair">${getPrintableCardMarkup(profile, origin)}</div>`).join('')}
       <script>
         window.onload = () => {
           setTimeout(() => window.print(), 500);
@@ -643,6 +661,7 @@ export default function AdminRHPage() {
   const [selectedPosition, setSelectedPosition] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
   // Modals & Vues
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -856,6 +875,17 @@ export default function AdminRHPage() {
     () => filteredProfiles.filter((profile) => !profile.isArchived && profile.qrStatus === 'actif' && profile.qrToken),
     [filteredProfiles]
   );
+  const selectedCardProfiles = useMemo(
+    () => allProfiles.filter((profile) =>
+      selectedCardIds.includes(profile.id) &&
+      !profile.isArchived &&
+      profile.qrStatus === 'actif' &&
+      Boolean(profile.qrToken)
+    ),
+    [allProfiles, selectedCardIds]
+  );
+  const allVisibleCardsSelected = exportableProfiles.length > 0 &&
+    exportableProfiles.every((profile) => selectedCardIds.includes(profile.id));
 
   // Statistiques calculées
   const stats = useMemo(() => {
@@ -1062,17 +1092,24 @@ export default function AdminRHPage() {
     }
   };
 
-  // Impression dédiée d'une Carte Professionnelle au format badge portrait vertical
-  const handlePrintCard = (p: RHProfile) => {
-    const printWindow = window.open('', '_blank', 'width=600,height=800');
-    if (!printWindow) {
-      window.alert('Autorisez les fenêtres contextuelles pour imprimer la carte professionnelle.');
+  const handlePrintProfiles = (profilesToPrint: RHProfile[]) => {
+    if (profilesToPrint.length === 0) {
+      window.alert('Sélectionnez au moins une carte active avec un QR Code.');
       return;
     }
 
-    printWindow.document.write(getPrintableCardsDocument([p], window.location.origin));
+    const printWindow = window.open('', '_blank', 'width=600,height=800');
+    if (!printWindow) {
+      window.alert('Autorisez les fenêtres contextuelles pour imprimer les cartes professionnelles.');
+      return;
+    }
+
+    printWindow.document.write(getPrintableCardsDocument(profilesToPrint, window.location.origin));
     printWindow.document.close();
   };
+
+  // Impression dédiée d'une Carte Professionnelle au format badge portrait vertical
+  const handlePrintCard = (p: RHProfile) => handlePrintProfiles([p]);
 
   // Actions spéciales QR & Archivage
   const handleSpecialAction = async (
@@ -1164,16 +1201,7 @@ export default function AdminRHPage() {
       return;
     }
 
-    const printWindow = window.open('', '_blank', 'width=900,height=700');
-    if (!printWindow) {
-      window.alert('Autorisez les fenêtres contextuelles pour générer les cartes.');
-      return;
-    }
-
-    printWindow.document.write(
-      getPrintableCardsDocument(exportableProfiles, window.location.origin)
-    );
-    printWindow.document.close();
+    handlePrintProfiles(exportableProfiles);
   };
 
   // Export CSV
@@ -1674,12 +1702,82 @@ export default function AdminRHPage() {
             </div>
           </div>
 
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-bold text-slate-900">
+                Impression groupée
+                <span className="ml-2 text-xs font-semibold text-slate-600">
+                  {selectedCardProfiles.length} carte(s) sélectionnée(s)
+                </span>
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Chaque recto et verso est généré au format exact 55 × 85 mm dans un seul PDF.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const visibleIds = exportableProfiles.map((profile) => profile.id);
+                  setSelectedCardIds((current) => {
+                    if (allVisibleCardsSelected) {
+                      const visibleIdSet = new Set(visibleIds);
+                      return current.filter((id) => !visibleIdSet.has(id));
+                    }
+                    return [...new Set([...current, ...visibleIds])];
+                  });
+                }}
+                disabled={exportableProfiles.length === 0}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {allVisibleCardsSelected ? 'Désélectionner la liste' : 'Sélectionner la liste'}
+              </button>
+              {selectedCardIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCardIds([])}
+                  className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  Effacer la sélection
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handlePrintProfiles(selectedCardProfiles)}
+                disabled={selectedCardProfiles.length === 0}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Printer size={15} aria-hidden="true" />
+                Créer le PDF ({selectedCardProfiles.length})
+              </button>
+            </div>
+          </div>
+
           {/* Tableau des employés */}
           <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase tracking-wider text-slate-500">
                   <tr>
+                    <th className="w-10 px-3 py-3.5">
+                      <input
+                        type="checkbox"
+                        aria-label="Sélectionner toutes les cartes actives filtrées"
+                        checked={allVisibleCardsSelected}
+                        disabled={exportableProfiles.length === 0}
+                        onChange={() => {
+                          const visibleIds = exportableProfiles.map((profile) => profile.id);
+                          setSelectedCardIds((current) => {
+                            if (allVisibleCardsSelected) {
+                              const visibleIdSet = new Set(visibleIds);
+                              return current.filter((id) => !visibleIdSet.has(id));
+                            }
+                            return [...new Set([...current, ...visibleIds])];
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                      />
+                    </th>
                     <th className="px-4 py-3.5">Matricule &amp; Agent</th>
                     <th className="px-4 py-3.5">Direction</th>
                     <th className="px-4 py-3.5">Service</th>
@@ -1692,20 +1790,20 @@ export default function AdminRHPage() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <td colSpan={8} className="py-12 text-center text-slate-500">
                         <RefreshCw size={24} className="mx-auto animate-spin text-blue-600" />
                         <p className="mt-2 font-medium">Chargement des profils...</p>
                       </td>
                     </tr>
                   ) : profilesError ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-red-700">
+                      <td colSpan={8} className="py-12 text-center text-red-700">
                         {profilesError}
                       </td>
                     </tr>
                   ) : filteredProfiles.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <td colSpan={8} className="py-12 text-center text-slate-500">
                         Aucun employé ne correspond aux filtres sélectionnés.
                       </td>
                     </tr>
@@ -1719,6 +1817,20 @@ export default function AdminRHPage() {
                           key={p.id}
                           className={`hover:bg-slate-50/80 transition ${isArch ? 'bg-slate-50/50 opacity-60' : ''}`}
                         >
+                          <td className="px-3 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedCardIds.includes(p.id)}
+                              disabled={isArch || !isQrActive || !p.qrToken}
+                              onChange={(event) => {
+                                setSelectedCardIds((current) => event.target.checked
+                                  ? [...new Set([...current, p.id])]
+                                  : current.filter((id) => id !== p.id));
+                              }}
+                              aria-label={`Sélectionner la carte de ${p.firstName} ${p.lastName}`}
+                              className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            />
+                          </td>
                           {/* Photo & Nom */}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">

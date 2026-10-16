@@ -34,10 +34,24 @@ voix française féminine installée dans le navigateur et signale ce mode de se
 En l'absence de clé Gemini, les anciens fournisseurs restent disponibles en
 repli avec `OPENAI_API_KEY` ou `OPENROUTER_API_KEY`.
 
-Le dossier `chatbot/` conserve le template open source complet comme référence pour
-les futures évolutions (historique, authentification, outils et artefacts), mais il
-n'est plus nécessaire de lancer une seconde application pour utiliser l'assistant
-du site.
+Le superadmin peut choisir le fournisseur et le modèle actifs depuis
+`/admin/ai-settings`. La table se crée avec `scripts/00_lws_complete_schema.sql`
+ou `scripts/13_lws_application_schema.sql` ; sur une base déjà installée, exécuter
+`scripts/19_create_ai_provider_settings.sql`. Configurez aussi
+`AI_SETTINGS_ENCRYPTION_KEY` avec une clé aléatoire de 32 octets hexadécimaux
+(par exemple `openssl rand -hex 32`) dans l'environnement serveur avant d'enregistrer
+des identifiants. Conservez cette clé durablement : la changer rend les clés stockées
+illisibles. Les fournisseurs pris en charge sont Qwen, Groq, Claude, Gemini,
+DeepSeek, OpenAI, OpenRouter et Ollama local. Les clés ne sont jamais renvoyées au
+navigateur ; chaque nouvelle configuration est testée avant son activation.
+
+L'interface active de l'assistant est maintenue dans
+`chatbot/components/inptic-chat-page.tsx` et montée sur `/chatbot` par
+`app/chatbot/page.tsx`. Elle utilise les routes API de l'application principale,
+notamment `/api/chat`, afin de reprendre le fournisseur choisi dans les réglages
+superadmin. Le template autonome conserve ses dépendances et ses composants dans
+`chatbot/`, mais ses pages et son authentification ne sont pas lancées comme une
+seconde application.
 
 Les artefacts éditables (documents, code et tableurs), les votes et l'historique
 persistant restent des fonctionnalités séparées du template source : ils nécessitent

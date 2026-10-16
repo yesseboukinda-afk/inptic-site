@@ -5,6 +5,10 @@ import {
   createChat,
   saveChatMessage,
 } from '@/lib/chatbot-db';
+import {
+  generateAIProviderReply,
+  getActiveAIProviderSettings,
+} from '@/lib/ai-provider-settings';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -121,8 +125,9 @@ Contexte du site :\n${siteKnowledge}`;
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.1-pro-preview';
     const openAiKey = process.env.OPENAI_API_KEY;
     const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const activeAISettings = await getActiveAIProviderSettings();
 
-    if (!geminiApiKey && !openAiKey && !openRouterKey) {
+    if (!activeAISettings && !geminiApiKey && !openAiKey && !openRouterKey) {
       return NextResponse.json(
         {
           success: false,
@@ -135,6 +140,22 @@ Contexte du site :\n${siteKnowledge}`;
     const requestedChatId = typeof body?.chatId === 'string' ? body.chatId : '';
     const chat = requestedChatId && chatExists(requestedChatId) ? { id: requestedChatId } : createChat(text);
     saveChatMessage(chat.id, 'user', text);
+
+    if (activeAISettings) {
+      const result = await generateAIProviderReply(activeAISettings, systemPrompt, messages);
+      const replyWithSources = result.sources.length
+        ? `${result.reply}\n\nSources consultées :\n${result.sources.map((source) =>
+            `- [${source.title || source.uri}](${source.uri})`,
+          ).join('\n')}`
+        : result.reply;
+      saveChatMessage(chat.id, 'assistant', replyWithSources);
+      return NextResponse.json({
+        chatId: chat.id,
+        documents: [],
+        reply: replyWithSources,
+        usedModel: result.usedModel,
+      });
+    }
 
     if (geminiApiKey) {
       const response = await fetch(
