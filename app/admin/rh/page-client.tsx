@@ -421,8 +421,8 @@ const getPrintableCardsDocument = (profiles: RHProfile[], origin: string) => `
         .matr {
           margin-top: 0.6mm;
           color: #26399b;
-          font-family: monospace;
-          font-size: 5.5pt;
+          font-family: Calibri, Arial, sans-serif;
+          font-size: 4.5pt;
           font-weight: 800;
         }
         .front-footer {
@@ -2154,7 +2154,12 @@ export default function AdminRHPage() {
                             >
                               {selectedForCard.firstName} {selectedForCard.lastName}
                             </p>
-                            <p className="mt-[1%] text-[6px] font-mono font-bold text-[#293b9d]">MATRICULE : {selectedForCard.matricule}</p>
+                            <p
+                              className="mt-[1%] font-bold text-[#293b9d]"
+                              style={{ fontFamily: 'Calibri, Arial, sans-serif', fontSize: '5px' }}
+                            >
+                              MATRICULE : {selectedForCard.matricule}
+                            </p>
                           </div>
                           <div className="absolute inset-x-0 bottom-0 flex h-[15%] items-end justify-end bg-[#55afe0] px-[4%] pb-[3%] text-[7px] font-bold text-white">
                             www.inptic-ga.org
