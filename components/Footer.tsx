@@ -267,29 +267,48 @@ export default function Footer() {
                 aria-label="S’inscrire à la newsletter"
                 title="S’inscrire à la newsletter"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4"
-                  aria-hidden="true"
-                >
-                  <path d="M4 4h16v16H4z" />
-                  <path d="m22 6-10 7L2 6" />
-                </svg>
+                {isSubmitting ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="h-4 w-4 shrink-0 animate-spin"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+                    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 shrink-0"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 4h16v16H4z" />
+                    <path d="m22 6-10 7L2 6" />
+                  </svg>
+                )}
 
-                <span className="btn-label">
-                  {isSubscribed
-                    ? t("footer.subscribed")
-                    : isSubmitting
-                      ? "Inscription…"
-                      : t("footer.subscribe")}
+                <span className="btn-label whitespace-nowrap">
+                  {isSubscribed ? t("footer.subscribed") : isSubmitting ? "Envoi…" : t("footer.subscribe")}
                 </span>
               </button>
             </form>
+
+            {isSubmitting && (
+              <p
+                className="mt-2 flex items-center gap-2 text-xs text-[#F4D06F]"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#F4D06F]" aria-hidden="true" />
+                Veuillez patienter pendant l’enregistrement de votre inscription…
+              </p>
+            )}
 
             {newsletterMessage && (
               <p
