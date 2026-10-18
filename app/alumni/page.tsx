@@ -1079,22 +1079,22 @@ export default function Alumni() {
                   Aucun Alumni ne correspond à votre recherche.
                 </p>
               ) : (
-                <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-8 lg:grid-cols-4">
+                <div className="mt-10 grid grid-cols-3 gap-x-3 gap-y-8 sm:grid-cols-5 sm:gap-x-4 sm:gap-y-10">
                   {visibleAlumni.map((person) => (
                     <article
                       key={person.id}
-                      className="alumni-directory-card group mx-auto w-full max-w-64 text-center transition duration-200 hover:-translate-y-1"
+                      className="alumni-directory-card group mx-auto w-full max-w-48 text-center transition duration-200 hover:-translate-y-1"
                     >
                       {person.photo ? (
                         <img
                           src={person.photo}
                           alt={`Photo de ${person.prenom} ${person.nom}`}
-                          className="alumni-directory-photo mx-auto aspect-square w-full max-w-40 object-cover shadow-sm transition group-hover:shadow-md"
+                          className="alumni-directory-photo mx-auto aspect-square w-20 object-cover shadow-sm transition group-hover:shadow-md sm:w-28"
                           loading="lazy"
                         />
                       ) : (
                         <div
-                          className="alumni-directory-photo mx-auto flex aspect-square w-full max-w-40 items-center justify-center bg-gradient-to-br from-blue-100 to-cyan-100 text-4xl font-black text-blue-700"
+                          className="alumni-directory-photo mx-auto flex aspect-square w-20 items-center justify-center bg-gradient-to-br from-blue-100 to-cyan-100 text-2xl font-black text-blue-700 sm:w-28 sm:text-3xl"
                           aria-label={`Aucune photo pour ${person.prenom} ${person.nom}`}
                         >
                           {person.prenom.charAt(0)}
@@ -1103,13 +1103,13 @@ export default function Alumni() {
                       )}
 
                       <div className="px-1 pt-4">
-                        <h3 className="text-base font-bold leading-snug text-slate-900 sm:text-lg">
+                        <h3 className="text-xs font-bold leading-snug text-slate-900 sm:text-sm">
                           {person.prenom} {person.nom}
                         </h3>
-                        <p className="mt-1 text-sm font-medium text-slate-500">{person.filiere}</p>
-                        <p className="mt-1 text-sm text-slate-500">{person.poste}</p>
-                        <p className="mt-1 text-sm text-slate-500">{person.entreprise}</p>
-                        <p className="mt-1 text-sm text-slate-500">Promotion {person.promotion}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">{person.filiere}</p>
+                        <p className="mt-1 text-xs text-slate-500">{person.poste}</p>
+                        <p className="mt-1 text-xs text-slate-500">{person.entreprise}</p>
+                        <p className="mt-1 text-xs text-slate-500">Promotion {person.promotion}</p>
 
                         {person.commentaire && (
                           <div className="mt-4 border-t border-slate-200 pt-3 text-left">

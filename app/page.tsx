@@ -3,6 +3,7 @@
 import Hero from "@/components/Hero";
 import AnnouncementsCarousel from "@/components/AnnouncementsCarousel";
 import HomeAgenda from "@/components/HomeAgenda";
+import LatestYoutubeVideo from "@/components/LatestYoutubeVideo";
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +27,7 @@ export default function Home() {
       title: t('home.multimedia'),
       description: t('home.multimediaText'),
       href: "/formations",
-      image: "/formations/multimedia-internet.webp",
+      image: "/formations/audiovisuel-1.webp",
     },
     {
       title: t('home.telecom'),
@@ -87,17 +88,7 @@ export default function Home() {
             </a>
           </div>
           <div className="grid md:grid-cols-3 gap-5 mt-6">
-            <article className="md:col-span-2 rounded-2xl overflow-hidden bg-slate-900 text-white p-8 min-h-72">
-              <span className="text-xs bg-blue-600 px-2 py-1 rounded">
-                {t('home.event')}
-              </span>
-              <h3 className="text-3xl font-bold mt-20">
-                {t('home.innovationWeek')}
-              </h3>
-              <p className="mt-2">
-                {t('home.innovationText')}
-              </p>
-            </article>
+            <LatestYoutubeVideo />
             <div className="space-y-4">
               <Link
                 href="/alumni"

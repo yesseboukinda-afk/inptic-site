@@ -23,8 +23,6 @@ const departmentCards = [
   {
     title: 'Réseaux et Systèmes Numériques',
     items: [
-      'Licence Professionnelle Développement d’Applications Réparties',
-      'Licence Professionnelle Administration de Systèmes et de Bases de Données',
       'Licence Professionnelle Réseaux et Télécommunications',
       'Licence Professionnelle Administration et Sécurité des Réseaux',
     ],
@@ -34,6 +32,20 @@ const departmentCards = [
       'Administrateur de bases de données',
       'Consultant réseau et cybersécurité',
       'Développeur d’applications réparties',
+    ],
+  },
+  {
+    title: 'Génie informatique',
+    items: [
+      'Licence Professionnelle Développement d’Applications Réparties',
+      "Licence Professionnelle Systèmes d'Information et Bases de Données",
+    ],
+    debouches: [
+      'Développeur logiciel',
+      'Développeur d’applications réparties',
+      'Administrateur de bases de données',
+      'Analyste-programmeur',
+      'Ingénieur en systèmes d’information',
     ],
   },
   {
@@ -77,6 +89,7 @@ const certifyingCards = [
 const catalogLabels: Record<string, { en?: string; zh: string; ar: string }> = {
   'Management des TIC': { en: 'ICT Management', zh: '信息通信技术管理', ar: 'إدارة تقنيات المعلومات والاتصالات' },
   'Réseaux et Systèmes Numériques': { en: 'Networks and Digital Systems', zh: '网络与数字系统', ar: 'الشبكات والأنظمة الرقمية' },
+  'Génie informatique': { en: 'Computer Engineering', zh: '计算机工程', ar: 'هندسة المعلوماتية' },
   Audiovisuel: { en: 'Audiovisual', zh: '视听', ar: 'السمعي البصري' },
   'Formations qualifiantes': { zh: '资格培训', ar: 'تكوينات مؤهلة' },
   'Formations certifiantes': { zh: '认证培训', ar: 'تكوينات معتمدة' },
@@ -96,6 +109,7 @@ const catalogLabels: Record<string, { en?: string; zh: string; ar: string }> = {
   'Licence Professionnelle E-commerce & Marketing Digital': { zh: '电子商务与数字营销专业学士', ar: 'إجازة مهنية في التجارة الإلكترونية والتسويق الرقمي' },
   'Licence Professionnelle Technologies de l’Information et de la Communication (TIC)': { zh: '信息与通信技术专业学士', ar: 'إجازة مهنية في تقنيات المعلومات والاتصالات' },
   'Licence Professionnelle Développement d’Applications Réparties': { zh: '分布式应用开发专业学士', ar: 'إجازة مهنية في تطوير التطبيقات الموزعة' },
+  "Licence Professionnelle Systèmes d'Information et Bases de Données": { zh: '信息系统与数据库专业学士', ar: 'إجازة مهنية في نظم المعلومات وقواعد البيانات' },
   'Licence Professionnelle Administration de Systèmes et de Bases de Données': { zh: '系统与数据库管理专业学士', ar: 'إجازة مهنية في إدارة الأنظمة وقواعد البيانات' },
   'Licence Professionnelle Réseaux et Télécommunications': { zh: '网络与电信专业学士', ar: 'إجازة مهنية في الشبكات والاتصالات' },
   'Licence Professionnelle Administration et Sécurité des Réseaux': { zh: '网络管理与安全专业学士', ar: 'إجازة مهنية في إدارة الشبكات وأمنها' },
@@ -109,6 +123,7 @@ const catalogLabels: Record<string, { en?: string; zh: string; ar: string }> = {
   'Monteur vidéo': { zh: '视频剪辑师', ar: 'مركب فيديو' }, 'Cadreur / chef opérateur': { zh: '摄影师 / 摄影指导', ar: 'مصور / مدير تصوير' }, 'Assistant réalisateur': { zh: '助理导演', ar: 'مساعد مخرج' }, 'Technicien du son': { zh: '音响技术员', ar: 'تقني الصوت' }, 'Producteur audiovisuel et gestionnaire de contenu': { zh: '视听制作人和内容管理员', ar: 'منتج سمعي بصري ومسؤول محتوى' },
   'Technicien IoT': { zh: '物联网技术员', ar: 'تقني إنترنت الأشياء' }, 'Intégrateur systèmes connectés': { zh: '联网系统集成师', ar: 'مختص دمج الأنظمة المتصلة' }, 'Gestionnaire de réseaux de capteurs': { zh: '传感器网络管理员', ar: 'مسؤول شبكات المستشعرات' }, 'Technicien maintenance domotique et industriel': { zh: '楼宇与工业自动化维护技术员', ar: 'تقني صيانة الأنظمة المنزلية والصناعية' },
   'Analyste cybersécurité': { zh: '网络安全分析师', ar: 'محلل الأمن السيبراني' }, 'Administrateur sécurité réseau': { zh: '网络安全管理员', ar: 'مسؤول أمن الشبكات' }, 'Expert protection des infrastructures': { zh: '基础设施保护专家', ar: 'خبير حماية البنى التحتية' }, 'Technicien sécurité des systèmes d’information': { zh: '信息系统安全技术员', ar: 'تقني أمن نظم المعلومات' },
+  'Développeur logiciel': { zh: '软件开发人员', ar: 'مطور برمجيات' }, 'Analyste-programmeur': { zh: '程序分析师', ar: 'محلل ومبرمج' }, 'Ingénieur en systèmes d’information': { zh: '信息系统工程师', ar: 'مهندس نظم المعلومات' },
   'Assistante de gestion numérique': { zh: '数字管理助理', ar: 'مساعدة الإدارة الرقمية' }, 'Gestionnaire de contenus numériques': { zh: '数字内容管理员', ar: 'مسؤول المحتوى الرقمي' }, 'Support utilisateur informatique': { zh: 'IT用户支持', ar: 'دعم مستخدمي المعلوماتية' }, 'Agent de digitalisation de services': { zh: '服务数字化专员', ar: 'موظف رقمنة الخدمات' },
   'Designer graphique': { zh: '平面设计师', ar: 'مصمم جرافيك' }, 'Motion designer': { zh: '动态设计师', ar: 'مصمم موشن' }, 'Créateur de contenus visuels': { zh: '视觉内容创作者', ar: 'منشئ محتوى بصري' }, 'Community manager': { zh: '社区运营经理', ar: 'مسؤول إدارة المجتمعات الرقمية' }, 'Gestionnaire de contenu digital': { zh: '数字内容管理员', ar: 'مسؤول المحتوى الرقمي' }, 'Consultant marketing numérique': { zh: '数字营销顾问', ar: 'مستشار التسويق الرقمي' },
   'Analyste en sécurité informatique': { zh: '信息安全分析师', ar: 'محلل أمن المعلومات' }, 'Hacker éthique / pentester junior': { zh: '道德黑客 / 初级渗透测试员', ar: 'هاكر أخلاقي / مختبر اختراق مبتدئ' }, 'Technicien sécurité des SI': { zh: '信息系统安全技术员', ar: 'تقني أمن نظم المعلومات' }, 'Responsable conformité sécurité': { zh: '安全合规负责人', ar: 'مسؤول الامتثال الأمني' }, 'Data analyst': { zh: '数据分析师', ar: 'محلل بيانات' }, 'Spécialiste IA / machine learning': { zh: '人工智能 / 机器学习专家', ar: 'أخصائي الذكاء الاصطناعي والتعلم الآلي' }, 'Analyste de données': { zh: '数据分析师', ar: 'محلل بيانات' }, 'Automatisation de processus intelligents': { zh: '智能流程自动化', ar: 'أتمتة العمليات الذكية' },
@@ -126,6 +141,7 @@ function localizedCatalogLabel(value: string, language: string) {
 const modalSummaries: Record<string, { en: string; zh: string; ar: string }> = {
   'Management des TIC': { en: 'Profiles focused on management, marketing, commerce and digital transformation.', zh: '培养管理、营销、商业和数字化转型方向的人才。', ar: 'كفاءات متخصصة في الإدارة والتسويق والتجارة والتحول الرقمي.' },
   'Réseaux et Systèmes Numériques': { en: 'Technical skills in systems, data, networks and cybersecurity.', zh: '掌握系统、数据、网络和网络安全方面的技术能力。', ar: 'مهارات تقنية في الأنظمة والبيانات والشبكات والأمن السيبراني.' },
+  'Génie informatique': { en: 'Training in software development, distributed applications and information systems.', zh: '培养软件开发、分布式应用和信息系统方面的能力。', ar: 'تكوين في تطوير البرمجيات والتطبيقات الموزعة ونظم المعلومات.' },
   Audiovisuel: { en: 'Careers in audiovisual creation, image, sound and production.', zh: '面向视听创作、图像、声音和制作领域的职业。', ar: 'مهن مرتبطة بالإبداع السمعي البصري والصورة والصوت والإنتاج.' },
   'Internet des Objets (IoT) et réseaux de capteurs': { en: 'Training focused on connected objects, data collection and smart networks.', zh: '专注于联网设备、数据采集和智能网络的培训。', ar: 'تكوين يركز على الأجهزة المتصلة وجمع البيانات والشبكات الذكية.' },
   'Cybersécurité et protection des infrastructures télécoms': { en: 'Skills for protecting networks, infrastructure and digital services.', zh: '培养保护网络、基础设施和数字服务的能力。', ar: 'مهارات لحماية الشبكات والبنى التحتية والخدمات الرقمية.' },
@@ -186,6 +202,17 @@ const modalContent = {
       'Analyste sécurité informatique',
       'Administrateur de bases de données',
       'Développeur applications réparties',
+    ],
+  },
+  'Génie informatique': {
+    title: 'Génie informatique',
+    summary: 'Des compétences en développement logiciel, applications réparties, systèmes d’information et bases de données.',
+    debouches: [
+      'Développeur logiciel',
+      'Développeur d’applications réparties',
+      'Administrateur de bases de données',
+      'Analyste-programmeur',
+      'Ingénieur en systèmes d’information',
     ],
   },
   'Audiovisuel': {
@@ -353,7 +380,7 @@ export default function Formations() {
       <TrainingCatalog />
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
           {departmentCards.map((card) => (
             <article key={card.title} className="flex flex-col rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
               <h2 className="text-2xl font-black text-slate-900">{localizedCatalogLabel(card.title, i18n.language)}</h2>

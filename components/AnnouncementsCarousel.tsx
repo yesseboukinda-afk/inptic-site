@@ -27,34 +27,7 @@ export default function AnnouncementsCarousel() {
   const [isVisible, setIsVisible] = useState(false);
   const [publishedAnnouncements, setPublishedAnnouncements] = useState<CarouselAnnouncement[]>([]);
   const publishedSignature = useRef('');
-
-  const defaultAnnouncements: CarouselAnnouncement[] = [
-    {
-      id: 'concours',
-      tag: t('announcements.tagConcours', 'Concours 2026'),
-      title: t('announcements.titleConcours', 'Dépôt des dossiers et paiement des frais de dossier en ligne ouverts'),
-      description: t('announcements.descConcours', 'Déposez vos pièces justificatives, obtenez votre accusé de réception et réglez via Airtel/Moov Money.'),
-      link: '/concours',
-      cta: t('announcements.ctaConcours', 'Déposer mon dossier'),
-    },
-    {
-      id: 'innovation',
-      tag: t('announcements.tagEvent', 'Événement'),
-      title: t('announcements.titleEvent', 'Semaine de l’Innovation Numérique & Hackathon INPTIC'),
-      description: t('announcements.descEvent', 'Rejoignez les ateliers et conférences sur l’Intelligence Artificielle et la Cybersécurité.'),
-      link: '/actualites',
-      cta: t('announcements.ctaEvent', 'En savoir plus'),
-    },
-    {
-      id: 'alumni',
-      tag: t('announcements.tagAlumni', 'Espace Alumni & ANDG'),
-      title: t('announcements.titleAlumni', 'Lancement de l’Annuaire National des Diplômés (ANDG)'),
-      description: t('announcements.descAlumni', 'Diplômés de l’INPTIC, rejoignez le réseau professionnel officiel du Gabon.'),
-      link: '/alumni',
-      cta: t('announcements.ctaAlumni', 'Rejoindre le réseau'),
-    },
-  ];
-  const announcements = [...publishedAnnouncements, ...defaultAnnouncements];
+  const announcements = publishedAnnouncements;
 
   useEffect(() => {
     let active = true;
@@ -109,7 +82,7 @@ export default function AnnouncementsCarousel() {
           setCurrentIndex(0);
         }
       } catch {
-        // Keep the institutional announcements if the public feed is unavailable.
+        // Keep the last successfully loaded public announcements.
       }
     };
 
@@ -138,7 +111,7 @@ export default function AnnouncementsCarousel() {
   }, []);
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || announcements.length === 0) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % announcements.length);
     }, 7000);
@@ -150,7 +123,7 @@ export default function AnnouncementsCarousel() {
     sessionStorage.setItem('inptic_announcement_closed_at', Date.now().toString());
   };
 
-  if (!isVisible) return null;
+  if (!isVisible || announcements.length === 0) return null;
 
   const current = announcements[currentIndex];
 

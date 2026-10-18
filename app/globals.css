@@ -224,9 +224,12 @@ html.dark .text-gray-500 {
   color: #cbd5e1 !important;
 }
 
-.alumni-directory-toolbar,
-.alumni-directory-photo {
+.alumni-directory-toolbar {
   border-radius: 0.875rem !important;
+}
+
+.alumni-directory-photo {
+  border-radius: 9999px !important;
 }
 
 .alumni-directory-control {
