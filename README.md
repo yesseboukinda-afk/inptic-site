@@ -226,6 +226,24 @@ Pour activer les inscriptions et envois de newsletter :
 3. Après une inscription, le serveur SMTP envoie un courriel de confirmation ; une nouvelle
    actualité publiée pour `actualites` déclenche l'envoi aux abonnés actifs.
    Chaque message comprend un lien de désabonnement confirmé.
+4. La revue IT internationale est envoyée chaque vendredi à 17 h (heure du Gabon).
+   Elle sélectionne les articles RSS publiés depuis le lundi, priorise les actualités
+   technologiques du Gabon puis de l’Afrique, avant l’Asie, l’Europe, l’Inde et
+   l’International. La rubrique Gabon est alimentée par Gabon Actu ; les nouvelles
+   régionales sont filtrées sur leur sujet technologique. Jusqu’à quatre articles
+   par région sont présentés avec résumés, liens sources et images disponibles.
+   La sélection dépend de l’historique encore présent dans chaque flux RSS.
+5. Pour activer l’envoi planifié, définir `NEWSLETTER_CRON_SECRET` dans
+   l’environnement Node.js LWS et comme secret GitHub Actions du même nom.
+   Ajouter la variable de dépôt `NEWSLETTER_DIGEST_URL` contenant l’URL complète
+   `https://votre-domaine.tld/api/newsletter/weekly-digest`. Le workflow
+   `.github/workflows/weekly-tech-digest.yml` appelle cette route le vendredi à
+   16 h UTC (17 h au Gabon). Depuis l’onglet Actions, un lancement manuel utilise
+   le même envoi hebdomadaire et n’est accepté que le vendredi. Les envois sont
+   dédoublonnés pour chaque abonné et chaque semaine.
+   Pour simplement prévisualiser la revue dans un navigateur, ouvrir
+   `https://votre-domaine.tld/api/newsletter/weekly-digest/preview` ; cet aperçu
+   récupère les articles de la dernière semaine complète et n’envoie aucun e-mail.
 
 ## Connexions prévues
 - Frontend: Next.js 16 / React 19 / Tailwind v4.

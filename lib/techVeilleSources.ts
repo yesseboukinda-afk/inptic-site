@@ -1,4 +1,6 @@
 export const RSS_SOURCES = [
+  { name: 'Gabon Actu', url: 'https://gabonactu.com/feed/', region: 'Gabon' },
+
   { name: 'Samsung Global Newsroom', url: 'https://news.samsung.com/global/feed', region: 'Asie' },
   { name: 'Lenovo StoryHub', url: 'https://news.lenovo.com/feed/', region: 'Asie' },
   { name: 'TechNode', url: 'https://technode.com/feed/', region: 'Asie' },
@@ -68,7 +70,8 @@ export const RSS_SOURCES = [
 ] as const;
 
 export const REGIONAL_RSS_SOURCES = RSS_SOURCES.filter(
-  (source) => source.region === 'Asie' ||
+  (source) => source.region === 'Gabon' ||
+    source.region === 'Asie' ||
     source.region === 'Afrique' ||
     source.region === 'Europe' ||
     source.region === 'Inde',
