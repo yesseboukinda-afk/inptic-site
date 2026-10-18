@@ -1,7 +1,7 @@
 'use client';
 
-import { CalendarDays, ChevronRight, FileCheck2, Folder, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, FolderOpen, ArrowLeft, RefreshCw } from 'lucide-react';
-import { ChangeEvent, useEffect, useState, useMemo } from 'react';
+import { CalendarDays, ChevronRight, FileCheck2, FileText, Folder, Image as ImageIcon, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, FolderOpen, ArrowLeft, RefreshCw } from 'lucide-react';
+import { ChangeEvent, useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
@@ -229,6 +229,8 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const [selectedFiliere, setSelectedFiliere] = useState('all');
   const [isUpdatingDossier, setIsUpdatingDossier] = useState(false);
   const [profilesRefreshKey, setProfilesRefreshKey] = useState(0);
+  const [isCandidateFormOpen, setIsCandidateFormOpen] = useState(false);
+  const lastAutoRefreshAt = useRef(0);
 
   useEffect(() => {
     const director = localStorage.getItem('inptic_directeur');
@@ -317,6 +319,29 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
     return () => controller.abort();
   }, [profilesRefreshKey, role]);
+
+  useEffect(() => {
+    if (role !== 'scolarite' || activeTab !== 'dossiers') return;
+
+    const refreshWhenVisible = () => {
+      const now = Date.now();
+      if (
+        document.visibilityState === 'visible' &&
+        !profilesLoading &&
+        now - lastAutoRefreshAt.current > 3000
+      ) {
+        lastAutoRefreshAt.current = now;
+        setProfilesRefreshKey((current) => current + 1);
+      }
+    };
+
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [activeTab, profilesLoading, role]);
 
   // Quota email notification check (every 100 registrations)
   useEffect(() => {
@@ -763,7 +788,10 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSelectedStudent(null)}
+                        onClick={() => {
+                          setSelectedStudent(null);
+                          setIsCandidateFormOpen(false);
+                        }}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                       >
                         <ArrowLeft size={16} />
@@ -816,8 +844,14 @@ export default function StaffDashboard({ role }: { role: Role }) {
                     </section>
 
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <h3 className="text-sm font-black text-slate-900">Contenu du dossier</h3>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900">Fichiers du dossier</h3>
+                          <p className="mt-1 text-xs text-slate-500">Chaque élément s’ouvre individuellement, comme dans un dossier sur un ordinateur.</p>
+                        </div>
+                        <span className="text-xs text-slate-500">{(selectedStudent.photo ? 1 : 0) + (selectedStudent.candidatureData ? 1 : 0) + (selectedStudent.documents?.length || 0)} élément(s)</span>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                         <button
                           type="button"
                           disabled={!selectedStudent.photo}
@@ -826,38 +860,65 @@ export default function StaffDashboard({ role }: { role: Role }) {
                             url: selectedStudent.photo,
                             type: 'image/jpeg',
                           })}
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <Eye size={18} className="shrink-0 text-blue-700" />
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-slate-800">Photo d’identité</span>
-                            <span className="block truncate text-xs text-slate-500">{selectedStudent.photo ? 'Ouvrir la photo' : 'Aucune photo enregistrée'}</span>
-                          </span>
+                          <ImageIcon size={30} className="text-violet-600" />
+                          <span className="line-clamp-2 text-xs font-semibold text-slate-800">Photo d’identité</span>
+                          <span className="text-[11px] text-slate-500">{selectedStudent.photo ? 'photo' : 'absente'}</span>
                         </button>
-                        <a
-                          href="#candidate-application-form"
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                        >
-                          <ClipboardList size={18} className="shrink-0 text-blue-700" />
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-slate-800">Fiche de candidature</span>
-                            <span className="block truncate text-xs text-slate-500">{selectedStudent.candidatureData ? 'Consulter le formulaire transmis' : 'Aucun formulaire enregistré'}</span>
-                          </span>
-                        </a>
-                        <a
-                          href="#candidate-supporting-documents"
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                        >
-                          <FileCheck2 size={18} className="shrink-0 text-blue-700" />
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-slate-800">Pièces justificatives</span>
-                            <span className="block truncate text-xs text-slate-500">{selectedStudent.documents?.length || 0} fichier(s) enregistré(s)</span>
-                          </span>
-                        </a>
+                        {selectedStudent.candidatureData && (
+                          <button
+                            type="button"
+                            onClick={() => setIsCandidateFormOpen(true)}
+                            className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:border-blue-300 hover:bg-blue-50"
+                          >
+                            <FileText size={30} className="text-blue-700" />
+                            <span className="line-clamp-2 text-xs font-semibold text-slate-800">Fiche de candidature</span>
+                            <span className="text-[11px] text-slate-500">formulaire</span>
+                          </button>
+                        )}
+                        {(selectedStudent.documents || []).map((doc, index) => {
+                          const source = doc.url || doc.data || '';
+                          const extension = doc.name.includes('.') ? doc.name.split('.').pop()?.toUpperCase() : 'FICHIER';
+                          return (
+                            <button
+                              key={`${doc.name}-${index}`}
+                              type="button"
+                              disabled={!source}
+                              onClick={() => source && setViewingDocument({ name: doc.name, url: source, type: doc.type })}
+                              className="flex min-h-32 min-w-0 flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              title={doc.name}
+                            >
+                              <FileCheck2 size={30} className="text-emerald-700" />
+                              <span className="line-clamp-2 text-xs font-semibold text-slate-800">{doc.category || doc.name}</span>
+                              <span className="max-w-full truncate text-[11px] text-slate-500">{extension}</span>
+                            </button>
+                          );
+                        })}
                       </div>
+                      {!selectedStudent.photo && !selectedStudent.candidatureData && !selectedStudent.documents?.length && (
+                        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+                          Aucun fichier ni formulaire n’est enregistré pour ce candidat.
+                        </p>
+                      )}
                     </section>
 
+                    {isCandidateFormOpen && (
                     <div className="space-y-4">
+                      <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 p-3">
+                        <div className="flex items-center gap-2 text-sm font-bold text-blue-900">
+                          <FileText size={18} />
+                          Fiche de candidature
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsCandidateFormOpen(false)}
+                          className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100"
+                        >
+                          <ArrowLeft size={14} />
+                          Retour aux fichiers
+                        </button>
+                      </div>
                       {candidatureFieldGroups.map((group, groupIndex) => (
                         <section
                           key={group.title}
@@ -907,39 +968,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                         </section>
                       ))}
                     </div>
-
-                    <section id="candidate-supporting-documents" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <h3 className="text-sm font-black text-slate-900">Documents justificatifs</h3>
-                      {selectedStudent.documents?.length ? (
-                        <div className="mt-3 space-y-2">
-                          {selectedStudent.documents.map((doc, index) => {
-                            const source = doc.url || doc.data || '';
-                            return (
-                              <div key={`${doc.name}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
-                                <div className="flex min-w-0 items-center gap-2 text-slate-700">
-                                  <FileCheck2 size={16} className="shrink-0 text-blue-600" />
-                                  <span className="truncate font-medium">{doc.name}</span>
-                                </div>
-                                {source ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setViewingDocument({ name: doc.name, url: source, type: doc.type })}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-                                  >
-                                    <Eye size={13} />
-                                    Prévisualiser
-                                  </button>
-                                ) : (
-                                  <span className="text-xs italic text-slate-400">Fichier non disponible</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm italic text-slate-500">Aucun document justificatif joint.</p>
-                      )}
-                    </section>
+                    )}
 
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                       <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">En attente d&apos;examen</span>
@@ -1005,23 +1034,20 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       </div>
                     </div>
 
-                    {profilesLoading && students.length === 0 ? (
-                      <div role="status" className="rounded-2xl border border-blue-100 bg-blue-50 p-8 text-center text-sm font-medium text-blue-800">
-                        Chargement des dossiers candidats...
-                      </div>
-                    ) : profilesError && students.length === 0 ? (
-                      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-                        <p className="text-sm font-semibold text-red-800">{profilesError}</p>
+                    {profilesError && (
+                      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                        <p className="text-sm font-semibold text-red-800">{profilesError} Les filières restent affichées ; actualisez pour recharger les dossiers.</p>
                         <button
                           type="button"
                           onClick={() => setProfilesRefreshKey((current) => current + 1)}
-                          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800"
+                          className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800"
                         >
                           <RefreshCw size={15} />
                           Réessayer
                         </button>
                       </div>
-                    ) : selectedFiliere === 'all' ? (
+                    )}
+                    {selectedFiliere === 'all' ? (
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {dossierDepartmentCounts.map((department) => (
                           <button
@@ -1041,6 +1067,10 @@ export default function StaffDashboard({ role }: { role: Role }) {
                           </button>
                         ))}
                       </div>
+                    ) : profilesLoading && filteredDossiers.length === 0 ? (
+                      <div role="status" className="rounded-2xl border border-blue-100 bg-blue-50 p-8 text-center text-sm font-medium text-blue-800">
+                        Chargement des dossiers de cette filière...
+                      </div>
                     ) : filteredDossiers.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
                         Aucun dossier en attente pour cette filière.
@@ -1053,7 +1083,10 @@ export default function StaffDashboard({ role }: { role: Role }) {
                             <button
                               key={student.email}
                               type="button"
-                              onClick={() => setSelectedStudent(student)}
+                              onClick={() => {
+                                setSelectedStudent(student);
+                                setIsCandidateFormOpen(false);
+                              }}
                               className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
                             >
                               <span className="rounded-xl bg-amber-50 p-3 text-amber-600 transition group-hover:bg-blue-50 group-hover:text-blue-700">
