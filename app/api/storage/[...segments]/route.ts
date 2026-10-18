@@ -4,6 +4,7 @@ import { readStoredFile } from '@/lib/localStorage';
 const PUBLIC_BUCKETS = new Set([
   'annonces-attachments',
   'concours-docs',
+  'club-news',
   'formations-catalogue',
   'publications-docs',
   'rh-photos',

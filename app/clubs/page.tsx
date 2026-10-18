@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronRight, Clapperboard, Clock3, CodeXml, Folder, FolderOpen, LoaderCircle, Network, Palette, Send, ShieldCheck, Sparkles, Trophy, UserRound, Users, X, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, Award, Camera, Check, ChevronRight, Clapperboard, Clock3, CodeXml, Folder, FolderOpen, Heart, ImagePlus, LoaderCircle, Network, Palette, Send, ShieldCheck, Sparkles, Trash2, Trophy, UserRound, Users, X, type LucideIcon } from 'lucide-react';
 import { CLUBS, findClubSubclub, type Club, type ClubSubclub } from '@/lib/clubs';
 
 type Application = {
@@ -29,6 +29,21 @@ type ClubMember = {
   clubSlug: string;
   subclubSlug: string;
   name: string;
+};
+
+type ClubLike = {
+  likes: number;
+  liked: boolean;
+  rank: number;
+};
+
+type ClubNewsPost = {
+  id: string;
+  clubSlug: string;
+  caption: string;
+  authorName: string;
+  createdAt: string;
+  imageUrl: string;
 };
 
 const subclubIconComponents: Record<string, LucideIcon> = {
@@ -79,6 +94,17 @@ export default function ClubsPage() {
   const [message, setMessage] = useState('');
   const [motivation, setMotivation] = useState('');
   const [members, setMembers] = useState<ClubMember[]>([]);
+  const [clubLikes, setClubLikes] = useState<Record<string, ClubLike>>({});
+  const [likesLoading, setLikesLoading] = useState(true);
+  const [likingClub, setLikingClub] = useState('');
+  const [clubNews, setClubNews] = useState<ClubNewsPost[]>([]);
+  const [clubNewsLoading, setClubNewsLoading] = useState(false);
+  const [clubNewsError, setClubNewsError] = useState('');
+  const [clubNewsCaption, setClubNewsCaption] = useState('');
+  const [clubNewsImage, setClubNewsImage] = useState<File | null>(null);
+  const [clubNewsSaving, setClubNewsSaving] = useState(false);
+  const [deletingNewsPost, setDeletingNewsPost] = useState('');
+  const [managerNewsClubSlug, setManagerNewsClubSlug] = useState<string>(CLUBS[0].slug);
   const [membersLoading, setMembersLoading] = useState(true);
   const [selectedClubSlug, setSelectedClubSlug] = useState<string | null>(null);
   const [selectedSubclubSlug, setSelectedSubclubSlug] = useState<string | null>(null);
@@ -129,6 +155,63 @@ export default function ClubsPage() {
     void refreshMembers();
   }, [refreshMembers]);
 
+  const refreshClubLikes = useCallback(async () => {
+    setLikesLoading(true);
+    try {
+      const response = await fetch('/api/clubs/likes', { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Impossible de charger le classement des clubs.');
+      const nextLikes: Record<string, ClubLike> = {};
+      for (const club of result.clubs ?? []) {
+        if (typeof club.clubSlug === 'string') {
+          nextLikes[club.clubSlug] = {
+            likes: Number(club.likes) || 0,
+            liked: Boolean(club.liked),
+            rank: Number(club.rank) || 0,
+          };
+        }
+      }
+      setClubLikes(nextLikes);
+    } catch (likesError) {
+      setError(likesError instanceof Error ? likesError.message : 'Impossible de charger le classement des clubs.');
+    } finally {
+      setLikesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshClubLikes();
+  }, [refreshClubLikes]);
+
+  const newsFeedClubSlug = data?.mode === 'manager'
+    ? data.clubSlug === 'all' ? managerNewsClubSlug : data.clubSlug
+    : selectedClubSlug;
+
+  const refreshClubNews = useCallback(async (clubSlug: string) => {
+    setClubNewsLoading(true);
+    setClubNewsError('');
+    try {
+      const response = await fetch(`/api/clubs/news?club=${encodeURIComponent(clubSlug)}`, { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Impossible de charger le fil d’actualité du club.');
+      setClubNews(Array.isArray(result.posts) ? result.posts : []);
+    } catch (newsError) {
+      setClubNews([]);
+      setClubNewsError(newsError instanceof Error ? newsError.message : 'Impossible de charger le fil d’actualité du club.');
+    } finally {
+      setClubNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (newsFeedClubSlug) {
+      void refreshClubNews(newsFeedClubSlug);
+    } else {
+      setClubNews([]);
+      setClubNewsError('');
+    }
+  }, [newsFeedClubSlug, refreshClubNews]);
+
   const activeApplication = useMemo(
     () => data?.mode === 'student'
       ? data.applications.find((application) => application.status === 'pending' || application.status === 'accepted')
@@ -158,6 +241,67 @@ export default function ClubsPage() {
       setError(submitError instanceof Error ? submitError.message : 'Impossible d’envoyer la candidature.');
     } finally {
       setSaving('');
+    }
+  };
+
+  const toggleClubLike = async (clubSlug: string) => {
+    setLikingClub(clubSlug);
+    setError('');
+    try {
+      const response = await fetch('/api/clubs/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clubSlug }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Impossible d’enregistrer votre like.');
+      await refreshClubLikes();
+    } catch (likeError) {
+      setError(likeError instanceof Error ? likeError.message : 'Impossible d’enregistrer votre like.');
+    } finally {
+      setLikingClub('');
+    }
+  };
+
+  const publishClubNews = async (event: React.FormEvent<HTMLFormElement>, clubSlug: string) => {
+    event.preventDefault();
+    if (!clubNewsImage) {
+      setClubNewsError('Choisissez une photo avant de publier.');
+      return;
+    }
+    setClubNewsSaving(true);
+    setClubNewsError('');
+    try {
+      const formData = new FormData();
+      formData.set('clubSlug', clubSlug);
+      formData.set('caption', clubNewsCaption);
+      formData.set('image', clubNewsImage);
+      const response = await fetch('/api/clubs/news', { method: 'POST', body: formData });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Impossible de publier cette photo.');
+      setClubNewsCaption('');
+      setClubNewsImage(null);
+      await refreshClubNews(clubSlug);
+    } catch (publishError) {
+      setClubNewsError(publishError instanceof Error ? publishError.message : 'Impossible de publier cette photo.');
+    } finally {
+      setClubNewsSaving(false);
+    }
+  };
+
+  const removeClubNews = async (post: ClubNewsPost) => {
+    if (!window.confirm('Supprimer cette photo du fil d’actualité ?')) return;
+    setDeletingNewsPost(post.id);
+    setClubNewsError('');
+    try {
+      const response = await fetch(`/api/clubs/news?id=${encodeURIComponent(post.id)}`, { method: 'DELETE' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Impossible de supprimer cette photo.');
+      setClubNews((current) => current.filter((item) => item.id !== post.id));
+    } catch (deleteError) {
+      setClubNewsError(deleteError instanceof Error ? deleteError.message : 'Impossible de supprimer cette photo.');
+    } finally {
+      setDeletingNewsPost('');
     }
   };
 
@@ -201,6 +345,10 @@ export default function ClubsPage() {
     ? data.applications.find((application) =>
         application.clubSlug === selectedClubSlug && application.subclubSlug === selectedSubclubSlug)
     : undefined;
+  const clubsByLikes = [...CLUBS].sort((first, second) =>
+    (clubLikes[second.slug]?.likes ?? 0) - (clubLikes[first.slug]?.likes ?? 0) ||
+    first.slug.localeCompare(second.slug),
+  );
 
   const transitionExplorer = (update: () => void) => {
     if (typeof document.startViewTransition === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -219,6 +367,136 @@ export default function ClubsPage() {
 
   const showSubclub = (subclub: ClubSubclub) => {
     transitionExplorer(() => setSelectedSubclubSlug(subclub.slug));
+  };
+
+  const rankLabel = (rank: number) => rank === 1 ? '1er' : `${rank}e`;
+
+  const likeButton = (clubSlug: string, compact = false) => {
+    const clubLike = clubLikes[clubSlug] ?? { likes: 0, liked: false, rank: 0 };
+    const rankClass = clubLike.rank === 1
+      ? 'bg-amber-100 text-amber-900 ring-amber-300'
+      : clubLike.rank === 2
+        ? 'bg-slate-100 text-slate-700 ring-slate-300'
+        : clubLike.rank === 3
+          ? 'bg-orange-100 text-orange-900 ring-orange-300'
+          : 'bg-white text-slate-600 ring-slate-200';
+    return (
+      <div className={`flex items-center gap-2 ${compact ? '' : 'mt-5'}`}>
+        {clubLike.rank > 0 && (
+          <span title={`Rang ${clubLike.rank}`} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-extrabold ring-1 ${rankClass}`}>
+            <Award size={14} aria-hidden="true" /> {rankLabel(clubLike.rank)}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void toggleClubLike(clubSlug);
+          }}
+          disabled={likesLoading || likingClub === clubSlug}
+          aria-label={`${clubLike.liked ? 'Retirer votre like de' : 'Aimer'} ${clubBySlug(clubSlug)?.name || 'ce club'} — ${clubLike.likes} likes`}
+          aria-pressed={clubLike.liked}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ring-1 transition hover:scale-105 disabled:cursor-wait disabled:opacity-60 ${clubLike.liked ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-white text-slate-600 ring-slate-200 hover:bg-rose-50 hover:text-rose-700'}`}
+        >
+          {likingClub === clubSlug
+            ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+            : <Heart size={16} fill={clubLike.liked ? 'currentColor' : 'none'} aria-hidden="true" />}
+          {clubLike.likes}
+          <span className="sr-only">likes</span>
+        </button>
+      </div>
+    );
+  };
+
+  const clubNewsSection = (clubSlug: string, canManageNews: boolean) => {
+    const club = clubBySlug(clubSlug);
+    if (!club) return null;
+    return (
+      <section className="mt-10 border-t border-slate-200 pt-7" aria-labelledby="club-news-heading">
+        <div className="flex items-center gap-3">
+          <span className="rounded-xl bg-blue-50 p-2.5 text-blue-700"><Camera size={21} aria-hidden="true" /></span>
+          <div>
+            <h3 id="club-news-heading" className="text-xl font-black text-slate-900">Actualités du club</h3>
+            <p className="mt-0.5 text-sm text-slate-500">Photos et moments partagés par {club.name}.</p>
+          </div>
+        </div>
+
+        {canManageNews && (
+          <form onSubmit={(event) => void publishClubNews(event, clubSlug)} className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5">
+            <label className="block text-sm font-bold text-slate-800" htmlFor="club-news-caption">Ajouter une photo au fil</label>
+            <textarea
+              id="club-news-caption"
+              value={clubNewsCaption}
+              onChange={(event) => setClubNewsCaption(event.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="Décrivez brièvement cette activité (facultatif)"
+              className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <ImagePlus size={17} aria-hidden="true" />
+                {clubNewsImage ? clubNewsImage.name : 'Choisir une photo'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => setClubNewsImage(event.target.files?.[0] || null)}
+                  className="sr-only"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={clubNewsSaving || !clubNewsImage}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-800 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {clubNewsSaving ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <ImagePlus size={16} aria-hidden="true" />}
+                Publier la photo
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">JPG, PNG ou WebP · 5 Mo maximum.</p>
+          </form>
+        )}
+
+        {clubNewsError && <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{clubNewsError}</p>}
+        {clubNewsLoading ? (
+          <div className="flex justify-center py-10"><LoaderCircle className="animate-spin text-blue-700" aria-label="Chargement des actualités" /></div>
+        ) : clubNews.length === 0 ? (
+          <p className="mt-5 rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            Aucune photo publiée pour le moment.
+          </p>
+        ) : (
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {clubNews.map((post) => (
+              <article key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <img src={post.imageUrl} alt={post.caption || `Photo publiée par ${club.name}`} loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                <div className="p-4">
+                  {post.caption && <p className="whitespace-pre-wrap text-sm leading-6 text-slate-800">{post.caption}</p>}
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0 text-xs text-slate-500">
+                      <span className="block truncate font-semibold text-slate-700">{post.authorName}</span>
+                      <time dateTime={post.createdAt}>{new Date(post.createdAt).toLocaleDateString('fr-FR')}</time>
+                    </div>
+                    {canManageNews && (
+                      <button
+                        type="button"
+                        onClick={() => void removeClubNews(post)}
+                        disabled={deletingNewsPost === post.id}
+                        aria-label="Supprimer cette photo"
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                      >
+                        {deletingNewsPost === post.id
+                          ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+                          : <Trash2 size={16} aria-hidden="true" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    );
   };
 
   return (
@@ -251,6 +529,19 @@ export default function ClubsPage() {
                 Actualiser
               </button>
             </div>
+            {data.clubSlug === 'all' && (
+              <label className="mt-5 block max-w-sm text-sm font-semibold text-slate-700">
+                Club à gérer
+                <select
+                  value={managerNewsClubSlug}
+                  onChange={(event) => setManagerNewsClubSlug(event.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+                >
+                  {CLUBS.map((club) => <option key={club.slug} value={club.slug}>{club.name}</option>)}
+                </select>
+              </label>
+            )}
+            {newsFeedClubSlug && clubNewsSection(newsFeedClubSlug, true)}
             {loading ? (
               <div className="flex justify-center py-12"><LoaderCircle className="animate-spin text-blue-700" /></div>
             ) : visibleApplications.length === 0 ? (
@@ -335,32 +626,39 @@ export default function ClubsPage() {
                     <p className="mt-1 text-sm text-slate-600">Ouvrez un dossier pour parcourir ses sous-clubs.</p>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
-                    {CLUBS.map((club) => {
+                    {clubsByLikes.map((club) => {
                       const Icon = club.icon === 'trophy' ? Trophy : Sparkles;
                       const memberCount = members.filter((member) => member.clubSlug === club.slug).length;
                       return (
-                        <button
+                        <article
                           key={club.slug}
-                          type="button"
-                          onClick={() => showClub(club)}
-                          className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-5 text-left transition duration-300 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                          className="group rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 transition duration-300 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg sm:p-5"
                         >
-                          <span className="rounded-2xl bg-blue-100 p-4 text-blue-800 transition group-hover:bg-blue-800 group-hover:text-white">
-                            <Icon size={28} aria-hidden="true" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                              <Folder size={19} className="text-amber-500" aria-hidden="true" />
-                              {club.name}
+                          <button
+                            type="button"
+                            onClick={() => showClub(club)}
+                            className="flex w-full items-center gap-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                          >
+                            <span className="rounded-2xl bg-blue-100 p-4 text-blue-800 transition group-hover:bg-blue-800 group-hover:text-white">
+                              <Icon size={28} aria-hidden="true" />
                             </span>
-                            <span className="mt-1 block text-sm leading-5 text-slate-600">{club.description}</span>
-                            <span className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
-                              <span>{club.subclubs.length} sous-clubs</span>
-                              <span>{memberCount} membre{memberCount === 1 ? '' : 's'}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                                <Folder size={19} className="text-amber-500" aria-hidden="true" />
+                                {club.name}
+                              </span>
+                              <span className="mt-1 block text-sm leading-5 text-slate-600">{club.description}</span>
+                              <span className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
+                                <span>{club.subclubs.length} sous-clubs</span>
+                                <span>{memberCount} membre{memberCount === 1 ? '' : 's'}</span>
+                              </span>
                             </span>
-                          </span>
-                          <ChevronRight size={20} className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-700" aria-hidden="true" />
-                        </button>
+                            <ChevronRight size={20} className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-700" aria-hidden="true" />
+                          </button>
+                          <div className="ml-16 mt-3 flex flex-wrap items-center justify-between gap-2">
+                            {likeButton(club.slug, true)}
+                          </div>
+                        </article>
                       );
                     })}
                   </div>
@@ -428,6 +726,7 @@ export default function ClubsPage() {
                             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Dossier du club</p>
                             <h2 className="mt-1 text-3xl font-black text-slate-900">{selectedClub.name}</h2>
                             <p className="mt-2 max-w-2xl leading-6 text-slate-600">{selectedClub.description}</p>
+                            {likeButton(selectedClub.slug)}
                           </div>
                         </div>
                         <div className="mt-8 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
@@ -457,6 +756,7 @@ export default function ClubsPage() {
                             );
                           })}
                         </div>
+                        {clubNewsSection(selectedClub.slug, false)}
                       </div>
                     ) : (
                       <article>

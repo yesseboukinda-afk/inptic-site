@@ -50,7 +50,14 @@ une base existante, exécutez `scripts/20_create_clubs.sql`. Les responsables so
 `/admin`, avec le service « Gestion des clubs » et le club qui leur est attribué.
 Les étudiants peuvent candidater à un seul sous-club à la fois, parmi les disciplines
 sportives ou les activités de création numérique (développement, réseau, infographie
-et audiovisuel).
+et audiovisuel). Tous les visiteurs peuvent aimer ou ne plus aimer chaque club ; les
+clubs sont classés selon le nombre de likes. Le choix est associé à un cookie du
+navigateur (et non à un compte utilisateur), donc l'exécution de la migration
+`scripts/20_create_clubs.sql` est nécessaire pour activer les likes en production.
+Pour activer le fil de photos des clubs, exécutez aussi
+`scripts/23_club_news_feed.sql` sur la base PostgreSQL LWS. Les responsables de
+club publient une photo JPG, PNG ou WebP (5 Mo maximum) avec une légende
+facultative ; les visiteurs peuvent consulter le fil depuis le dossier du club.
 
 L'interface active de l'assistant est maintenue dans
 `chatbot/components/inptic-chat-page.tsx` et montée sur `/chatbot` par
