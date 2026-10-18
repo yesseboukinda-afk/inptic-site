@@ -66,6 +66,8 @@ type Department = {
   chefEmail: string;
 };
 
+type DossierStatusFilter = 'pending' | 'validated' | 'refused' | 'all';
+
 const departments = [
   'Management des TIC',
   'Réseaux et Systèmes Numériques',
@@ -206,6 +208,12 @@ function getStudentDossierDepartments(student: Student) {
   return Array.from(departmentIds);
 }
 
+function getDossierStatus(student: Student): Exclude<DossierStatusFilter, 'all'> {
+  if (student.status === 'refuse' || student.isArchived) return 'refused';
+  if (student.status === 'valide' || student.dossierValide) return 'validated';
+  return 'pending';
+}
+
 export default function StaffDashboard({ role }: { role: Role }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -227,6 +235,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const [viewingDocument, setViewingDocument] = useState<{ name: string; url: string; type: string } | null>(null);
   const [quotaAlert, setQuotaAlert] = useState<string | null>(null);
   const [selectedFiliere, setSelectedFiliere] = useState('all');
+  const [dossierStatusFilter, setDossierStatusFilter] = useState<DossierStatusFilter>('pending');
   const [isUpdatingDossier, setIsUpdatingDossier] = useState(false);
   const [profilesRefreshKey, setProfilesRefreshKey] = useState(0);
   const [isCandidateFormOpen, setIsCandidateFormOpen] = useState(false);
@@ -363,26 +372,33 @@ export default function StaffDashboard({ role }: { role: Role }) {
     return { total, enAttente, valides, refuses };
   }, [students]);
 
-  const pendingDossiers = useMemo(() => {
-    return students.filter((student) => {
-      if (student.status === 'valide' || student.status === 'refuse' || student.isArchived) return false;
-      return true;
-    });
-  }, [students]);
+  const dossierStatusCounts = useMemo(() => ({
+    pending: students.filter((student) => getDossierStatus(student) === 'pending').length,
+    validated: students.filter((student) => getDossierStatus(student) === 'validated').length,
+    refused: students.filter((student) => getDossierStatus(student) === 'refused').length,
+    all: students.length,
+  }), [students]);
+
+  const statusFilteredDossiers = useMemo(
+    () => dossierStatusFilter === 'all'
+      ? students
+      : students.filter((student) => getDossierStatus(student) === dossierStatusFilter),
+    [students, dossierStatusFilter],
+  );
 
   const filteredDossiers = useMemo(
     () => selectedFiliere === 'all'
-      ? pendingDossiers
-      : pendingDossiers.filter((student) => getStudentDossierDepartments(student).includes(selectedFiliere)),
-    [pendingDossiers, selectedFiliere],
+      ? statusFilteredDossiers
+      : statusFilteredDossiers.filter((student) => getStudentDossierDepartments(student).includes(selectedFiliere)),
+    [statusFilteredDossiers, selectedFiliere],
   );
 
   const dossierDepartmentCounts = useMemo(
     () => dossierDepartments.map((department) => ({
       ...department,
-      count: pendingDossiers.filter((student) => getStudentDossierDepartments(student).includes(department.id)).length,
+      count: statusFilteredDossiers.filter((student) => getStudentDossierDepartments(student).includes(department.id)).length,
     })),
-    [pendingDossiers],
+    [statusFilteredDossiers],
   );
 
   async function updateStudentStatus(studentEmail: string, decision: 'valide' | 'refuse') {
@@ -751,7 +767,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                 }`}
               >
                 <ClipboardList size={15} />
-                <span>Dossiers d&apos;admission ({pendingDossiers.length})</span>
+                <span>Dossiers d&apos;admission ({dossierStatusCounts.pending})</span>
               </button>
               <button
                 onClick={() => setActiveTab('documents')}
@@ -775,6 +791,38 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
             {activeTab === 'dossiers' && (
               <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                  <span className="mr-1 text-xs font-bold text-slate-500">État des dossiers :</span>
+                  {([
+                    ['pending', 'En attente', dossierStatusCounts.pending],
+                    ['validated', 'Validés', dossierStatusCounts.validated],
+                    ['refused', 'Refusés', dossierStatusCounts.refused],
+                    ['all', 'Tous', dossierStatusCounts.all],
+                  ] as const).map(([filter, label, count]) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      aria-pressed={dossierStatusFilter === filter}
+                      onClick={() => {
+                        setDossierStatusFilter(filter);
+                        setSelectedStudent(null);
+                        setIsCandidateFormOpen(false);
+                      }}
+                      className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                        dossierStatusFilter === filter
+                          ? 'bg-blue-600 text-white shadow'
+                          : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {filter === 'validated' ? <CheckCircle2 size={14} /> : filter === 'refused' ? <X size={14} /> : <FolderOpen size={14} />}
+                      {label}
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${dossierStatusFilter === filter ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
                 {selectedStudent ? (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -970,8 +1018,26 @@ export default function StaffDashboard({ role }: { role: Role }) {
                     </div>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">En attente d&apos;examen</span>
+                    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 ${
+                      getDossierStatus(selectedStudent) === 'validated'
+                        ? 'border-emerald-200 bg-emerald-50'
+                        : getDossierStatus(selectedStudent) === 'refused'
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-amber-200 bg-amber-50'
+                    }`}>
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                        getDossierStatus(selectedStudent) === 'validated'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : getDossierStatus(selectedStudent) === 'refused'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {getDossierStatus(selectedStudent) === 'validated'
+                          ? 'Dossier validé'
+                          : getDossierStatus(selectedStudent) === 'refused'
+                            ? 'Refusé et archivé'
+                            : 'En attente d’examen'}
+                      </span>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -1007,7 +1073,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                           {profilesLoading
                             ? 'Chargement des dossiers...'
                             : selectedFiliere === 'all'
-                            ? `${pendingDossiers.length} dossier(s) à classer`
+                            ? `${statusFilteredDossiers.length} dossier(s) ${dossierStatusFilter === 'pending' ? 'à classer' : dossierStatusFilter === 'validated' ? 'validé(s)' : dossierStatusFilter === 'refused' ? 'refusé(s)' : 'au total'}`
                             : `${filteredDossiers.length} dossier(s) candidat`}
                         </span>
                       </div>
@@ -1061,7 +1127,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="block text-sm font-bold text-slate-900">{department.name}</span>
-                              <span className="text-xs text-slate-500">{department.count} dossier(s) en attente</span>
+                              <span className="text-xs text-slate-500">{department.count} dossier(s) {dossierStatusFilter === 'pending' ? 'en attente' : dossierStatusFilter === 'validated' ? 'validé(s)' : dossierStatusFilter === 'refused' ? 'refusé(s)' : 'au total'}</span>
                             </span>
                             <ChevronRight size={18} className="text-slate-400" />
                           </button>
@@ -1073,7 +1139,9 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       </div>
                     ) : filteredDossiers.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-                        Aucun dossier en attente pour cette filière.
+                        {dossierStatusFilter === 'all'
+                          ? 'Aucun dossier pour cette filière.'
+                          : `Aucun dossier ${dossierStatusFilter === 'pending' ? 'en attente' : dossierStatusFilter === 'validated' ? 'validé' : 'refusé'} pour cette filière.`}
                       </div>
                     ) : (
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -1095,6 +1163,15 @@ export default function StaffDashboard({ role }: { role: Role }) {
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-bold text-slate-900">{folderName}</span>
                                 <span className="block truncate text-xs text-slate-500">{student.email}</span>
+                                <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                  getDossierStatus(student) === 'validated'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : getDossierStatus(student) === 'refused'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {getDossierStatus(student) === 'validated' ? 'Validé' : getDossierStatus(student) === 'refused' ? 'Refusé' : 'En attente'}
+                                </span>
                                 <span className="mt-1 block font-mono text-[11px] text-slate-400">{student.dossierNumero || 'Dossier candidat'}</span>
                               </span>
                               <ChevronRight size={18} className="shrink-0 text-slate-400 transition group-hover:text-blue-600" />
