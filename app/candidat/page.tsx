@@ -478,8 +478,7 @@ export default function Candidat() {
       }
 
       if (!data.session) {
-        setMode('login');
-        setMsg('Compte créé. Confirmez votre adresse e-mail depuis le message reçu, puis connectez-vous pour vous préinscrire.');
+        setMsg('Compte créé. Confirmez votre adresse e-mail depuis le message reçu : le lien activera votre compte et vous redirigera directement vers le dépôt de dossier.');
         return;
       }
 

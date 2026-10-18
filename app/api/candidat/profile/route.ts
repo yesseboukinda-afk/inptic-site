@@ -6,6 +6,7 @@ import { getProfileDocumentPrefix } from '@/lib/documentStorage';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
+import { REQUIRED_ADMISSION_DOCUMENTS } from '@/lib/admissionsWorkflow';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
@@ -137,6 +138,49 @@ async function siteAuditedPOST(request: NextRequest) {
       [email],
     );
     const existingProfile = existingResult.rows[0];
+    const existingWorkflow = existingProfile?.admission_workflow &&
+      typeof existingProfile.admission_workflow === 'object'
+      ? existingProfile.admission_workflow as Record<string, any>
+      : {};
+    const preRegistrationResult = canManageProfiles
+      ? { rows: [] as Array<{ concours_slug: string | null; created_at: Date }> }
+      : await pool.query(
+          `SELECT concours_slug, created_at
+           FROM public.concours_preinscriptions WHERE user_id = $1 LIMIT 1`,
+          [user.id],
+        );
+    const registeredConcours = preRegistrationResult.rows[0];
+    const trustedPreRegistration = registeredConcours
+      ? {
+          concoursSlug: registeredConcours.concours_slug,
+          completedAt: registeredConcours.created_at instanceof Date
+            ? registeredConcours.created_at.toISOString()
+            : new Date(registeredConcours.created_at).toISOString(),
+          status: 'dossier_en_attente',
+        }
+      : existingWorkflow.preRegistration;
+    const requestedWorkflow = payload.admissionWorkflow && typeof payload.admissionWorkflow === 'object'
+      ? payload.admissionWorkflow as Record<string, any>
+      : {};
+    const requestedApplicationAt = requestedWorkflow.applicationCompletedAt;
+    const hasExistingApplication = Boolean(existingWorkflow.applicationCompletedAt);
+    const hasPreRegistration = Boolean(trustedPreRegistration?.completedAt);
+    if (
+      !canManageProfiles &&
+      typeof requestedApplicationAt === 'string' &&
+      !hasExistingApplication &&
+      (!hasPreRegistration || existingWorkflow.documentReview?.status !== 'approved')
+    ) {
+      return NextResponse.json(
+        {
+          error: hasPreRegistration
+            ? 'La Scolarité doit valider vos pièces avant le dépôt du formulaire de candidature.'
+            : 'Effectuez d’abord la préinscription au concours.',
+        },
+        { status: 409 },
+      );
+    }
+
     const oldDocuments: ProfileDocument[] = Array.isArray(existingProfile?.documents)
       ? existingProfile.documents
       : [];
@@ -172,6 +216,24 @@ async function siteAuditedPOST(request: NextRequest) {
         category: incomingCategory,
         file: incomingFile,
       });
+    }
+    const uploadedAdmissionCategories = new Set(
+      uploads.map((document) => typeof document.category === 'string' ? document.category : ''),
+    );
+    const reviewStatus = existingWorkflow.documentReview?.status;
+    if (
+      !canManageProfiles &&
+      ['pending', 'approved'].includes(reviewStatus) &&
+      REQUIRED_ADMISSION_DOCUMENTS.some((category) => uploadedAdmissionCategories.has(category))
+    ) {
+      return NextResponse.json(
+        {
+          error: reviewStatus === 'pending'
+            ? 'Vos pièces sont en cours de vérification. Attendez le retour de la Scolarité avant de les modifier.'
+            : 'Vos pièces ont été validées et sont verrouillées pour le dépôt de la candidature.',
+        },
+        { status: 409 },
+      );
     }
     if (retainedDocuments.length + uploads.length > 5) {
       return NextResponse.json({ error: 'Un dossier peut contenir au maximum 5 documents.' }, { status: 400 });
@@ -244,6 +306,13 @@ async function siteAuditedPOST(request: NextRequest) {
     const dossierNumero = canManageProfiles && typeof payload.dossierNumero === 'string'
       ? payload.dossierNumero
       : existingProfile?.dossier_numero ?? null;
+    const admissionWorkflow = canManageProfiles
+      ? requestedWorkflow
+      : {
+          ...requestedWorkflow,
+          ...(trustedPreRegistration ? { preRegistration: trustedPreRegistration } : { preRegistration: undefined }),
+          documentReview: existingWorkflow.documentReview,
+        };
 
     const result = await pool.query(
       `INSERT INTO public.profiles
@@ -289,7 +358,7 @@ async function siteAuditedPOST(request: NextRequest) {
         payload.photo || '',
         payload.departement || '',
         JSON.stringify(documents),
-        JSON.stringify(payload.admissionWorkflow ?? existingProfile?.admission_workflow ?? {}),
+        JSON.stringify(admissionWorkflow),
         JSON.stringify(payload.candidatureData ?? existingProfile?.candidature_data ?? null),
         role,
         dossierStatus,

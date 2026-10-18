@@ -11,6 +11,12 @@ export type AdmissionWorkflowProfile = {
       concoursSlug?: string | null;
       completedAt?: string;
     };
+    documentReview?: {
+      status?: 'pending' | 'approved' | 'correction_requested';
+      submittedAt?: string;
+      reviewedAt?: string;
+      feedback?: string;
+    };
     applicationCompletedAt?: string;
   };
   candidatureData?: Record<string, unknown>;
@@ -47,7 +53,14 @@ export function hasCompletedAdmissionPreRegistration(profile: AdmissionWorkflowP
   return Boolean(profile?.admissionWorkflow?.preRegistration?.completedAt);
 }
 
+export function hasApprovedPreAdmissionDocuments(profile: AdmissionWorkflowProfile | null | undefined) {
+  return profile?.admissionWorkflow?.documentReview?.status === 'approved';
+}
+
 export function hasCompleteAdmissionDossier(profile: AdmissionWorkflowProfile | null | undefined) {
+  if (profile?.admissionWorkflow?.documentReview?.submittedAt && !hasApprovedPreAdmissionDocuments(profile)) {
+    return false;
+  }
   if (!profile?.admissionWorkflow?.applicationCompletedAt) return false;
   const values = profile?.candidatureData;
   if (!values) return false;
@@ -80,7 +93,7 @@ export function hasCompleteAdmissionDossier(profile: AdmissionWorkflowProfile | 
 export function getCandidateJourneyPath(
   profile: AdmissionWorkflowProfile | null | undefined
 ) {
-  if (!hasCompletedAdmissionPreRegistration(profile)) return '/concours';
+  if (!hasCompletedAdmissionPreRegistration(profile)) return '/admissions/depot';
   if (!hasCompleteAdmissionDossier(profile)) {
     const concoursSlug = profile?.admissionWorkflow?.preRegistration?.concoursSlug;
     return `/admissions/depot${concoursSlug ? `?concours=${encodeURIComponent(concoursSlug)}` : ''}`;

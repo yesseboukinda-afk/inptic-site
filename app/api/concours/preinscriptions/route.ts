@@ -45,6 +45,9 @@ async function siteAuditedPOST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const concoursSlug = typeof body?.concoursSlug === 'string' ? body.concoursSlug.trim() : null;
+  if (!concoursSlug) {
+    return NextResponse.json({ error: 'Sélectionnez un concours ouvert avant de vous préinscrire.' }, { status: 400 });
+  }
   const metadataName = user.user_metadata.full_name ?? user.user_metadata.name;
   const fullName = typeof body?.fullName === 'string' && body.fullName.trim()
     ? body.fullName.trim()
@@ -57,26 +60,24 @@ async function siteAuditedPOST(request: NextRequest) {
     return NextResponse.json({ error: 'Les informations du compte candidat ne sont pas valides.' }, { status: 400 });
   }
 
-  if (concoursSlug) {
-    let concours;
-    try {
-      const { rows } = await getPostgresPool().query(
-        'SELECT slug, status, calendar FROM public.concours WHERE slug = $1',
-        [concoursSlug],
-      );
-      concours = rows[0];
-    } catch (error) {
-      console.error('Erreur PostgreSQL lors de la vérification du concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-      return NextResponse.json({ error: 'Vérification du concours impossible.' }, { status: 503 });
-    }
-    const registrationEnd = concours?.calendar?.registrationEnd;
-    const registrationStart = concours?.calendar?.registrationStart;
-    const registrationNotStarted =
-      typeof registrationStart === 'string' && new Date(registrationStart).getTime() > Date.now();
-    const registrationClosed = typeof registrationEnd === 'string' && new Date(registrationEnd).getTime() < Date.now();
-    if (!concours || concours.status !== 'en_cours' || registrationNotStarted || registrationClosed) {
-      return NextResponse.json({ error: 'La session sélectionnée n’est pas ouverte aux préinscriptions.' }, { status: 400 });
-    }
+  let concours;
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT slug, status, calendar FROM public.concours WHERE slug = $1',
+      [concoursSlug],
+    );
+    concours = rows[0];
+  } catch (error) {
+    console.error('Erreur PostgreSQL lors de la vérification du concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Vérification du concours impossible.' }, { status: 503 });
+  }
+  const registrationEnd = concours?.calendar?.registrationEnd;
+  const registrationStart = concours?.calendar?.registrationStart;
+  const registrationNotStarted =
+    typeof registrationStart === 'string' && new Date(registrationStart).getTime() > Date.now();
+  const registrationClosed = typeof registrationEnd === 'string' && new Date(registrationEnd).getTime() < Date.now();
+  if (!concours || concours.status !== 'en_cours' || registrationNotStarted || registrationClosed) {
+    return NextResponse.json({ error: 'La session sélectionnée n’est pas ouverte aux préinscriptions.' }, { status: 400 });
   }
 
   try {

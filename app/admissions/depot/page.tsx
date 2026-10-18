@@ -7,18 +7,39 @@ import { LogIn, CheckCircle2, ArrowRight, ShieldCheck, Upload, FileText } from '
 import { authClient } from '@/lib/auth-client';
 import { useTranslation } from 'react-i18next';
 import FormulaireCandidatureLicence, { CandidatureValues } from '@/app/scolarite/formulaire/Formulairecandidature';
+import type { ConcoursItem } from '@/types/concours';
 import {
+  getCurrentAdmissionConcours,
+  hasApprovedPreAdmissionDocuments,
   hasCompletedAdmissionPreRegistration,
   REQUIRED_ADMISSION_DOCUMENTS,
 } from '@/lib/admissionsWorkflow';
+
+type AdmissionDocument = {
+  name: string;
+  category: string;
+  type: string;
+  data?: string;
+  path?: string;
+  url?: string;
+};
 
 export default function DepotPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; category: string; type: string; data: string }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<AdmissionDocument[]>([]);
   const [uploadError, setUploadError] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [submittingPreliminaryDocuments, setSubmittingPreliminaryDocuments] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [openConcours, setOpenConcours] = useState<ConcoursItem[]>([]);
+  const [selectedConcoursSlug, setSelectedConcoursSlug] = useState('');
+  const [preRegistrationSaving, setPreRegistrationSaving] = useState(false);
+  const [preRegistrationError, setPreRegistrationError] = useState('');
+  const [accountCreated, setAccountCreated] = useState(false);
   const [concoursSlug, setConcoursSlug] = useState('');
   const [showNewsletterReminder, setShowNewsletterReminder] = useState(false);
 
@@ -26,29 +47,78 @@ export default function DepotPage() {
     const searchParams = new URLSearchParams(window.location.search);
     setConcoursSlug(searchParams.get('concours') || '');
     setShowNewsletterReminder(searchParams.get('newsletterReminder') === '1');
+    setAccountCreated(searchParams.get('accountCreated') === '1');
     const syncUser = async () => {
-      const stored = localStorage.getItem('inptic_user');
-      if (stored) {
-        try {
-          setCurrentUser(JSON.parse(stored));
-        } catch {
-          // ignore
-        }
+      let storedProfile: Record<string, any> = {};
+      try {
+        storedProfile = JSON.parse(localStorage.getItem('inptic_user') || '{}');
+      } catch {
+        storedProfile = {};
       }
 
-      const { data } = await authClient.auth.getSession();
-      const authenticatedUser = data.session?.user;
-      if (authenticatedUser) {
-        setCurrentUser((prev: any) => ({
-          ...prev,
-          email: authenticatedUser.email || prev?.email,
-          name: authenticatedUser.user_metadata?.full_name || prev?.name || 'Candidat',
-        }));
+      try {
+        const { data, error } = await authClient.auth.getSession();
+        if (error) throw error;
+        const authenticatedUser = data.session?.user;
+        if (authenticatedUser?.email) {
+          const response = await fetch('/api/candidat/profile', { cache: 'no-store' });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || 'Impossible de charger votre profil candidat.');
+          const remoteProfile = Array.isArray(payload.profiles)
+            ? payload.profiles.find((profile: Record<string, any>) =>
+                profile.email?.toLowerCase() === authenticatedUser.email?.toLowerCase())
+            : null;
+          const profile = remoteProfile
+            ? {
+                ...storedProfile,
+                ...remoteProfile,
+                name: remoteProfile.name || storedProfile.name || authenticatedUser.user_metadata?.full_name || 'Candidat',
+                email: authenticatedUser.email,
+              }
+            : {
+                ...storedProfile,
+                email: authenticatedUser.email,
+                name: authenticatedUser.user_metadata?.full_name || storedProfile.name || 'Candidat',
+              };
+          setCurrentUser(profile);
+          const documents = Array.isArray(profile.documents) ? profile.documents : [];
+          setUploadedFiles(documents.filter((document: AdmissionDocument) =>
+            REQUIRED_ADMISSION_DOCUMENTS.includes(document.category as (typeof REQUIRED_ADMISSION_DOCUMENTS)[number])
+          ));
+          if (remoteProfile) localStorage.setItem('inptic_user', JSON.stringify(profile));
+        } else if (storedProfile.email) {
+          setCurrentUser(storedProfile);
+          setUploadedFiles((storedProfile.documents || []).filter((document: AdmissionDocument) =>
+            REQUIRED_ADMISSION_DOCUMENTS.includes(document.category as (typeof REQUIRED_ADMISSION_DOCUMENTS)[number])
+          ));
+        }
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : 'Impossible de charger votre dossier candidat.');
+        if (storedProfile.email) setCurrentUser(storedProfile);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     syncUser();
+    fetch('/api/concours', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Impossible de charger les concours ouverts.');
+        const available = Array.isArray(payload.data)
+          ? payload.data.filter((item: ConcoursItem) => item.status === 'en_cours')
+          : [];
+        setOpenConcours(available);
+        const current = getCurrentAdmissionConcours(available);
+        setSelectedConcoursSlug((previous) =>
+          available.some((item: ConcoursItem) => item.slug === concoursSlug)
+            ? concoursSlug
+            : previous || current?.slug || available[0]?.slug || ''
+        );
+      })
+      .catch((error) => {
+        setPreRegistrationError(error instanceof Error ? error.message : 'Impossible de charger les concours ouverts.');
+      });
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, categoryLabel: string) => {
@@ -77,10 +147,156 @@ export default function DepotPage() {
         type: file.type || 'application/octet-stream',
         data: fileData,
       };
-      setUploadedFiles((prev) => [...prev.filter((f) => !f.name.startsWith(categoryLabel)), newDoc]);
+      setUploadedFiles((prev) => [...prev.filter((document) => document.category !== categoryLabel), newDoc]);
     };
     reader.onerror = () => setUploadError(`Lecture impossible pour le fichier « ${file.name} ».`);
     reader.readAsDataURL(file);
+  };
+
+  const submitPreliminaryDocuments = async () => {
+    if (!currentUser?.email) {
+      setReviewError('Connectez-vous à votre compte candidat avant de transmettre vos pièces.');
+      return;
+    }
+    const missingDocuments = REQUIRED_ADMISSION_DOCUMENTS.filter(
+      (category) => !uploadedFiles.some((document) => document.category === category)
+    );
+    if (missingDocuments.length) {
+      setReviewError(`Ajoutez toutes les pièces obligatoires : ${missingDocuments.join(', ')}.`);
+      return;
+    }
+
+    setSubmittingPreliminaryDocuments(true);
+    setReviewError('');
+    setReviewMessage('');
+    try {
+      const profileToSave = {
+        ...currentUser,
+        documents: [
+          ...uploadedFiles,
+          ...(currentUser.documents || []).filter(
+            (document: AdmissionDocument) =>
+              !uploadedFiles.some((uploaded) => uploaded.category === document.category)
+          ),
+        ],
+      };
+      const profileResponse = await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileToSave),
+      });
+      const profilePayload = await profileResponse.json().catch(() => ({}));
+      if (!profileResponse.ok) {
+        throw new Error(profilePayload.error || 'Les pièces n’ont pas pu être enregistrées.');
+      }
+
+      const savedProfile = {
+        ...profileToSave,
+        ...(profilePayload.profile || {}),
+      };
+      setCurrentUser(savedProfile);
+      setUploadedFiles((savedProfile.documents || []).filter((document: AdmissionDocument) =>
+        REQUIRED_ADMISSION_DOCUMENTS.includes(document.category as (typeof REQUIRED_ADMISSION_DOCUMENTS)[number])
+      ));
+      localStorage.setItem('inptic_user', JSON.stringify(savedProfile));
+
+      const reviewResponse = await fetch('/api/admissions/document-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'submit' }),
+      });
+      const reviewPayload = await reviewResponse.json().catch(() => ({}));
+      if (!reviewResponse.ok) {
+        throw new Error(reviewPayload.error || 'La transmission à la Scolarité a échoué.');
+      }
+
+      const submittedProfile = {
+        ...savedProfile,
+        admissionWorkflow: {
+          ...savedProfile.admissionWorkflow,
+          documentReview: reviewPayload.documentReview,
+        },
+      };
+      setCurrentUser(submittedProfile);
+      localStorage.setItem('inptic_user', JSON.stringify(submittedProfile));
+      setReviewMessage('Vos pièces ont été transmises à la Scolarité. Vous recevrez un e-mail après leur vérification.');
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'La transmission des pièces a échoué.');
+    } finally {
+      setSubmittingPreliminaryDocuments(false);
+    }
+  };
+
+  const handlePreRegistration = async () => {
+    if (!currentUser?.email) {
+      setPreRegistrationError('Connectez-vous à votre compte candidat pour continuer.');
+      return;
+    }
+    if (!selectedConcoursSlug) {
+      setPreRegistrationError('Aucun concours ouvert n’est disponible pour le moment.');
+      return;
+    }
+
+    setPreRegistrationSaving(true);
+    setPreRegistrationError('');
+    try {
+      const { data, error } = await authClient.auth.getSession();
+      if (error) throw error;
+      if (!data.session) {
+        router.push('/candidat');
+        return;
+      }
+
+      const selectedConcours = openConcours.find((item) => item.slug === selectedConcoursSlug);
+      if (!selectedConcours) throw new Error('Le concours sélectionné n’est plus disponible.');
+      const response = await fetch('/api/concours/preinscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          concoursSlug: selectedConcours.slug,
+          fullName: currentUser.name || '',
+          phone: currentUser.phone || '',
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Préinscription impossible.');
+
+      const profile = {
+        ...currentUser,
+        admissionWorkflow: {
+          ...currentUser.admissionWorkflow,
+          preRegistration: {
+            concoursSlug: selectedConcours.slug,
+            concoursTitle: selectedConcours.title,
+            completedAt: new Date().toISOString(),
+            status: 'dossier_en_attente',
+          },
+        },
+      };
+      const profileResponse = await fetch('/api/candidat/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      const profilePayload = await profileResponse.json().catch(() => ({}));
+      if (!profileResponse.ok) {
+        throw new Error(profilePayload.error || 'La préinscription a été reçue, mais son rattachement au compte a échoué. Réessayez.');
+      }
+      const savedProfile = {
+        ...profile,
+        ...(profilePayload.profile || {}),
+        admissionWorkflow: profile.admissionWorkflow,
+      };
+      setCurrentUser(savedProfile);
+      setConcoursSlug(selectedConcours.slug);
+      localStorage.setItem('inptic_user', JSON.stringify(savedProfile));
+      window.dispatchEvent(new Event('auth-state-changed'));
+      window.history.replaceState(null, '', `/admissions/depot?concours=${encodeURIComponent(selectedConcours.slug)}`);
+    } catch (error) {
+      setPreRegistrationError(error instanceof Error ? error.message : 'Préinscription impossible.');
+    } finally {
+      setPreRegistrationSaving(false);
+    }
   };
 
   const handleFormSubmit = async (values: CandidatureValues, photo: File | null) => {
@@ -181,6 +397,15 @@ export default function DepotPage() {
   }
 
   const candidateNameParts = String(currentUser?.name || '').trim().split(/\s+/).filter(Boolean);
+  const documentReview = currentUser?.admissionWorkflow?.documentReview;
+  const isLegacyApplication = Boolean(currentUser?.admissionWorkflow?.applicationCompletedAt) &&
+    !documentReview?.submittedAt;
+  const requiresPreliminaryReview = hasCompletedAdmissionPreRegistration(currentUser) && !isLegacyApplication;
+  const showPreliminaryReview = requiresPreliminaryReview && !hasApprovedPreAdmissionDocuments(currentUser);
+  const uploadedCategories = new Set(uploadedFiles.map((document) => document.category));
+  const canSubmitPreliminaryDocuments = REQUIRED_ADMISSION_DOCUMENTS.every((category) => uploadedCategories.has(category));
+  const uploadedRequiredCount = REQUIRED_ADMISSION_DOCUMENTS.filter((category) => uploadedCategories.has(category)).length;
+  const missingPreRegistration = currentUser && !hasCompletedAdmissionPreRegistration(currentUser);
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
@@ -223,13 +448,43 @@ export default function DepotPage() {
         (concoursSlug && currentUser.admissionWorkflow?.preRegistration?.concoursSlug !== concoursSlug) ? (
         <section className="container-x mt-10 px-4 md:px-0 max-w-xl mx-auto">
           <div className="rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-lg">
-            <h2 className="text-xl font-black text-slate-900">Préinscription requise</h2>
+            <h2 className="text-xl font-black text-slate-900">{missingPreRegistration ? 'Choisissez votre concours' : 'Préinscription requise'}</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              Terminez la préinscription à la session actuellement ouverte avant de remplir le dossier officiel.
+              {missingPreRegistration
+                ? 'Sélectionnez une session ouverte. Votre préinscription et la transmission de vos pièces se feront ensuite depuis cette page.'
+                : 'Votre préinscription correspond à une autre session. Sélectionnez la session ouverte pour continuer.'}
             </p>
-            <Link href="/concours" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800">
-              Continuer mon inscription <ArrowRight size={16} />
-            </Link>
+            {openConcours.length ? (
+              <>
+                <label className="mt-5 block text-left">
+                  <span className="mb-2 block text-xs font-bold text-slate-700">Session du concours</span>
+                  <select
+                    value={selectedConcoursSlug}
+                    onChange={(event) => setSelectedConcoursSlug(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm"
+                  >
+                    {openConcours.map((item) => (
+                      <option key={item.slug} value={item.slug}>{item.title}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={preRegistrationSaving || !selectedConcoursSlug}
+                  onClick={handlePreRegistration}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {preRegistrationSaving ? 'Enregistrement...' : 'Continuer mon dossier'} <ArrowRight size={16} />
+                </button>
+              </>
+            ) : (
+              <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                Aucun concours n’est ouvert actuellement. Revenez lorsque les inscriptions seront ouvertes.
+              </p>
+            )}
+            {preRegistrationError && (
+              <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-800">{preRegistrationError}</p>
+            )}
           </div>
         </section>
       ) : (
@@ -243,6 +498,12 @@ export default function DepotPage() {
               {t('depotPage.viewTracking', 'Voir mon suivi de dossier')}
             </Link>
           </div>
+
+          {accountCreated && (
+            <p role="status" className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+              Votre compte est activé. Continuez votre inscription au concours depuis cette page.
+            </p>
+          )}
 
           {showNewsletterReminder && (
             <div
@@ -261,18 +522,92 @@ export default function DepotPage() {
             </div>
           )}
 
+          {loadError && (
+            <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+              {loadError}
+            </p>
+          )}
+
+          {loadError ? (
+            <div className="mx-auto max-w-2xl rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center">
+              <h2 className="font-black text-rose-900">Vérification du dossier indisponible</h2>
+              <p className="mt-2 text-sm text-rose-800">Rechargez cette page lorsque le service sera rétabli. Le formulaire reste verrouillé tant que le statut des pièces n’a pas pu être confirmé.</p>
+            </div>
+          ) : showPreliminaryReview ? (
+            <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="rounded-2xl bg-blue-50 p-3 text-blue-700"><ShieldCheck size={24} /></div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">Vérification préalable des pièces</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                    Avant de remplir le formulaire officiel, la Scolarité vérifie vos trois pièces. Après validation, vous recevrez un e-mail vous invitant à poursuivre votre candidature.
+                  </p>
+                </div>
+              </div>
+
+              {documentReview?.status === 'pending' ? (
+                <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <p className="font-bold text-amber-900">Vos pièces sont en cours de vérification.</p>
+                  <p className="mt-1 text-sm text-amber-800">Le formulaire de candidature sera accessible après validation par la Scolarité.</p>
+                  <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                    {uploadedFiles.map((document) => <li key={document.category}>✓ {document.category}</li>)}
+                  </ul>
+                </div>
+              ) : (
+                <>
+                  {documentReview?.status === 'correction_requested' && (
+                    <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-5">
+                      <p className="font-bold text-rose-900">Des corrections sont nécessaires avant de continuer.</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-rose-800">{documentReview.feedback || 'Veuillez vérifier et remplacer les pièces demandées.'}</p>
+                    </div>
+                  )}
+                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                    {REQUIRED_ADMISSION_DOCUMENTS.map((category, index) => (
+                      <label key={category} className="rounded-2xl border border-slate-200 p-4">
+                        <span className="block text-sm font-bold text-slate-800">{index + 1}. {category}</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.webp"
+                          onChange={(event) => handleFileUpload(event, category)}
+                          className="mt-3 w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700"
+                        />
+                        <span className="mt-2 block truncate text-xs text-slate-500">
+                          {uploadedFiles.find((document) => document.category === category)?.name || 'Aucun fichier sélectionné'}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {uploadError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-800">{uploadError}</p>}
+                  {reviewError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800">{reviewError}</p>}
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-slate-500">PDF ou image, 5 Mo maximum par pièce.</p>
+                    <button
+                      type="button"
+                      disabled={!canSubmitPreliminaryDocuments || submittingPreliminaryDocuments}
+                      onClick={submitPreliminaryDocuments}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Upload size={16} />
+                      {submittingPreliminaryDocuments ? 'Transmission en cours...' : 'Transmettre à la Scolarité'}
+                    </button>
+                  </div>
+                  {reviewMessage && <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{reviewMessage}</p>}
+                </>
+              )}
+            </div>
+          ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
             {/* Formulaire principal */}
             <div className="rounded-3xl border border-slate-200 bg-white p-2 sm:p-6 shadow-sm">
               <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
                 <div className="flex items-center justify-between gap-3 text-sm font-bold text-blue-950">
                   <span>Justificatifs obligatoires</span>
-                  <span>{uploadedFiles.length} / {REQUIRED_ADMISSION_DOCUMENTS.length}</span>
+                  <span>{uploadedRequiredCount} / {REQUIRED_ADMISSION_DOCUMENTS.length}</span>
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100">
                   <div
                     className="h-full rounded-full bg-blue-700 transition-all"
-                    style={{ width: `${Math.min(uploadedFiles.length / REQUIRED_ADMISSION_DOCUMENTS.length, 1) * 100}%` }}
+                    style={{ width: `${uploadedRequiredCount / REQUIRED_ADMISSION_DOCUMENTS.length * 100}%` }}
                   />
                 </div>
                 <p className="mt-2 text-xs text-blue-900">
@@ -288,22 +623,30 @@ export default function DepotPage() {
                   telephone1: currentUser.phone || '',
                 }}
                 lockEmail
-                submitDisabled={uploadedFiles.length !== REQUIRED_ADMISSION_DOCUMENTS.length}
+                submitDisabled={!canSubmitPreliminaryDocuments}
                 onSubmit={handleFormSubmit}
               />
             </div>
 
-            {/* Panneau latéral de téléversement des pièces justificatives */}
+            {/* Panneau latéral des pièces justificatives */}
             <aside className="rounded-3xl border border-blue-200 bg-white p-6 shadow-sm h-fit lg:sticky lg:top-24 space-y-4">
               <div className="flex items-center gap-2 text-blue-700 border-b border-slate-100 pb-3">
                 <Upload size={18} />
-                <h3 className="font-bold text-sm text-slate-900">{t('depotPage.digitalDocs', 'Pièces justificatives numériques')}</h3>
+                <h3 className="font-bold text-sm text-slate-900">{requiresPreliminaryReview ? 'Pièces validées par la Scolarité' : t('depotPage.digitalDocs', 'Pièces justificatives numériques')}</h3>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                {t('depotPage.digitalDocsDesc', 'Joignez les trois pièces justificatives requises (PDF ou image, 5 Mo max chacune) avant l’envoi définitif.')}
+                {requiresPreliminaryReview
+                  ? 'Ces documents ont été validés et sont joints à votre candidature.'
+                  : t('depotPage.digitalDocsDesc', 'Joignez les trois pièces justificatives requises (PDF ou image, 5 Mo max chacune) avant l’envoi définitif.')}
               </p>
 
-              <div className="space-y-3.5">
+              {requiresPreliminaryReview ? (
+                <ul className="space-y-2 text-xs font-semibold text-emerald-800">
+                  {REQUIRED_ADMISSION_DOCUMENTS.map((category) => (
+                    <li key={category} className="rounded-xl bg-emerald-50 p-3">{category} — Validé</li>
+                  ))}
+                </ul>
+              ) : <div className="space-y-3.5">
                 {REQUIRED_ADMISSION_DOCUMENTS.map((category, index) => (
                   <div key={category}>
                   <label className="block text-xs font-bold text-slate-700 mb-1">{index + 1}. {category}</label>
@@ -315,7 +658,7 @@ export default function DepotPage() {
                   />
                   </div>
                 ))}
-              </div>
+              </div>}
 
               {uploadError && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-800">{uploadError}</p>}
 
@@ -332,6 +675,7 @@ export default function DepotPage() {
               )}
             </aside>
           </div>
+          )}
         </section>
       )}
     </main>

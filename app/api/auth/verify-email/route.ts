@@ -114,8 +114,9 @@ async function siteAuditedGET(request: NextRequest) {
   }
 
   const sessionToken = await createAuthSessionToken(userId);
-  const verificationUrl = new URL('/candidat?verified=1', siteUrl);
-  if (emailChanged) verificationUrl.searchParams.set('emailChanged', '1');
+  const verificationUrl = emailChanged
+    ? new URL('/candidat?verified=1&emailChanged=1', siteUrl)
+    : new URL('/admissions/depot?accountCreated=1', siteUrl);
   const response = NextResponse.redirect(verificationUrl);
   setSessionCookie(response, sessionToken);
   return response;

@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award } from 'lucide-react';
+import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, ShieldCheck } from 'lucide-react';
 import { ChangeEvent, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
@@ -39,10 +39,20 @@ type Student = {
   documents?: Array<{
     name: string;
     type: string;
+    category?: string;
     data?: string;
     url?: string;
     path?: string;
   }>;
+  admissionWorkflow?: {
+    preRegistration?: { concoursSlug?: string | null; completedAt?: string };
+    documentReview?: {
+      status?: 'pending' | 'approved' | 'correction_requested';
+      submittedAt?: string;
+      reviewedAt?: string;
+      feedback?: string;
+    };
+  };
   emploiDuTemps?: {
     title: string;
     data?: string;
@@ -95,8 +105,11 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [activeTab, setActiveTab] = useState<'dossiers' | 'documents' | 'quota'>('dossiers');
+  const [activeTab, setActiveTab] = useState<'dossiers' | 'preinscriptions' | 'documents' | 'quota'>('dossiers');
   const [viewingDocument, setViewingDocument] = useState<{ name: string; url: string; type: string } | null>(null);
+  const [preAdmissionReviewStudent, setPreAdmissionReviewStudent] = useState<Student | null>(null);
+  const [preAdmissionFeedback, setPreAdmissionFeedback] = useState('');
+  const [preAdmissionReviewSaving, setPreAdmissionReviewSaving] = useState(false);
   const [quotaAlert, setQuotaAlert] = useState<string | null>(null);
 
   useEffect(() => {
@@ -186,6 +199,51 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const filteredDossiers = useMemo(() => {
     return students.filter((s) => s.status !== 'valide' && s.status !== 'refuse' && !s.isArchived);
   }, [students]);
+
+  const pendingPreAdmissionReviews = useMemo(
+    () => students.filter((student) => student.admissionWorkflow?.documentReview?.status === 'pending'),
+    [students],
+  );
+
+  async function decidePreAdmissionDocuments(action: 'approved' | 'correction_requested') {
+    if (!preAdmissionReviewStudent) return;
+    setPreAdmissionReviewSaving(true);
+    try {
+      const response = await fetch('/api/admissions/document-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          email: preAdmissionReviewStudent.email,
+          feedback: preAdmissionFeedback,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'La décision n’a pas pu être enregistrée.');
+
+      const updatedStudent: Student = {
+        ...preAdmissionReviewStudent,
+        admissionWorkflow: {
+          ...preAdmissionReviewStudent.admissionWorkflow,
+          documentReview: payload.documentReview,
+        },
+      };
+      setStudents((current) => current.map((student) =>
+        student.email.toLowerCase() === updatedStudent.email.toLowerCase() ? updatedStudent : student
+      ));
+      setPreAdmissionReviewStudent(null);
+      setPreAdmissionFeedback('');
+      setMessage(payload.notificationSent
+        ? action === 'approved'
+          ? `Pièces validées. L’invitation a été envoyée à ${updatedStudent.email}.`
+          : `Corrections demandées. L’e-mail a été envoyé à ${updatedStudent.email}.`
+        : `Décision enregistrée, mais l’e-mail à ${updatedStudent.email} n’a pas pu être envoyé : ${payload.notificationError || 'vérifiez la configuration SMTP.'}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'La décision n’a pas pu être enregistrée.');
+    } finally {
+      setPreAdmissionReviewSaving(false);
+    }
+  }
 
   async function updateStudentStatus(studentEmail: string, decision: 'valide' | 'refuse') {
     const status: Student['status'] = decision === 'valide' ? 'valide' : 'refuse';
@@ -551,6 +609,15 @@ export default function StaffDashboard({ role }: { role: Role }) {
                 <span>Dossiers d&apos;admission ({filteredDossiers.length})</span>
               </button>
               <button
+                onClick={() => setActiveTab('preinscriptions')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'preinscriptions' ? 'bg-blue-600 text-white shadow' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <ShieldCheck size={15} />
+                <span>Pièces de préinscription ({pendingPreAdmissionReviews.length})</span>
+              </button>
+              <button
                 onClick={() => setActiveTab('documents')}
                 className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
                   activeTab === 'documents' ? 'bg-blue-600 text-white shadow' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -619,6 +686,62 @@ export default function StaffDashboard({ role }: { role: Role }) {
                           </button>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'preinscriptions' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-black text-slate-900">Vérification préalable des pièces</h2>
+                  <span className="text-xs text-slate-500">{pendingPreAdmissionReviews.length} dossier(s) à vérifier</span>
+                </div>
+                {pendingPreAdmissionReviews.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
+                    Aucune pièce de préinscription en attente.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {pendingPreAdmissionReviews.map((student) => (
+                      <article key={student.email} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-black text-slate-900">{student.name || 'Candidat'}</h3>
+                            <p className="mt-1 text-xs text-slate-500">{student.email}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+                            À vérifier
+                          </span>
+                        </div>
+                        <p className="mt-3 text-xs text-slate-600">
+                          Session : {student.admissionWorkflow?.preRegistration?.concoursSlug || 'Non précisée'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Transmis : {student.admissionWorkflow?.documentReview?.submittedAt
+                            ? new Date(student.admissionWorkflow.documentReview.submittedAt).toLocaleString('fr-FR')
+                            : 'Date inconnue'}
+                        </p>
+                        <div className="mt-4 space-y-2">
+                          {(student.documents || []).filter((document) => document.category).map((document) => (
+                            <p key={`${document.category}-${document.name}`} className="truncate rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                              {document.category}: {document.name}
+                            </p>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreAdmissionReviewStudent(student);
+                            setPreAdmissionFeedback('');
+                          }}
+                          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white transition hover:bg-blue-700"
+                        >
+                          <Eye size={14} />
+                          Examiner les pièces
+                        </button>
+                      </article>
                     ))}
                   </div>
                 )}
@@ -753,6 +876,89 @@ export default function StaffDashboard({ role }: { role: Role }) {
           </div>
         )}
       </section>
+
+      {preAdmissionReviewStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6">
+          <div className="relative my-4 max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-8">
+            <button
+              type="button"
+              onClick={() => setPreAdmissionReviewStudent(null)}
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Fermer"
+            >
+              <X size={20} />
+            </button>
+            <div className="pr-10">
+              <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">
+                <ShieldCheck size={14} /> Vérification préalable
+              </span>
+              <h2 className="mt-3 text-2xl font-black text-slate-900">{preAdmissionReviewStudent.name || 'Candidat'}</h2>
+              <p className="mt-1 text-sm text-slate-500">{preAdmissionReviewStudent.email}</p>
+              <p className="mt-3 text-xs text-slate-600">
+                Session : {preAdmissionReviewStudent.admissionWorkflow?.preRegistration?.concoursSlug || 'Non précisée'}
+              </p>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {(preAdmissionReviewStudent.documents || []).map((document, index) => (
+                <div key={`${document.path || document.name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-800">{document.category || 'Pièce justificative'}</p>
+                    <p className="truncate text-xs text-slate-500">{document.name}</p>
+                  </div>
+                  {document.url || document.data ? (
+                    <button
+                      type="button"
+                      onClick={() => setViewingDocument({
+                        name: document.name,
+                        url: document.url || document.data || '',
+                        type: document.type,
+                      })}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                    >
+                      <Eye size={13} /> Voir
+                    </button>
+                  ) : (
+                    <span className="text-xs text-rose-600">Document indisponible</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <label className="mt-6 block">
+              <span className="mb-2 block text-sm font-bold text-slate-800">Commentaire pour le candidat</span>
+              <textarea
+                value={preAdmissionFeedback}
+                onChange={(event) => setPreAdmissionFeedback(event.target.value)}
+                rows={3}
+                maxLength={1000}
+                placeholder="Obligatoire si vous demandez une correction."
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm text-slate-800 outline-none focus:border-blue-500"
+              />
+            </label>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={preAdmissionReviewSaving || !preAdmissionFeedback.trim()}
+                onClick={() => void decidePreAdmissionDocuments('correction_requested')}
+                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Demander une correction
+              </button>
+              <button
+                type="button"
+                disabled={preAdmissionReviewSaving}
+                onClick={() => void decidePreAdmissionDocuments('approved')}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} />
+                Valider et inviter à candidater
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL EXAMEN DE DOSSIER ÉTUDIANT (SCOLARITÉ) ── */}
       {selectedStudent && (

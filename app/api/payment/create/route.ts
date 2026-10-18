@@ -1,5 +1,11 @@
 import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/postgres-auth';
+import { getPostgresPool } from '@/lib/postgres';
+import {
+  hasCompleteAdmissionDossier,
+  hasCompletedAdmissionPreRegistration,
+} from '@/lib/admissionsWorkflow';
 
 const GATEWAY_URL = process.env.SINGPAY_GATEWAY_URL || 'https://gateway.singpay.ga/v1';
 const CLIENT_ID = process.env.SINGPAY_CLIENT_ID;
@@ -77,6 +83,39 @@ function detectOperator(rawPhone: string): { operator: Operator; opCode: string 
 }
 
 async function siteAuditedPOST(request: NextRequest) {
+  const user = await getAuthenticatedUser(request);
+  if (!user?.email) {
+    return NextResponse.json({ success: false, error: 'Connectez-vous à votre compte candidat avant de payer.' }, { status: 401 });
+  }
+
+  try {
+    const result = await getPostgresPool().query(
+      `SELECT admission_workflow, candidature_data, documents
+       FROM public.profiles WHERE email = $1 LIMIT 1`,
+      [user.email],
+    );
+    const profile = result.rows[0];
+    const admissionProfile = profile && {
+      email: user.email,
+      admissionWorkflow: profile.admission_workflow,
+      candidatureData: profile.candidature_data,
+      documents: Array.isArray(profile.documents) ? profile.documents : [],
+    };
+    if (
+      !admissionProfile ||
+      !hasCompletedAdmissionPreRegistration(admissionProfile) ||
+      !hasCompleteAdmissionDossier(admissionProfile)
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Votre dossier doit être complet et validé avant de procéder au paiement.' },
+        { status: 409 },
+      );
+    }
+  } catch (error) {
+    console.error('Erreur de vérification du dossier avant paiement:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ success: false, error: 'Impossible de vérifier votre dossier avant paiement.' }, { status: 503 });
+  }
+
   if (!CLIENT_ID || !CLIENT_SECRET || !WALLET_ID) {
     return NextResponse.json(
       {
