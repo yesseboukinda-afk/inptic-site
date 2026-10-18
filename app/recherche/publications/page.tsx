@@ -130,7 +130,7 @@ export default function PublicationsPage() {
   const fetchPublications = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/publications', { cache: 'no-store' });
+      const res = await fetch('/api/publications?catalog_revision=2', { cache: 'no-store' });
       const json = await res.json();
       if (json.data && Array.isArray(json.data)) {
         setPublications(json.data);

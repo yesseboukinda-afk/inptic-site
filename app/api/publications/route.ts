@@ -5,6 +5,10 @@ import { getPostgresPool } from '@/lib/postgres';
 import { canAccessStaffService } from '@/lib/roles';
 import { ResearchPublication } from '@/types/publication';
 
+const noStoreHeaders = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+};
+
 async function authorizeStaff(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
@@ -56,7 +60,10 @@ export async function GET(request: NextRequest) {
   let items: ResearchPublication[] = [];
 
   if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'La base PostgreSQL n’est pas configurée.' },
+      { status: 503, headers: noStoreHeaders },
+    );
   }
   try {
     const { rows } = await getPostgresPool().query(
@@ -72,7 +79,10 @@ export async function GET(request: NextRequest) {
     items = rows.map((row) => normalizeRow(row as Record<string, unknown>));
   } catch (error) {
     console.error('Erreur PostgreSQL lors du chargement des publications:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Catalogue des publications indisponible.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Catalogue des publications indisponible.' },
+      { status: 503, headers: noStoreHeaders },
+    );
   }
 
   // Filtres
@@ -98,7 +108,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ data: items, count: items.length });
+  return NextResponse.json(
+    { data: items, count: items.length },
+    { headers: noStoreHeaders },
+  );
 }
 
 async function siteAuditedPOST(request: NextRequest) {
