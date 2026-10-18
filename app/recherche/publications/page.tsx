@@ -56,6 +56,8 @@ export default function PublicationsPage() {
 
   const [publications, setPublications] = useState<ResearchPublication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingPublicationId, setDeletingPublicationId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   // Filtres
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,7 +130,7 @@ export default function PublicationsPage() {
   const fetchPublications = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/publications');
+      const res = await fetch('/api/publications', { cache: 'no-store' });
       const json = await res.json();
       if (json.data && Array.isArray(json.data)) {
         setPublications(json.data);
@@ -309,18 +311,26 @@ export default function PublicationsPage() {
 
   const handleDeletePublication = async (id: string) => {
     if (!confirm('Supprimer définitivement cette publication ?')) return;
-    if (!token) return;
+    if (!token) {
+      setDeleteError('Session expirée, veuillez vous reconnecter.');
+      return;
+    }
 
+    setDeletingPublicationId(id);
+    setDeleteError('');
     try {
       const res = await fetch(`/api/publications?id=${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        fetchPublications();
-      }
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error || 'Impossible de supprimer la publication.');
+      setPublications((current) => current.filter((publication) => publication.id !== id));
+      await fetchPublications();
     } catch (err) {
-      console.error('Erreur suppression:', err);
+      setDeleteError(err instanceof Error ? err.message : 'Impossible de supprimer la publication.');
+    } finally {
+      setDeletingPublicationId(null);
     }
   };
 
@@ -433,6 +443,11 @@ export default function PublicationsPage() {
 
       {/* ── LISTE DES PUBLICATIONS ── */}
       <section className="container-x mt-8 px-4 md:px-0">
+        {deleteError && (
+          <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {deleteError}
+          </p>
+        )}
         {loading ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
             <RefreshCw size={28} className="animate-spin text-blue-600" />
@@ -583,9 +598,10 @@ export default function PublicationsPage() {
                         <span className="text-slate-300">•</span>
                         <button
                           onClick={() => handleDeletePublication(pub.id)}
-                          className="text-xs font-semibold text-slate-500 hover:text-red-600"
+                          disabled={deletingPublicationId === pub.id}
+                          className="text-xs font-semibold text-slate-500 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"
                         >
-                          Supprimer
+                          {deletingPublicationId === pub.id ? 'Suppression…' : 'Supprimer'}
                         </button>
                       </div>
                     )}

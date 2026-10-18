@@ -5,102 +5,6 @@ import { getPostgresPool } from '@/lib/postgres';
 import { canAccessStaffService } from '@/lib/roles';
 import { ResearchPublication } from '@/types/publication';
 
-// Graines initiales représentatives des travaux des chercheurs de l'INPTIC Gabon
-const SEED_PUBLICATIONS: ResearchPublication[] = [
-  {
-    id: 'pub-2026-001',
-    title: 'Déploiement et Résilience des Réseaux de Capteurs IoT en Milieu Forestier Équatorial Gabonais',
-    slug: 'deploiement-resilience-iot-foret-equatoriale-gabon',
-    authors: ['Dr. Jean-Marc ONDO (INPTIC)', 'Ing. Patrick MVE (Laboratoire Systèmes & IoT)', 'Pr. A. BIVEGHE'],
-    publicationDate: '2026-02-14',
-    year: 2026,
-    domain: 'Systèmes Embarqués & IoT',
-    abstract: 'Cette étude analyse les défis de connectivité radio LoRaWAN et de durabilité énergétique des réseaux de micro-capteurs déployés pour le suivi microclimatique et la détection précoce des feux dans le bassin du Congo. Une topologie maillée auto-réparatrice alimentée par micro-panneaux solaires est validée expérimentalement.',
-    keywords: ['IoT', 'LoRaWAN', 'Forêt tropicale', 'Énergie solaire', 'Réseaux de capteurs', 'Gabon'],
-    journalOrConference: 'Revue Africaine des Technologies de l’Information et Télécoms (RATIT 2026)',
-    doiOrUrl: 'https://doi.org/10.1016/j.inptic.iot.2026.012',
-    pdfUrl: '/docs/publications/inptic_iot_foret_2026.pdf',
-    attachments: [
-      {
-        name: 'Article IoT forêt équatoriale 2026.pdf',
-        url: '/docs/publications/inptic_iot_foret_2026.pdf',
-        type: 'application/pdf',
-      },
-    ],
-    createdAt: '2026-02-14T09:00:00Z',
-    updatedAt: '2026-02-14T09:00:00Z',
-  },
-  {
-    id: 'pub-2025-002',
-    title: 'Architectures de Cybersécurité Souveraine pour les Systèmes d’Information des Administrations Publiques',
-    slug: 'cybersecurite-souveraine-si-administrations-publiques',
-    authors: ['Dr. Marcelle ESSONO (DRTI / INPTIC)', 'M. Christian BOURDES (Expert Sécurité SI)'],
-    publicationDate: '2025-11-20',
-    year: 2025,
-    domain: 'Cybersécurité',
-    abstract: 'Face à la recrudescence des cybermenaces ciblant les infrastructures critiques en Afrique centrale, cet article propose un cadre de maturité fondé sur le Zero Trust, la cryptographie post-quantique et la localisation des centres d’opérations de sécurité (SOC) territoriaux.',
-    keywords: ['Cybersécurité', 'Zero Trust', 'SOC', 'Souveraineté numérique', 'Infrastructures critiques'],
-    journalOrConference: 'Actes du Forum International de Cybersécurité d’Afrique Centrale (FICAS 2025)',
-    doiOrUrl: 'https://ficas-conf.org/proceedings/2025/inptic-cybersec',
-    pdfUrl: '/docs/publications/inptic_cybersec_2025.pdf',
-    attachments: [
-      {
-        name: 'Article cybersécurité souveraine 2025.pdf',
-        url: '/docs/publications/inptic_cybersec_2025.pdf',
-        type: 'application/pdf',
-      },
-    ],
-    createdAt: '2025-11-20T11:30:00Z',
-    updatedAt: '2025-11-20T11:30:00Z',
-  },
-  {
-    id: 'pub-2025-003',
-    title: 'Modélisation et Optimisation du Routage sur Réseau Fibre Optique FTTH Urbain à Libreville',
-    slug: 'optimisation-routage-fibre-ftth-libreville',
-    authors: ['Ing. David MOUIRI (Département Réseaux & Télécoms)', 'Dr. Serge NZIENGUI'],
-    publicationDate: '2025-06-10',
-    year: 2025,
-    domain: 'Réseaux & Télécoms',
-    abstract: 'Présentation d’un algorithme d’allocation spectrale et de routage multicouche pour minimiser la latence et prévenir la congestion sur la dorsale nationale à fibre optique dans la zone métropolitaine du Grand Libreville.',
-    keywords: ['Fibre optique', 'FTTH', 'Routage', 'QoS', 'Télécommunications', 'Libreville'],
-    journalOrConference: 'IEEE Africa Communications Symposium (AfriComm 2025)',
-    doiOrUrl: 'https://doi.org/10.1109/AFRICOMM.2025.88210',
-    pdfUrl: '/docs/publications/inptic_ftth_libreville_2025.pdf',
-    attachments: [
-      {
-        name: 'Article routage FTTH Libreville 2025.pdf',
-        url: '/docs/publications/inptic_ftth_libreville_2025.pdf',
-        type: 'application/pdf',
-      },
-    ],
-    createdAt: '2025-06-10T14:00:00Z',
-    updatedAt: '2025-06-10T14:00:00Z',
-  },
-  {
-    id: 'pub-2024-004',
-    title: 'Apprentissage Automatique pour le Traitement Automatique des Langues Nationales du Gabon',
-    slug: 'apprentissage-automatique-langues-nationales-gabon',
-    authors: ['Dr. Fabrice NGUEMA (Laboratoire IA & Big Data)', 'Mme. Estelle BEKALE (Doctorante)'],
-    publicationDate: '2024-09-05',
-    year: 2024,
-    domain: 'Intelligence Artificielle',
-    abstract: 'Exploration des modèles de langage pré-entraînés à faibles ressources appliqués au Fang, Myènè et Punu. Cet article détaille la méthodologie de constitution de corpus textuels et audio et propose une plateforme de reconnaissance vocale adaptée.',
-    keywords: ['Intelligence Artificielle', 'NLP', 'Langues bantoues', 'Machine Learning', 'Patrimoine numérique'],
-    journalOrConference: 'Revue Internationale d’Ingénierie Linguistique et Informatique Appliquée',
-    doiOrUrl: 'https://doi.org/10.5281/zenodo.inptic.nlp.2024',
-    pdfUrl: '/docs/publications/inptic_ia_nlp_2024.pdf',
-    attachments: [
-      {
-        name: 'Article TAL langues nationales 2024.pdf',
-        url: '/docs/publications/inptic_ia_nlp_2024.pdf',
-        type: 'application/pdf',
-      },
-    ],
-    createdAt: '2024-09-05T08:00:00Z',
-    updatedAt: '2024-09-05T08:00:00Z',
-  },
-];
-
 async function authorizeStaff(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
@@ -149,7 +53,6 @@ export async function GET(request: NextRequest) {
   const yearFilter = searchParams.get('year');
   const authorFilter = searchParams.get('author');
   const query = searchParams.get('q');
-
   let items: ResearchPublication[] = [];
 
   if (!process.env.DATABASE_URL) {
@@ -157,23 +60,19 @@ export async function GET(request: NextRequest) {
   }
   try {
     const { rows } = await getPostgresPool().query(
-      'SELECT * FROM public.publications ORDER BY year DESC, publication_date DESC',
+      `SELECT * FROM public.publications
+       WHERE slug NOT IN (
+         'deploiement-resilience-iot-foret-equatoriale-gabon',
+         'cybersecurite-souveraine-si-administrations-publiques',
+         'optimisation-routage-fibre-ftth-libreville',
+         'apprentissage-automatique-langues-nationales-gabon'
+       )
+       ORDER BY year DESC, publication_date DESC`,
     );
-    if (rows.length) items = rows.map((row) => normalizeRow(row as Record<string, unknown>));
+    items = rows.map((row) => normalizeRow(row as Record<string, unknown>));
   } catch (error) {
     console.error('Erreur PostgreSQL lors du chargement des publications:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Catalogue des publications indisponible.' }, { status: 503 });
-  }
-
-  // Compléter avec les graines si la table est vide
-  if (items.length === 0) {
-    items = [...SEED_PUBLICATIONS];
-  } else {
-    for (const seed of SEED_PUBLICATIONS) {
-      if (!items.some((i) => i.slug === seed.slug)) {
-        items.push(seed);
-      }
-    }
   }
 
   // Filtres
