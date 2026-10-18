@@ -110,6 +110,7 @@ async function siteAuditedPOST(request: NextRequest) {
       email,
       'Confirmez votre nouvelle adresse e-mail INPTIC',
       `<p>Une demande de changement d’adresse e-mail a été faite pour votre compte INPTIC.</p><p><a href="${verificationUrl.toString()}">Confirmer cette adresse e-mail</a></p><p>Ce lien expire dans 24 heures. Votre adresse actuelle reste active jusqu’à la confirmation.</p>`,
+      `Une demande de changement d’adresse e-mail a été faite pour votre compte INPTIC.\nLien de confirmation : ${verificationUrl.toString()}\nCe lien expire dans 24 heures. Votre adresse actuelle reste active jusqu’à la confirmation.`,
     );
   } catch (error) {
     console.error('[Account email change] Email delivery error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');

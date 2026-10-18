@@ -52,6 +52,7 @@ async function siteAuditedPOST(request: NextRequest) {
       email,
       'Réinitialisez votre mot de passe INPTIC',
       `<p>Une demande de réinitialisation a été faite pour votre compte INPTIC.</p><p><a href="${resetUrl.toString()}">Choisir un nouveau mot de passe</a></p><p>Ce lien expire dans une heure. Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.</p>`,
+      `Une demande de réinitialisation a été faite pour votre compte INPTIC.\nLien de réinitialisation : ${resetUrl.toString()}\nCe lien expire dans une heure. Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.`,
     );
   } catch (error) {
     return NextResponse.json(

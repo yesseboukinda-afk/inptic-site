@@ -89,6 +89,7 @@ async function siteAuditedPOST(request: NextRequest) {
       email,
       'Confirmez votre adresse e-mail INPTIC',
       `<p>Bonjour ${escapeHtml(name)},</p><p>Confirmez votre adresse e-mail pour activer votre compte INPTIC.</p><p><a href="${verificationUrl.toString()}">Confirmer mon adresse e-mail</a></p><p>Ce lien expire dans 24 heures.</p>`,
+      `Bonjour ${name},\n\nConfirmez votre adresse e-mail pour activer votre compte INPTIC.\nLien de confirmation : ${verificationUrl.toString()}\nCe lien expire dans 24 heures.`,
     );
   } catch (error) {
     return NextResponse.json(
