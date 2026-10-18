@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogIn, CheckCircle2, ArrowRight, ShieldCheck, Upload, FileText } from 'lucide-react';
+import { LogIn, CheckCircle2, ArrowRight, Eye, Upload } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { useTranslation } from 'react-i18next';
 import FormulaireCandidatureLicence, { CandidatureValues } from '@/app/scolarite/formulaire/Formulairecandidature';
@@ -11,7 +11,6 @@ import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation'
 import type { ConcoursItem } from '@/types/concours';
 import {
   getOpenAdmissionConcours,
-  hasApprovedPreAdmissionDocuments,
   hasCompletedAdmissionPreRegistration,
   hasCompleteAdmissionDossier,
   getAdmissionDossierCompletionPercent,
@@ -46,9 +45,6 @@ export default function DepotPage() {
   const [loading, setLoading] = useState(true);
   const [uploadedFiles, setUploadedFiles] = useState<AdmissionDocument[]>([]);
   const [uploadError, setUploadError] = useState('');
-  const [reviewError, setReviewError] = useState('');
-  const [reviewMessage, setReviewMessage] = useState('');
-  const [submittingPreliminaryDocuments, setSubmittingPreliminaryDocuments] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [openConcours, setOpenConcours] = useState<ConcoursItem[]>([]);
   const [preRegistrationSaving, setPreRegistrationSaving] = useState(false);
@@ -159,80 +155,6 @@ export default function DepotPage() {
     };
     reader.onerror = () => setUploadError(`Lecture impossible pour le fichier « ${file.name} ».`);
     reader.readAsDataURL(file);
-  };
-
-  const submitPreliminaryDocuments = async () => {
-    if (!currentUser?.email) {
-      setReviewError('Connectez-vous à votre compte candidat avant de transmettre vos pièces.');
-      return;
-    }
-    const missingDocuments = REQUIRED_ADMISSION_DOCUMENTS.filter(
-      (category) => !uploadedFiles.some((document) => document.category === category)
-    );
-    if (missingDocuments.length) {
-      setReviewError(`Ajoutez toutes les pièces obligatoires : ${missingDocuments.join(', ')}.`);
-      return;
-    }
-
-    setSubmittingPreliminaryDocuments(true);
-    setReviewError('');
-    setReviewMessage('');
-    try {
-      const profileToSave = {
-        ...currentUser,
-        documents: [
-          ...uploadedFiles,
-          ...(currentUser.documents || []).filter(
-            (document: AdmissionDocument) =>
-              !uploadedFiles.some((uploaded) => uploaded.category === document.category)
-          ),
-        ],
-      };
-      const profileResponse = await fetch('/api/candidat/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileToSave),
-      });
-      const profilePayload = await profileResponse.json().catch(() => ({}));
-      if (!profileResponse.ok) {
-        throw new Error(profilePayload.error || 'Les pièces n’ont pas pu être enregistrées.');
-      }
-
-      const savedProfile = {
-        ...profileToSave,
-        ...(profilePayload.profile || {}),
-      };
-      setCurrentUser(savedProfile);
-      setUploadedFiles((savedProfile.documents || []).filter((document: AdmissionDocument) =>
-        REQUIRED_ADMISSION_DOCUMENTS.includes(document.category as (typeof REQUIRED_ADMISSION_DOCUMENTS)[number])
-      ));
-      localStorage.setItem('inptic_user', JSON.stringify(savedProfile));
-
-      const reviewResponse = await fetch('/api/admissions/document-review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit' }),
-      });
-      const reviewPayload = await reviewResponse.json().catch(() => ({}));
-      if (!reviewResponse.ok) {
-        throw new Error(reviewPayload.error || 'La transmission à la Scolarité a échoué.');
-      }
-
-      const submittedProfile = {
-        ...savedProfile,
-        admissionWorkflow: {
-          ...savedProfile.admissionWorkflow,
-          documentReview: reviewPayload.documentReview,
-        },
-      };
-      setCurrentUser(submittedProfile);
-      localStorage.setItem('inptic_user', JSON.stringify(submittedProfile));
-      setReviewMessage('Vos pièces ont été transmises à la Scolarité. Vous recevrez un e-mail après leur vérification.');
-    } catch (error) {
-      setReviewError(error instanceof Error ? error.message : 'La transmission des pièces a échoué.');
-    } finally {
-      setSubmittingPreliminaryDocuments(false);
-    }
   };
 
   const handlePreRegistration = async () => {
@@ -367,7 +289,7 @@ export default function DepotPage() {
     };
 
     if (!hasCompleteAdmissionDossier(updatedProfile)) {
-      throw new Error('Le dépôt ne peut pas être finalisé : vérifiez que votre préinscription est enregistrée, que vos pièces sont validées et que tous les champs obligatoires du formulaire sont renseignés.');
+      throw new Error('Le dépôt ne peut pas être finalisé : vérifiez que votre préinscription est enregistrée, que toutes les pièces obligatoires sont jointes et que tous les champs obligatoires du formulaire sont renseignés.');
     }
 
     const response = await fetch('/api/candidat/profile', {
@@ -400,65 +322,6 @@ export default function DepotPage() {
     router.push(`/admissions/paiement?concours=${encodeURIComponent(concoursSlug)}`);
   };
 
-  const handleFormDraftSave = async (values: CandidatureValues, photo: File | null) => {
-    if (!currentUser?.email) {
-      throw new Error('Connectez-vous à votre compte candidat pour enregistrer le formulaire.');
-    }
-
-    let photoUrl = currentUser.photo || '';
-    if (photo) {
-      photoUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') resolve(reader.result);
-          else reject(new Error('La photo sélectionnée n’a pas pu être lue.'));
-        };
-        reader.onerror = () => reject(new Error('La photo sélectionnée n’a pas pu être lue.'));
-        reader.readAsDataURL(photo);
-      });
-    }
-
-    const selectedFilieres = [...values.filieresInitiale, ...values.filieresContinue];
-    const draftProfile = {
-      ...currentUser,
-      email: values.email || currentUser.email,
-      name: `${values.nom} ${values.prenoms}`.trim() || currentUser.name,
-      phone: values.telephone1 || currentUser.phone,
-      photo: photoUrl,
-      filiere: selectedFilieres.join(', '),
-      niveau: 'Licence Professionnelle',
-      diplome: values.baccalaureat,
-      candidatureData: values,
-    };
-    const response = await fetch('/api/candidat/profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(draftProfile),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload.error || 'Le formulaire n’a pas pu être enregistré.');
-    }
-
-    const savedProfile = {
-      ...draftProfile,
-      ...(payload.profile || {}),
-      admissionWorkflow: currentUser.admissionWorkflow,
-      candidatureData: values,
-    };
-    setCurrentUser(savedProfile);
-    localStorage.setItem('inptic_user', JSON.stringify(savedProfile));
-    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]');
-    const nextUsers = storedUsers.map((user: any) =>
-      user.email === savedProfile.email ? { ...user, ...savedProfile } : user
-    );
-    if (!storedUsers.some((user: any) => user.email === savedProfile.email)) {
-      nextUsers.push(savedProfile);
-    }
-    localStorage.setItem('inptic_users', JSON.stringify(nextUsers));
-    window.dispatchEvent(new Event('auth-state-changed'));
-  };
-
   if (loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50">
@@ -468,13 +331,8 @@ export default function DepotPage() {
   }
 
   const candidateNameParts = String(currentUser?.name || '').trim().split(/\s+/).filter(Boolean);
-  const documentReview = currentUser?.admissionWorkflow?.documentReview;
-  const isLegacyApplication = Boolean(currentUser?.admissionWorkflow?.applicationCompletedAt) &&
-    !documentReview?.submittedAt;
-  const requiresPreliminaryReview = hasCompletedAdmissionPreRegistration(currentUser) && !isLegacyApplication;
-  const showPreliminaryReview = requiresPreliminaryReview && !hasApprovedPreAdmissionDocuments(currentUser);
   const uploadedCategories = new Set(uploadedFiles.map((document) => document.category));
-  const canSubmitPreliminaryDocuments = REQUIRED_ADMISSION_DOCUMENTS.every((category) => uploadedCategories.has(category));
+  const allRequiredDocumentsUploaded = REQUIRED_ADMISSION_DOCUMENTS.every((category) => uploadedCategories.has(category));
   const uploadedRequiredCount = REQUIRED_ADMISSION_DOCUMENTS.filter((category) => uploadedCategories.has(category)).length;
   const missingPreRegistration = currentUser && !hasCompletedAdmissionPreRegistration(currentUser);
   const dossierCompletionPercent = getAdmissionDossierCompletionPercent(currentUser);
@@ -507,7 +365,7 @@ export default function DepotPage() {
           <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
           <h1 className="text-4xl font-black md:text-6xl">{t('depotPage.title', 'Dépôt de Dossier de Candidature')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            {t('depotPage.intro', 'À l’étape 5, transmettez vos pièces et complétez le formulaire officiel. Le paiement ne sera accessible qu’une fois les pièces validées et le dossier complet à 100 %.')}
+            {t('depotPage.intro', 'À l’étape 5, joignez vos pièces et enregistrez le formulaire officiel complet. Le paiement se débloquera une fois toutes ces informations enregistrées.')}
           </p>
         </div>
       </section>
@@ -620,8 +478,8 @@ export default function DepotPage() {
                   <h2 className="font-bold text-slate-900">Complétion du dossier</h2>
                   <p className="mt-1 text-xs text-slate-600">
                     {dossierCompletionPercent === 100
-                      ? 'Dossier complet : le paiement est débloqué.'
-                      : 'Le paiement sera disponible uniquement lorsque les pièces seront validées et le formulaire complet.'}
+                      ? 'Dossier complet et enregistré : le paiement est débloqué.'
+                      : 'Le paiement se débloquera après l’ajout des pièces obligatoires et l’enregistrement de tous les champs obligatoires du formulaire.'}
                   </p>
                 </div>
                 <span className={`text-lg font-black ${dossierCompletionPercent === 100 ? 'text-emerald-700' : 'text-blue-700'}`}>
@@ -669,96 +527,8 @@ export default function DepotPage() {
 
           {loadError ? (
             <div className="mx-auto max-w-2xl rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center">
-              <h2 className="font-black text-rose-900">Vérification du dossier indisponible</h2>
-              <p className="mt-2 text-sm text-rose-800">Rechargez cette page lorsque le service sera rétabli. Le formulaire reste verrouillé tant que le statut des pièces n’a pas pu être confirmé.</p>
-            </div>
-          ) : showPreliminaryReview ? (
-            <div className="mx-auto max-w-5xl space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl bg-blue-50 p-3 text-blue-700"><ShieldCheck size={24} /></div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">Vérification préalable des pièces</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                    Déposez vos trois pièces et complétez le formulaire de candidature à cette étape. Vous pouvez enregistrer le formulaire pendant que la Scolarité vérifie les justificatifs.
-                  </p>
-                </div>
-              </div>
-
-              {documentReview?.status === 'pending' ? (
-                <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-                  <p className="font-bold text-amber-900">Vos pièces sont en cours de vérification.</p>
-                  <p className="mt-1 text-sm text-amber-800">Vos pièces sont verrouillées pendant la vérification. Vous pouvez compléter ou modifier le formulaire ci-dessous.</p>
-                  <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                    {uploadedFiles.map((document) => <li key={document.category}>✓ {document.category}</li>)}
-                  </ul>
-                </div>
-              ) : (
-                <>
-                  {documentReview?.status === 'correction_requested' && (
-                    <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-5">
-                      <p className="font-bold text-rose-900">Des corrections sont nécessaires avant de continuer.</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-rose-800">{documentReview.feedback || 'Veuillez vérifier et remplacer les pièces demandées.'}</p>
-                    </div>
-                  )}
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
-                    {REQUIRED_ADMISSION_DOCUMENTS.map((category, index) => (
-                      <label key={category} className="rounded-2xl border border-slate-200 p-4">
-                        <span className="block text-sm font-bold text-slate-800">{index + 1}. {category}</span>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.webp"
-                          onChange={(event) => handleFileUpload(event, category)}
-                          className="mt-3 w-full text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700"
-                        />
-                        <span className="mt-2 block truncate text-xs text-slate-500">
-                          {uploadedFiles.find((document) => document.category === category)?.name || 'Aucun fichier sélectionné'}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  {uploadError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-800">{uploadError}</p>}
-                  {reviewError && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800">{reviewError}</p>}
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-slate-500">PDF ou image, 5 Mo maximum par pièce.</p>
-                    <button
-                      type="button"
-                      disabled={!canSubmitPreliminaryDocuments || submittingPreliminaryDocuments}
-                      onClick={submitPreliminaryDocuments}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Upload size={16} />
-                      {submittingPreliminaryDocuments ? 'Transmission en cours...' : 'Transmettre à la Scolarité'}
-                    </button>
-                  </div>
-                  {reviewMessage && <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{reviewMessage}</p>}
-                </>
-              )}
-            </div>
-            <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm sm:p-6">
-              <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
-                <h2 className="font-bold text-blue-950">Formulaire de candidature — étape 5</h2>
-                <p className="mt-1 text-sm text-blue-900">
-                  Indiquez notamment vos filières. Ces choix servent à classer votre dossier dans le service de la Scolarité. L’enregistrement du formulaire ne finalise pas le dépôt et ne débloque pas le paiement.
-                </p>
-              </div>
-              <FormulaireCandidatureLicence
-                logoSrc="/logoinptic.png"
-                initialValues={{
-                  ...currentUser.candidatureData,
-                  nom: currentUser.candidatureData?.nom || candidateNameParts[0] || '',
-                  prenoms: currentUser.candidatureData?.prenoms || candidateNameParts.slice(1).join(' '),
-                  email: currentUser.candidatureData?.email || currentUser.email || '',
-                  telephone1: currentUser.candidatureData?.telephone1 || currentUser.phone || '',
-                }}
-                lockEmail
-                submitLabel="Enregistrer le formulaire"
-                successTitle="Formulaire enregistré"
-                successMessage="Vos réponses et vos choix de filière sont enregistrés. Vous pourrez les modifier pendant la vérification des pièces. Le dépôt définitif restera à envoyer après validation des justificatifs."
-                allowEditAfterSubmit
-                onSubmit={handleFormDraftSave}
-              />
-            </div>
+              <h2 className="font-black text-rose-900">Chargement du dossier indisponible</h2>
+              <p className="mt-2 text-sm text-rose-800">Rechargez cette page lorsque le service sera rétabli. Le formulaire reste verrouillé tant que votre dossier n’a pas pu être chargé.</p>
             </div>
           ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -776,7 +546,7 @@ export default function DepotPage() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-blue-900">
-                  Les informations du formulaire et les trois pièces doivent être complètes avant de continuer au paiement.
+                  Ajoutez les trois pièces, remplissez tous les champs obligatoires et enregistrez le formulaire pour débloquer le paiement.
                 </p>
               </div>
               <FormulaireCandidatureLicence
@@ -789,7 +559,10 @@ export default function DepotPage() {
                   telephone1: currentUser.candidatureData?.telephone1 || currentUser.phone || '',
                 }}
                 lockEmail
-                submitDisabled={!canSubmitPreliminaryDocuments}
+                submitDisabled={!allRequiredDocumentsUploaded}
+                submitLabel="Enregistrer et envoyer le dossier"
+                successTitle="Dossier enregistré"
+                successMessage="Votre formulaire complet et vos pièces sont enregistrés. Le paiement est maintenant débloqué."
                 onSubmit={handleFormSubmit}
               />
             </div>
@@ -798,33 +571,56 @@ export default function DepotPage() {
             <aside className="rounded-3xl border border-blue-200 bg-white p-6 shadow-sm h-fit lg:sticky lg:top-24 space-y-4">
               <div className="flex items-center gap-2 text-blue-700 border-b border-slate-100 pb-3">
                 <Upload size={18} />
-                <h3 className="font-bold text-sm text-slate-900">{requiresPreliminaryReview ? 'Pièces validées par la Scolarité' : t('depotPage.digitalDocs', 'Pièces justificatives numériques')}</h3>
+                <h3 className="font-bold text-sm text-slate-900">{t('depotPage.digitalDocs', 'Pièces justificatives numériques')}</h3>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                {requiresPreliminaryReview
-                  ? 'Ces documents ont été validés et sont joints à votre candidature.'
-                  : t('depotPage.digitalDocsDesc', 'Joignez les trois pièces justificatives requises (PDF ou image, 5 Mo max chacune) avant l’envoi définitif.')}
+                {t('depotPage.digitalDocsDesc', 'Joignez les trois pièces justificatives requises (PDF ou image, 5 Mo max chacune) avant l’envoi définitif.')}
               </p>
 
-              {requiresPreliminaryReview ? (
-                <ul className="space-y-2 text-xs font-semibold text-emerald-800">
-                  {REQUIRED_ADMISSION_DOCUMENTS.map((category) => (
-                    <li key={category} className="rounded-xl bg-emerald-50 p-3">{category} — Validé</li>
-                  ))}
-                </ul>
-              ) : <div className="space-y-3.5">
-                {REQUIRED_ADMISSION_DOCUMENTS.map((category, index) => (
-                  <div key={category}>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">{index + 1}. {category}</label>
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => handleFileUpload(e, category)}
-                    className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  </div>
-                ))}
-              </div>}
+              <div className="space-y-3.5">
+                {REQUIRED_ADMISSION_DOCUMENTS.map((category, index) => {
+                  const document = uploadedFiles.find((file) => file.category === category);
+                  const documentUrl = document?.url || document?.data;
+                  return (
+                    <div key={category} className="rounded-xl border border-slate-200 p-3">
+                      <label className="block text-xs font-bold text-slate-700">
+                        {index + 1}. {category}
+                      </label>
+                      {document ? (
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate text-xs text-emerald-800" title={document.name}>
+                            {document.name}
+                          </span>
+                          {documentUrl ? (
+                            <a
+                              href={documentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                            >
+                              <Eye size={13} />
+                              Voir
+                            </a>
+                          ) : (
+                            <span className="shrink-0 text-xs text-slate-500">Aperçu indisponible</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500">Aucune pièce jointe.</p>
+                      )}
+                      <label className="mt-3 block cursor-pointer text-xs font-semibold text-blue-700 hover:text-blue-800">
+                        {document ? 'Remplacer cette pièce' : 'Ajouter cette pièce'}
+                        <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            onChange={(event) => handleFileUpload(event, category)}
+                            className="mt-1.5 block w-full cursor-pointer text-xs text-slate-500 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
 
               {uploadError && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-800">{uploadError}</p>}
 

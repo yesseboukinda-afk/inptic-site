@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { isSuperAdminRole, STAFF_SERVICE_OPTIONS } from '@/lib/roles';
+import { CLUBS } from '@/lib/clubs';
 
 type StaffAccount = {
   id: string;
@@ -32,6 +33,7 @@ type StaffAccount = {
   role: string;
   name: string;
   department: string;
+  clubSlug: string;
   emailVerified: boolean;
   createdAt: string;
 };
@@ -95,6 +97,13 @@ const managementAreas = [
     color: 'blue',
   },
   {
+    title: 'Clubs et candidatures',
+    description: 'Consulter les demandes d’adhésion et gérer les clubs étudiants.',
+    href: '/clubs',
+    icon: Users,
+    color: 'indigo',
+  },
+  {
     title: 'Configuration du moteur IA',
     description: 'Choisir et tester le fournisseur du chatbot, son modèle et ses identifiants.',
     href: '/admin/ai-settings',
@@ -144,6 +153,7 @@ export default function SuperAdminDashboard() {
     password: '',
     role: 'admin',
     department: '',
+    clubSlug: '',
   });
   const [creating, setCreating] = useState(false);
   const [initialPasswordVisible, setInitialPasswordVisible] = useState(false);
@@ -247,7 +257,7 @@ export default function SuperAdminDashboard() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Impossible de créer le compte.');
-      setForm({ email: '', name: '', password: '', role: 'admin', department: '' });
+      setForm({ email: '', name: '', password: '', role: 'admin', department: '', clubSlug: '' });
       setAccountsMessage(`Le compte ${result.account.email} a été créé.`);
       await refreshAccounts();
     } catch (error) {
@@ -423,7 +433,7 @@ export default function SuperAdminDashboard() {
                 </select>
               </label>
               {form.role === 'admin' ? (
-                <label className="text-sm font-medium text-slate-700 sm:col-span-2">
+                <label className="text-sm font-medium text-slate-700">
                   Service attribué
                   <select
                     required
@@ -439,6 +449,20 @@ export default function SuperAdminDashboard() {
                 <p className="self-end text-sm text-violet-700 sm:col-span-2">
                   Le superadmin peut accéder à tous les services.
                 </p>
+              )}
+              {form.role === 'admin' && form.department === 'clubs' && (
+                <label className="text-sm font-medium text-slate-700">
+                  Club attribué
+                  <select
+                    required
+                    value={form.clubSlug}
+                    onChange={(event) => setForm({ ...form, clubSlug: event.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  >
+                    <option value="" disabled>Choisir un club</option>
+                    {CLUBS.map((club) => <option key={club.slug} value={club.slug}>{club.name}</option>)}
+                  </select>
+                </label>
               )}
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -518,6 +542,11 @@ export default function SuperAdminDashboard() {
                             <div className="min-w-0">
                               <h4 className="truncate font-semibold text-slate-900">{account.name || account.email}</h4>
                               <p className="truncate text-sm text-slate-600">{account.email}</p>
+                              {account.clubSlug && (
+                                <p className="mt-1 text-xs font-semibold text-violet-700">
+                                  {CLUBS.find((club) => club.slug === account.clubSlug)?.name || account.clubSlug}
+                                </p>
+                              )}
                               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                                 <span className="inline-flex items-center gap-1">
                                   <BadgeCheck size={13} aria-hidden="true" />

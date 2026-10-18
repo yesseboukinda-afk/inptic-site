@@ -2,6 +2,7 @@ import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser, hashPassword } from '@/lib/postgres-auth';
+import { findClub } from '@/lib/clubs';
 import {
   isSuperAdminRole,
   normalizeStaffService,
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
           role: isSuperAdminRole(row.role) ? 'superadmin' : 'admin',
           name: row.user_metadata?.full_name || row.user_metadata?.name || '',
           department: service,
+          clubSlug: row.user_metadata?.clubSlug || '',
           emailVerified: Boolean(row.email_verified_at),
           createdAt: row.created_at,
         };
@@ -92,6 +94,7 @@ async function siteAuditedPOST(request: NextRequest) {
     role?: unknown;
     service?: unknown;
     department?: unknown;
+    clubSlug?: unknown;
   };
   try {
     body = await request.json();
@@ -104,6 +107,7 @@ async function siteAuditedPOST(request: NextRequest) {
   const password = typeof body.password === 'string' ? body.password : '';
   const role = typeof body.role === 'string' ? body.role : '';
   const department = normalizeStaffService(body.service ?? body.department);
+  const club = role === 'admin' && department === 'clubs' ? findClub(body.clubSlug) : undefined;
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: 'Adresse e-mail invalide.' }, { status: 400 });
@@ -117,6 +121,9 @@ async function siteAuditedPOST(request: NextRequest) {
   if (role === 'admin' && !department) {
     return NextResponse.json({ error: 'Attribue un service à ce compte admin.' }, { status: 400 });
   }
+  if (role === 'admin' && department === 'clubs' && !club) {
+    return NextResponse.json({ error: 'Attribue un club valide à ce responsable.' }, { status: 400 });
+  }
   const assignedService = role === 'admin' ? department : '';
 
   try {
@@ -128,6 +135,7 @@ async function siteAuditedPOST(request: NextRequest) {
       role,
       department: assignedService,
       service: assignedService,
+      ...(club ? { clubSlug: club.slug } : {}),
     });
     const { rows } = await pool.query(
       `INSERT INTO public.app_users
@@ -145,6 +153,7 @@ async function siteAuditedPOST(request: NextRequest) {
         role: account.role,
         name: account.user_metadata?.full_name || account.user_metadata?.name || '',
         department: account.user_metadata?.service || account.user_metadata?.department || '',
+        clubSlug: account.user_metadata?.clubSlug || '',
         emailVerified: Boolean(account.email_verified_at),
         createdAt: account.created_at,
       },

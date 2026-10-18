@@ -25,7 +25,6 @@ import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation'
 import {
   hasCompletedAdmissionPreRegistration,
   hasCompleteAdmissionDossier,
-  hasApprovedPreAdmissionDocuments,
   REQUIRED_ADMISSION_DOCUMENTS,
 } from '@/lib/admissionsWorkflow';
 
@@ -77,12 +76,6 @@ type CandidateProfile = {
     preRegistration?: {
       concoursSlug?: string;
       completedAt?: string;
-    };
-    documentReview?: {
-      status?: 'pending' | 'approved' | 'correction_requested';
-      submittedAt?: string;
-      reviewedAt?: string;
-      feedback?: string;
     };
     applicationCompletedAt?: string;
     payment?: {
@@ -243,10 +236,6 @@ export default function Suivi() {
   const isRefuse = profile.status === 'refuse';
   const isPreRegistered = hasCompletedAdmissionPreRegistration(profile);
   const isApplicationComplete = hasCompleteAdmissionDossier(profile);
-  const reviewStatus = profile.admissionWorkflow?.documentReview?.status;
-  const hasLegacyApplication = Boolean(profile.admissionWorkflow?.applicationCompletedAt) &&
-    !profile.admissionWorkflow?.documentReview?.submittedAt;
-  const documentsApproved = hasApprovedPreAdmissionDocuments(profile) || hasLegacyApplication;
   const completedJourneySteps = [
     'account' as const,
     ...(isPreRegistered ? ['opening' as const, 'contest' as const, 'preRegistration' as const] : []),
@@ -267,25 +256,19 @@ export default function Suivi() {
   const concoursSlug = profile.admissionWorkflow?.preRegistration?.concoursSlug || '';
   const nextStep = !isPreRegistered
     ? { message: 'La session ouverte sera sélectionnée automatiquement. Effectuez votre préinscription pour commencer le dépôt du dossier.', href: '/admissions/depot', label: 'Me préinscrire' }
-    : reviewStatus === 'pending'
-      ? { message: 'Vos pièces sont en cours de vérification par la Scolarité. Vous recevrez une notification après leur examen.', href: null, label: '' }
-      : reviewStatus === 'correction_requested'
-        ? { message: `Des corrections sont demandées sur vos pièces${profile.admissionWorkflow?.documentReview?.feedback ? ` : ${profile.admissionWorkflow.documentReview.feedback}` : '.'}`, href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`, label: 'Corriger mes pièces' }
-        : !documentsApproved
-          ? { message: missingDocuments.length
-              ? `Votre dossier est incomplet : ajoutez ${missingDocuments.join(', ')}.`
-              : 'Vos pièces sont prêtes à être transmises à la Scolarité pour vérification.',
-            href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`,
-            label: 'Continuer le dépôt de dossier' }
-          : !isApplicationComplete
-            ? { message: 'Les pièces sont validées. Terminez le formulaire et envoyez votre dossier pour atteindre 100 %.', href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`, label: 'Continuer le dépôt du dossier' }
-            : isRefuse
-              ? { message: 'La Scolarité a rendu une décision sur votre dossier. Consultez les notifications reçues ou contactez le service pour connaître la suite.', href: null, label: '' }
-              : !isPaid
-                ? { message: 'Votre dossier est complet. Le règlement des frais est la prochaine étape.', href: `/admissions/paiement?concours=${encodeURIComponent(concoursSlug)}`, label: 'Procéder au paiement' }
-                : !isValide
-                  ? { message: 'Votre paiement est enregistré. Votre dossier est en attente de vérification finale par la Scolarité.', href: null, label: '' }
-                  : { message: 'Toutes les étapes sont terminées. Votre dossier est validé par la Scolarité.', href: null, label: '' };
+    : isRefuse
+      ? { message: 'La Scolarité a rendu une décision sur votre dossier. Consultez les notifications reçues ou contactez le service pour connaître la suite.', href: null, label: '' }
+      : !isApplicationComplete
+        ? { message: missingDocuments.length
+            ? `Votre dossier est incomplet : ajoutez ${missingDocuments.join(', ')} et enregistrez le formulaire complet.`
+            : 'Complétez puis enregistrez tous les champs obligatoires du formulaire pour débloquer le paiement.',
+          href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`,
+          label: 'Continuer le dépôt du dossier' }
+        : !isPaid
+          ? { message: 'Votre dossier complet est enregistré. Le paiement des frais est maintenant disponible.', href: `/admissions/paiement?concours=${encodeURIComponent(concoursSlug)}`, label: 'Procéder au paiement' }
+          : !isValide
+            ? { message: 'Votre paiement est enregistré. Votre dossier est en attente de vérification finale par la Scolarité.', href: null, label: '' }
+            : { message: 'Toutes les étapes sont terminées. Votre dossier est validé par la Scolarité.', href: null, label: '' };
   const journeySteps: JourneyStep[] = [
     { title: 'Création du compte candidat', description: 'Compte créé', state: 'done' },
     { title: 'Activation du compte', description: 'Adresse e-mail vérifiée', state: 'done' },
@@ -301,14 +284,10 @@ export default function Suivi() {
     },
     {
       title: 'Dépôt du dossier (étape 5)',
-      description: reviewStatus === 'pending'
-        ? 'Pièces transmises, vérification de la Scolarité en cours'
-        : reviewStatus === 'correction_requested'
-          ? 'Corrections demandées sur les pièces'
-          : documentsApproved
-            ? isApplicationComplete ? 'Dossier complet à 100 %, pièces validées et formulaire envoyé' : 'Pièces validées, formulaire à compléter'
-            : `${uploadedCategories.size} / ${REQUIRED_ADMISSION_DOCUMENTS.length} pièces ajoutées au dossier`,
-      state: !isPreRegistered ? 'upcoming' : reviewStatus === 'correction_requested' ? 'attention' : isApplicationComplete ? 'done' : 'current',
+      description: isApplicationComplete
+        ? 'Formulaire enregistré et pièces obligatoires jointes'
+        : `${uploadedCategories.size} / ${REQUIRED_ADMISSION_DOCUMENTS.length} pièces jointes — formulaire à compléter et enregistrer`,
+      state: !isPreRegistered ? 'upcoming' : isApplicationComplete ? 'done' : 'current',
     },
     {
       title: 'Paiement des frais (étape 6)',

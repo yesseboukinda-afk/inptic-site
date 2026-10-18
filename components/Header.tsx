@@ -3,8 +3,8 @@
 import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { FormEvent, useState, useRef, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import { authClient } from '@/lib/auth-client';
@@ -26,8 +26,17 @@ interface MenuItem {
   submenu?: MenuItem[];
 }
 
+type SearchSuggestion = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  href: string;
+};
+
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useTranslation();
 
   const menuItems: MenuItem[] = [
@@ -78,7 +87,11 @@ export default function Header() {
   const [assignedService, setAssignedService] = useState<StaffServiceAssignment | ''>('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchNotification, setSearchNotification] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(-1);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
@@ -104,6 +117,7 @@ export default function Header() {
   const canManageRH = isSuperAdmin || canAccessStaffService(accountRole, 'human_resources', assignedService);
   const canManageScolarite = isSuperAdmin || canAccessStaffService(accountRole, 'candidate_profiles', assignedService);
   const canManageAnnouncements = isSuperAdmin || canAccessStaffService(accountRole, 'announcements', assignedService);
+  const canManageClubs = canAccessStaffService(accountRole, 'clubs', assignedService);
   const dashboardHref = isSuperAdmin
     ? '/admin'
     : canManageRH
@@ -112,6 +126,8 @@ export default function Header() {
         ? '/scolarite'
         : canManageAnnouncements
           ? '/annonces/gestion'
+          : canManageClubs
+            ? '/clubs'
           : canAccessStaffService(accountRole, 'concours', assignedService)
             ? '/concours'
             : '';
@@ -123,7 +139,9 @@ export default function Header() {
         ? 'Espace Scolarité'
         : canManageAnnouncements
           ? 'Gestion Annonces'
-          : 'Direction des études';
+          : canManageClubs
+            ? 'Gestion des clubs'
+            : 'Direction des études';
   const hasStaffDashboard = isSuperAdmin || Boolean(dashboardHref);
 
   const syncAuthState = async () => {
@@ -221,31 +239,6 @@ export default function Header() {
     setIsDarkMode(nextDarkMode);
   };
 
-  const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = searchQuery.trim();
-    if (!query) return;
-
-    try {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      const data = await response.json();
-      const formations = Array.isArray(data?.formations) ? data.formations : data?.formations?.data || [];
-      const actualites = Array.isArray(data?.actualites) ? data.actualites : data?.actualites?.data || [];
-      const count = formations.length + actualites.length;
-
-      setSearchNotification(
-        count
-          ? `${count} résultat${count > 1 ? 's' : ''} trouvé${count > 1 ? 's' : ''} pour « ${query} ».`
-          : `Aucun résultat trouvé pour « ${query} ».`,
-      );
-    } catch {
-      setSearchNotification('La recherche est momentanément indisponible.');
-    } finally {
-      setSearchQuery('');
-      window.setTimeout(() => setSearchNotification(''), 4500);
-    }
-  };
-
   const handleLogout = async () => {
     const { error } = await authClient.auth.signOut();
     if (error) {
@@ -262,6 +255,134 @@ export default function Header() {
     setIsStudent(false);
     window.dispatchEvent(new Event('auth-state-changed'));
     window.location.href = '/candidat';
+  };
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchSuggestions([]);
+      setSearchLoading(false);
+      setSearchError('');
+      setSelectedSuggestion(-1);
+      return;
+    }
+
+    setSearchSuggestions([]);
+    setSearchLoading(true);
+    setSearchError('');
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setSearchError('');
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Les suggestions de recherche sont indisponibles.');
+        }
+        const items: SearchSuggestion[] = Array.isArray(data.items) ? data.items : [];
+        setSearchSuggestions(items);
+        setSelectedSuggestion(-1);
+        if (data.partial) {
+          setSearchError('Certaines sources sont indisponibles; les autres résultats restent affichés.');
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSearchSuggestions([]);
+          setSearchError(error instanceof Error ? error.message : 'Les suggestions de recherche sont indisponibles.');
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setSearchQuery('');
+    setSearchFocused(false);
+    setSearchSuggestions([]);
+  }, [pathname]);
+
+  const selectSearchSuggestion = (suggestion: SearchSuggestion) => {
+    setSearchFocused(false);
+    setSearchQuery('');
+    setMobileMenuOpen(false);
+    router.push(suggestion.href);
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' && searchSuggestions.length) {
+      event.preventDefault();
+      setSelectedSuggestion((current) => (current + 1) % searchSuggestions.length);
+    } else if (event.key === 'ArrowUp' && searchSuggestions.length) {
+      event.preventDefault();
+      setSelectedSuggestion((current) =>
+        current <= 0 ? searchSuggestions.length - 1 : current - 1,
+      );
+    } else if (event.key === 'Enter' && selectedSuggestion >= 0) {
+      event.preventDefault();
+      selectSearchSuggestion(searchSuggestions[selectedSuggestion]);
+    } else if (event.key === 'Escape') {
+      setSearchFocused(false);
+      setSelectedSuggestion(-1);
+    }
+  };
+
+  const renderSearchSuggestions = (id: string) => {
+    if (!searchFocused || searchQuery.trim().length < 2) return null;
+    return (
+      <div
+        id={id}
+        role="listbox"
+        className="absolute left-0 right-0 top-full z-[100] mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 text-left text-slate-900 shadow-xl"
+      >
+        {searchLoading ? (
+          <p className="px-4 py-3 text-sm text-slate-500">{t('public.searching')}</p>
+        ) : searchError && !searchSuggestions.length ? (
+          <p className="px-4 py-3 text-sm text-rose-700">{searchError}</p>
+        ) : searchSuggestions.length ? (
+          <>
+            {searchError && <p className="px-4 py-2 text-xs text-amber-700">{searchError}</p>}
+            {searchSuggestions.map((suggestion, index) => (
+              <button
+                key={suggestion.id}
+                type="button"
+                role="option"
+                aria-selected={selectedSuggestion === index}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setSelectedSuggestion(index)}
+                onClick={() => selectSearchSuggestion(suggestion)}
+                id={`${id}-option-${index}`}
+                className={`block w-full px-4 py-2.5 text-left transition ${
+                  selectedSuggestion === index ? 'bg-blue-50' : 'hover:bg-slate-50'
+                }`}
+              >
+                <span className="block truncate text-sm font-semibold">{suggestion.title}</span>
+                <span className="mt-0.5 block text-xs text-slate-500">{suggestion.category}</span>
+                {suggestion.description && (
+                  <span className="mt-1 line-clamp-2 block text-xs text-slate-600">{suggestion.description}</span>
+                )}
+              </button>
+            ))}
+            <button
+              type="submit"
+              onMouseDown={(event) => event.preventDefault()}
+              className="w-full border-t border-slate-100 px-4 py-2.5 text-left text-xs font-bold text-blue-700 hover:bg-blue-50"
+            >
+              Voir tous les résultats pour « {searchQuery.trim()} »
+            </button>
+          </>
+        ) : (
+          <p className="px-4 py-3 text-sm text-slate-500">Aucune suggestion. Appuyez sur Entrée pour lancer la recherche.</p>
+        )}
+      </div>
+    );
   };
 
   const toggleMobileSubmenu = (id: string) => {
@@ -308,6 +429,7 @@ export default function Header() {
               <Link href="/actualites">{t('common.news')}</Link>
               <Link href="/concours">{t('common.concours', 'Concours')}</Link>
               <Link href="/recherche/publications">{t('common.publications', 'Publications')}</Link>
+              <Link href="/clubs">Clubs</Link>
               {menuItems.map((item) => (
                 <div key={item.id}>
                   <Link href={item.href}>{item.label}</Link>
@@ -338,16 +460,27 @@ export default function Header() {
           </Link>
 
           <div className="site-header-desktop-actions ml-auto hidden items-center gap-3 lg:flex">
-            <form onSubmit={handleSearchSubmit} className="hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
+            <form action="/recherche" method="get" role="search" className="relative hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
               <input
                 type="search"
+                name="q"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder={t('common.search')}
                 aria-label={t('common.search')}
+                aria-autocomplete="list"
+                aria-controls="header-search-suggestions-desktop"
+                aria-activedescendant={selectedSuggestion >= 0 ? `header-search-suggestions-desktop-option-${selectedSuggestion}` : undefined}
+                aria-expanded={searchFocused && searchQuery.trim().length >= 2}
                 className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 text-base"
               />
-              <Search size={18} className="text-slate-400 flex-shrink-0" aria-hidden="true" />
+              <button type="submit" aria-label={t('common.search')} className="shrink-0 rounded-full p-1 text-slate-500 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <Search size={18} aria-hidden="true" />
+              </button>
+              {renderSearchSuggestions('header-search-suggestions-desktop')}
             </form>
 
             <button onClick={toggleDarkMode} aria-label="Basculer le mode sombre" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" title={isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'}>
@@ -527,6 +660,9 @@ export default function Header() {
           <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
             {t('common.publications', 'Publications')}
           </Link>
+          <Link href="/clubs" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+            Clubs
+          </Link>
 
           {menuItems.map((item) => (
             <div key={item.id} className="relative group" role="none" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
@@ -632,10 +768,28 @@ export default function Header() {
       {mobileMenuOpen && (
         <nav id="mobile-menu" ref={mobileMenuRef} className="site-mobile-nav main-nav fixed inset-x-0 bottom-0 top-16 z-[60] overflow-y-auto overscroll-contain border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200 md:top-[4.5rem] lg:hidden" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu mobile">
           <div className="container-x space-y-2 px-4 py-4">
-            <div className="mb-4 md:hidden flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
-              <input type="search" placeholder={t('common.search')} aria-label={t('common.search')} className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 text-base" />
-              <Search size={18} className="text-slate-400 flex-shrink-0" aria-hidden="true" />
-            </div>
+            <form action="/recherche" method="get" role="search" className="relative mb-4 flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
+              <input
+                type="search"
+                name="q"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={t('common.search')}
+                aria-label={t('common.search')}
+                aria-autocomplete="list"
+                aria-controls="header-search-suggestions-mobile"
+                aria-activedescendant={selectedSuggestion >= 0 ? `header-search-suggestions-mobile-option-${selectedSuggestion}` : undefined}
+                aria-expanded={searchFocused && searchQuery.trim().length >= 2}
+                className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400 text-base"
+              />
+              <button type="submit" aria-label={t('common.search')} className="shrink-0 rounded p-1 text-slate-500 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <Search size={18} aria-hidden="true" />
+              </button>
+              {renderSearchSuggestions('header-search-suggestions-mobile')}
+            </form>
 
             <Link href="/" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.home')}
@@ -651,6 +805,9 @@ export default function Header() {
 
             <Link href="/recherche/publications" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.publications', 'Publications')}
+            </Link>
+            <Link href="/clubs" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+              Clubs
             </Link>
 
             {menuItems.map((item) => (
@@ -717,11 +874,6 @@ export default function Header() {
         </nav>
       )}
 
-      {searchNotification && (
-        <p className="fixed right-6 top-20 z-[100] max-w-xs rounded-lg border border-blue-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xl dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" role="status" aria-live="polite">
-          {searchNotification}
-        </p>
-      )}
       {accountSettingsOpen && (
         <AccountSettingsModal
           email={accountEmail}

@@ -45,6 +45,13 @@ illisibles. Les fournisseurs pris en charge sont Qwen, Groq, Claude, Gemini,
 DeepSeek, OpenAI, OpenRouter et Ollama local. Les clés ne sont jamais renvoyées au
 navigateur ; chaque nouvelle configuration est testée avant son activation.
 
+Après la création du schéma applicatif sur une nouvelle base, ou pour mettre à jour
+une base existante, exécutez `scripts/20_create_clubs.sql`. Les responsables sont créés depuis
+`/admin`, avec le service « Gestion des clubs » et le club qui leur est attribué.
+Les étudiants peuvent candidater à un seul sous-club à la fois, parmi les disciplines
+sportives ou les activités de création numérique (développement, réseau, infographie
+et audiovisuel).
+
 L'interface active de l'assistant est maintenue dans
 `chatbot/components/inptic-chat-page.tsx` et montée sur `/chatbot` par
 `app/chatbot/page.tsx`. Elle utilise les routes API de l'application principale,
@@ -173,6 +180,8 @@ vérifié. L'annuaire Alumni est lu depuis
 PostgreSQL sur tous les appareils ; publier ou modifier une fiche exige un compte
 INPTIC avec une adresse e-mail vérifiée. Les anciennes fiches restent visibles,
 mais ne sont pas automatiquement attribuées à un compte.
+Le formulaire Alumni permet également de recadrer la photo de profil (zoom et
+positionnement) avant de publier ou modifier la fiche.
 
 Pour rendre le message du Directeur éditable, exécuter aussi
 `scripts/16_create_homepage_director_message.sql` dans PostgreSQL.
@@ -250,7 +259,7 @@ Pour activer les inscriptions et envois de newsletter :
 - CMS: Strapi REST pour les contenus de formation qui y sont encore hébergés.
 - Authentification candidats et personnel : PostgreSQL/LWS via `/api/auth/*`
   (le point d'entrée historique `/api/candidat/login` délègue à cette API).
-- Recherche: route `/api/search?q=` interrogeant Strapi.
+- Recherche: route `/api/search?q=` indexant les pages publiques, les formations et contenus Strapi, ainsi que les actualités, annonces, concours, publications et ressources publiés dans PostgreSQL.
 - IA: variable serveur `GEMINI_API_KEY` (ou `GOOGLE_GENERATIVE_AI_API_KEY`).
 - Données métier, actualités, profils et authentification: PostgreSQL/LWS via
   `DATABASE_URL`. Aucun client Supabase n'est nécessaire au fonctionnement normal.

@@ -5,26 +5,26 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
 type SearchItem = {
-  id?: number | string;
-  title?: string;
-  name?: string;
-  description?: string;
+  id: number | string;
+  title: string;
+  description: string;
+  category: string;
+  href: string;
 };
 
 type SearchResults = {
-  formations: { data?: SearchItem[] } | SearchItem[];
-  actualites: { data?: SearchItem[] } | SearchItem[];
+  items: SearchItem[];
+  partial?: boolean;
+  unavailableSources?: string[];
 };
-
-function getItems(value: { data?: SearchItem[] } | SearchItem[] | undefined): SearchItem[] {
-  return Array.isArray(value) ? value : value?.data || [];
-}
 
 export default function Recherche() {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [searchWarning, setSearchWarning] = useState('');
 
   useEffect(() => {
     const currentQuery = new URLSearchParams(window.location.search).get('q')?.trim() || '';
@@ -38,12 +38,28 @@ export default function Recherche() {
     let active = true;
     setIsLoading(true);
     fetch(`/api/search?q=${encodeURIComponent(currentQuery)}`)
-      .then((response) => response.json())
-      .then((data: SearchResults) => {
-        if (active) setResults(data);
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'La recherche est momentanément indisponible.');
+        }
+        return data;
       })
-      .catch(() => {
-        if (active) setResults({ formations: [], actualites: [] });
+      .then((data: SearchResults) => {
+        if (active) {
+          setResults(data);
+          setSearchError('');
+          setSearchWarning(data.partial
+            ? 'Certains contenus ne sont pas disponibles pour le moment. Les autres sources ont été recherchées.'
+            : '');
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setResults(null);
+          setSearchWarning('');
+          setSearchError(error instanceof Error ? error.message : 'La recherche est momentanément indisponible.');
+        }
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -74,28 +90,30 @@ export default function Recherche() {
           <h2 className="text-2xl font-black text-slate-900">{t('public.resultsFor', { query })}</h2>
           {isLoading ? (
             <p className="mt-4 text-slate-600">{t('public.searching')}</p>
+          ) : searchError ? (
+            <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+              {searchError}
+            </p>
           ) : (
-            <div className="mt-6 grid gap-8 md:grid-cols-2">
-              {[
-                { title: t('public.formations'), items: getItems(results?.formations), href: '/formations' },
-                { title: t('public.news'), items: getItems(results?.actualites), href: '/actualites' },
-              ].map((group) => (
-                <div key={group.title}>
-                  <h3 className="text-lg font-bold text-slate-900">{group.title}</h3>
-                  {group.items.length ? (
-                    <div className="mt-3 space-y-3">
-                      {group.items.map((item, index) => (
-                        <a key={item.id || index} href={group.href} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-400 hover:shadow-sm">
-                          <p className="font-semibold text-slate-900">{item.title || item.name || t('public.result')}</p>
-                          {item.description && <p className="mt-1 text-sm text-slate-600">{item.description}</p>}
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-slate-600">{t('public.noResults')}</p>
-                  )}
+            <div className="mt-6">
+              {searchWarning && (
+                <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  {searchWarning}
+                </p>
+              )}
+              {results?.items.length ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {results.items.map((item) => (
+                    <Link key={item.id} href={item.href} className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-400 hover:shadow-sm">
+                      <span className="mb-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{item.category}</span>
+                      <p className="font-semibold text-slate-900">{item.title}</p>
+                      {item.description && <p className="mt-1 line-clamp-3 text-sm text-slate-600">{item.description}</p>}
+                    </Link>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <p className="mt-3 text-sm text-slate-600">{t('public.noResults')}</p>
+              )}
             </div>
           )}
         </section>

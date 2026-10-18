@@ -107,7 +107,7 @@ async function siteAuditedPOST(request: NextRequest) {
       !hasCompleteAdmissionDossier(admissionProfile)
     ) {
       return NextResponse.json(
-        { success: false, error: 'Votre dossier doit être complet et validé avant de procéder au paiement.' },
+        { success: false, error: 'Enregistrez le formulaire complet et joignez toutes les pièces obligatoires avant de procéder au paiement.' },
         { status: 409 },
       );
     }

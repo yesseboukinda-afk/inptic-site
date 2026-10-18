@@ -6,7 +6,6 @@ import { getProfileDocumentPrefix } from '@/lib/documentStorage';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
-import { REQUIRED_ADMISSION_DOCUMENTS } from '@/lib/admissionsWorkflow';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
@@ -180,6 +179,7 @@ async function siteAuditedPOST(request: NextRequest) {
     const requestedWorkflow = payload.admissionWorkflow && typeof payload.admissionWorkflow === 'object'
       ? payload.admissionWorkflow as Record<string, any>
       : {};
+    delete requestedWorkflow.documentReview;
     const requestedApplicationAt = requestedWorkflow.applicationCompletedAt;
     const hasExistingApplication = Boolean(existingWorkflow.applicationCompletedAt);
     const hasPreRegistration = Boolean(trustedPreRegistration?.completedAt);
@@ -187,13 +187,11 @@ async function siteAuditedPOST(request: NextRequest) {
       !canManageProfiles &&
       typeof requestedApplicationAt === 'string' &&
       !hasExistingApplication &&
-      (!hasPreRegistration || existingWorkflow.documentReview?.status !== 'approved')
+      !hasPreRegistration
     ) {
       return NextResponse.json(
         {
-          error: hasPreRegistration
-            ? 'La Scolarité doit valider vos pièces avant le dépôt du formulaire de candidature.'
-            : 'Effectuez d’abord la préinscription au concours.',
+          error: 'Effectuez d’abord la préinscription au concours.',
         },
         { status: 409 },
       );
@@ -234,24 +232,6 @@ async function siteAuditedPOST(request: NextRequest) {
         category: incomingCategory,
         file: incomingFile,
       });
-    }
-    const uploadedAdmissionCategories = new Set(
-      uploads.map((document) => typeof document.category === 'string' ? document.category : ''),
-    );
-    const reviewStatus = existingWorkflow.documentReview?.status;
-    if (
-      !canManageProfiles &&
-      ['pending', 'approved'].includes(reviewStatus) &&
-      REQUIRED_ADMISSION_DOCUMENTS.some((category) => uploadedAdmissionCategories.has(category))
-    ) {
-      return NextResponse.json(
-        {
-          error: reviewStatus === 'pending'
-            ? 'Vos pièces sont en cours de vérification. Attendez le retour de la Scolarité avant de les modifier.'
-            : 'Vos pièces ont été validées et sont verrouillées pour le dépôt de la candidature.',
-        },
-        { status: 409 },
-      );
     }
     if (retainedDocuments.length + uploads.length > 5) {
       return NextResponse.json({ error: 'Un dossier peut contenir au maximum 5 documents.' }, { status: 400 });
@@ -329,7 +309,6 @@ async function siteAuditedPOST(request: NextRequest) {
       : {
           ...requestedWorkflow,
           ...(trustedPreRegistration ? { preRegistration: trustedPreRegistration } : { preRegistration: undefined }),
-          documentReview: existingWorkflow.documentReview,
         };
 
     const result = await pool.query(

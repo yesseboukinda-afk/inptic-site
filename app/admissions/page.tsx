@@ -30,7 +30,7 @@ export default function Admissions() {
           {[
             {
               title: 'Guide d’admission',
-              text: 'Comprenez les étapes, les pièces à préparer, la validation préalable et les frais avant de commencer.',
+              text: 'Comprenez les étapes, les pièces à préparer, le formulaire à enregistrer et les frais avant de commencer.',
               href: '/admissions/guide',
               action: 'Ouvrir le guide',
             },

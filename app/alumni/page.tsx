@@ -27,6 +27,8 @@ type AuthUser = {
   role: string;
 };
 
+type PhotoDimensions = { width: number; height: number };
+
 const EMPTY_FORM = {
   nom: '',
   prenom: '',
@@ -52,6 +54,11 @@ export default function Alumni() {
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [localDraft, setLocalDraft] = useState<AlumniDraft | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [photoToCrop, setPhotoToCrop] = useState('');
+  const [cropDimensions, setCropDimensions] = useState<PhotoDimensions | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
   const [submitted, setSubmitted] = useState(false);
   const [directoryQuery, setDirectoryQuery] = useState('');
   const [directorySearchBy, setDirectorySearchBy] = useState('all');
@@ -191,30 +198,68 @@ export default function Alumni() {
 
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert('Veuillez sélectionner une image.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setSubmitError('Veuillez sélectionner une image JPG, PNG ou WebP.');
+      e.target.value = '';
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('La photo ne doit pas dépasser 5 Mo.');
+      setSubmitError('La photo ne doit pas dépasser 5 Mo.');
+      e.target.value = '';
       return;
     }
 
     const reader = new FileReader();
 
-    reader.onloadend = () => {
-      setForm((prev) => ({
-        ...prev,
-        photo: reader.result as string,
-      }));
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        setSubmitError('Impossible de lire cette photo. Réessayez avec une autre image.');
+        return;
+      }
+      setSubmitError('');
+      setPhotoToCrop(reader.result);
+      setCropDimensions(null);
+      setCropZoom(1);
+      setCropX(50);
+      setCropY(50);
     };
+    reader.onerror = () => setSubmitError('Impossible de lire cette photo. Réessayez avec une autre image.');
 
     reader.readAsDataURL(file);
   };
 
+  const applyPhotoCrop = () => {
+    if (!photoToCrop || !cropDimensions) return;
+    const image = new Image();
+    image.onload = () => {
+      const side = Math.min(cropDimensions.width, cropDimensions.height) / cropZoom;
+      const sourceX = (cropDimensions.width - side) * cropX / 100;
+      const sourceY = (cropDimensions.height - side) * cropY / 100;
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        setSubmitError('Le recadrage de la photo n’a pas pu être effectué dans ce navigateur.');
+        return;
+      }
+      context.drawImage(image, sourceX, sourceY, side, side, 0, 0, canvas.width, canvas.height);
+      setForm((previous) => ({ ...previous, photo: canvas.toDataURL('image/jpeg', 0.88) }));
+      setPhotoToCrop('');
+      setCropDimensions(null);
+      setSubmitError('');
+    };
+    image.onerror = () => setSubmitError('Impossible de préparer cette photo pour le recadrage.');
+    image.src = photoToCrop;
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (photoToCrop) {
+      setSubmitError('Validez ou annulez le recadrage de la photo avant l’enregistrement.');
+      return;
+    }
     setSubmitting(true);
     setSubmitError('');
     setSubmitted(false);
@@ -249,6 +294,8 @@ export default function Alumni() {
         : [savedProfile, ...previous]);
       setLocalDraft(null);
       setForm(EMPTY_FORM);
+      setPhotoToCrop('');
+      setCropDimensions(null);
       setIsEditing(false);
       setEditingProfileId(null);
       setSubmitted(true);
@@ -264,6 +311,8 @@ export default function Alumni() {
   };
 
   const editProfile = (person: Alumni) => {
+    setPhotoToCrop('');
+    setCropDimensions(null);
     setForm({
       nom: person.nom,
       prenom: person.prenom,
@@ -282,6 +331,8 @@ export default function Alumni() {
   };
 
   const startNewProfile = () => {
+    setPhotoToCrop('');
+    setCropDimensions(null);
     setForm(EMPTY_FORM);
     setIsEditing(false);
     setEditingProfileId(null);
@@ -832,8 +883,96 @@ export default function Alumni() {
                   />
 
                   <p className="mt-2 text-xs text-slate-500">
-                    Formats acceptés : JPG, PNG et WebP. Taille maximale : 5 Mo.
+                    Formats acceptés : JPG, PNG et WebP. Taille maximale : 5 Mo. Vous pourrez recadrer la photo avant l’enregistrement.
                   </p>
+
+                  {photoToCrop && (
+                    <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                      <p className="mb-3 text-sm font-semibold text-slate-800">Recadrez votre photo</p>
+                      <div className="relative mx-auto h-64 w-64 overflow-hidden rounded-full bg-slate-200 ring-4 ring-white shadow">
+                        <img
+                          src={photoToCrop}
+                          alt="Aperçu du recadrage de votre photo"
+                          onLoad={(event) => {
+                            const image = event.currentTarget;
+                            setCropDimensions((current) => current || {
+                              width: image.naturalWidth,
+                              height: image.naturalHeight,
+                            });
+                          }}
+                          className="absolute max-w-none"
+                          style={cropDimensions ? {
+                            width: `${256 * cropDimensions.width / Math.min(cropDimensions.width, cropDimensions.height) * cropZoom}px`,
+                            height: `${256 * cropDimensions.height / Math.min(cropDimensions.width, cropDimensions.height) * cropZoom}px`,
+                            left: `${(256 - 256 * cropDimensions.width / Math.min(cropDimensions.width, cropDimensions.height) * cropZoom) * cropX / 100}px`,
+                            top: `${(256 - 256 * cropDimensions.height / Math.min(cropDimensions.width, cropDimensions.height) * cropZoom) * cropY / 100}px`,
+                          } : {
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      </div>
+                      {cropDimensions && (
+                        <div className="mx-auto mt-5 grid max-w-xl gap-4 sm:grid-cols-2">
+                          <label className="text-sm font-medium text-slate-700">
+                            Zoom : {cropZoom.toFixed(1)}×
+                            <input
+                              type="range"
+                              min="1"
+                              max="3"
+                              step="0.1"
+                              value={cropZoom}
+                              onChange={(event) => setCropZoom(Number(event.target.value))}
+                              className="mt-2 block w-full accent-blue-700"
+                            />
+                          </label>
+                          <label className="text-sm font-medium text-slate-700">
+                            Position horizontale
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={cropX}
+                              onChange={(event) => setCropX(Number(event.target.value))}
+                              className="mt-2 block w-full accent-blue-700"
+                            />
+                          </label>
+                          <label className="text-sm font-medium text-slate-700 sm:col-span-2">
+                            Position verticale
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={cropY}
+                              onChange={(event) => setCropY(Number(event.target.value))}
+                              className="mt-2 block w-full accent-blue-700"
+                            />
+                          </label>
+                        </div>
+                      )}
+                      <div className="mt-4 flex flex-wrap justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={applyPhotoCrop}
+                          disabled={!cropDimensions}
+                          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                        >
+                          Utiliser ce recadrage
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhotoToCrop('');
+                            setCropDimensions(null);
+                          }}
+                          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {form.photo && (
                     <div className="mt-5 flex items-center gap-4">
@@ -851,12 +990,28 @@ export default function Alumni() {
 
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            setPhotoToCrop(form.photo);
+                            setCropDimensions(null);
+                            setCropZoom(1);
+                            setCropX(50);
+                            setCropY(50);
+                          }}
+                          className="mt-1 block text-sm font-medium text-blue-700 hover:text-blue-800"
+                        >
+                          Modifier le recadrage
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhotoToCrop('');
+                            setCropDimensions(null);
                             setForm((prev) => ({
                               ...prev,
                               photo: '',
-                            }))
-                          }
+                            }));
+                          }}
                           className="mt-1 text-sm font-medium text-red-600 hover:text-red-700"
                         >
                           Supprimer la photo
@@ -902,7 +1057,7 @@ export default function Alumni() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || Boolean(photoToCrop)}
                 className="w-full rounded-lg bg-blue-600 px-6 py-3.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting

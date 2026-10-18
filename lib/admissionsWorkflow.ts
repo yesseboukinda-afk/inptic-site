@@ -11,12 +11,6 @@ export type AdmissionWorkflowProfile = {
       concoursSlug?: string | null;
       completedAt?: string;
     };
-    documentReview?: {
-      status?: 'pending' | 'approved' | 'correction_requested';
-      submittedAt?: string;
-      reviewedAt?: string;
-      feedback?: string;
-    };
     applicationCompletedAt?: string;
   };
   candidatureData?: Record<string, unknown>;
@@ -73,16 +67,12 @@ export function hasCompletedAdmissionPreRegistration(profile: AdmissionWorkflowP
   return Boolean(profile?.admissionWorkflow?.preRegistration?.completedAt);
 }
 
-export function hasApprovedPreAdmissionDocuments(profile: AdmissionWorkflowProfile | null | undefined) {
-  return profile?.admissionWorkflow?.documentReview?.status === 'approved';
-}
-
 export function getAdmissionDossierCompletionPercent(profile: AdmissionWorkflowProfile | null | undefined) {
   const values = profile?.candidatureData;
-  const hasSubmittedDocumentReview = Boolean(profile?.admissionWorkflow?.documentReview?.submittedAt);
-  const isLegacyApplication = Boolean(profile?.admissionWorkflow?.applicationCompletedAt) && !hasSubmittedDocumentReview;
-  const nationalityComplete = values?.nationalite !== 'autre' ||
-    (typeof values?.nationaliteAutre === 'string' && Boolean(values.nationaliteAutre.trim()));
+  const nationalityComplete = values?.nationalite === 'gabonaise' ||
+    (values?.nationalite === 'autre' &&
+      typeof values.nationaliteAutre === 'string' &&
+      Boolean(values.nationaliteAutre.trim()));
   const selectedFilieres = [
     ...(Array.isArray(values?.filieresInitiale) ? values.filieresInitiale : []),
     ...(Array.isArray(values?.filieresContinue) ? values.filieresContinue : []),
@@ -108,7 +98,6 @@ export function getAdmissionDossierCompletionPercent(profile: AdmissionWorkflowP
     typeof values?.urgenceTelephone === 'string' && Boolean(values.urgenceTelephone.trim()),
     values?.certifie === true,
     ...REQUIRED_ADMISSION_DOCUMENTS.map((category) => uploadedCategories.has(category)),
-    hasSubmittedDocumentReview ? hasApprovedPreAdmissionDocuments(profile) : isLegacyApplication,
     Boolean(profile?.admissionWorkflow?.applicationCompletedAt),
   ];
   const completedRequirements = requirements.filter(Boolean).length;

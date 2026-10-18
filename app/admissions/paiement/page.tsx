@@ -34,10 +34,6 @@ type CandidateProfile = {
       concoursSlug?: string;
       completedAt?: string;
     };
-    documentReview?: {
-      submittedAt?: string;
-      status?: 'pending' | 'approved' | 'correction_requested';
-    };
     applicationCompletedAt?: string;
   };
   candidatureData?: Record<string, unknown>;
@@ -280,7 +276,7 @@ export default function PaiementPage() {
                 Paiement débloqué
               </h2>
               <p className="mt-1 text-xs text-slate-700 leading-relaxed">
-                Votre préinscription, vos pièces validées et votre formulaire sont complets.
+                Votre préinscription est enregistrée, les pièces obligatoires sont jointes et le formulaire complet a été enregistré.
                 Vous pouvez maintenant régler les frais de dossier (<strong>20 000 FCFA</strong>).
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-800">

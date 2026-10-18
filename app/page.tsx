@@ -119,12 +119,21 @@ export default function Home() {
                 </span>
               </Link>
 
-              <article className="border rounded-xl p-5 bg-white">
-                <b>{t('home.clubs')}</b>
+              <Link
+                href="/clubs"
+                className="group block border rounded-xl p-5 bg-white hover:border-blue-500 hover:shadow-md transition"
+              >
+                <div className="flex items-center justify-between">
+                  <b className="group-hover:text-blue-600 transition">{t('home.clubs')}</b>
+                  <ArrowRight size={16} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition" aria-hidden="true" />
+                </div>
                 <p className="text-sm text-slate-500 mt-2">
                   {t('home.clubsText')}
                 </p>
-              </article>
+                <span className="inline-block mt-3 text-xs font-bold text-blue-600 group-hover:underline">
+                  Découvrir les clubs →
+                </span>
+              </Link>
             </div>
           </div>
         </section>

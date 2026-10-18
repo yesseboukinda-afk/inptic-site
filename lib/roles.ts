@@ -141,13 +141,15 @@ export type StaffService =
   | 'formations'
   | 'announcements'
   | 'reputation'
-  | 'human_resources';
+  | 'human_resources'
+  | 'clubs';
 
 export const STAFF_SERVICE_OPTIONS = [
   { value: 'scolarite', label: 'Scolarité' },
   { value: 'communication', label: 'Communication' },
   { value: 'direction_etudes', label: 'Direction des études' },
   { value: 'rh', label: 'Ressources humaines' },
+  { value: 'clubs', label: 'Gestion des clubs' },
 ] as const;
 
 export type StaffServiceAssignment = (typeof STAFF_SERVICE_OPTIONS)[number]['value'];
@@ -159,6 +161,7 @@ export function normalizeStaffService(value: unknown): StaffServiceAssignment | 
   if (service === 'communication' || service.includes('communication')) return 'communication';
   if (service === 'direction_etudes' || service.includes('direction_des_etudes') || service.includes('direction_etudes')) return 'direction_etudes';
   if (service === 'rh' || service.includes('ressources_humaines') || service.includes('service_rh') || service.includes('direction_rh')) return 'rh';
+  if (service === 'clubs' || service === 'club_admin' || service === 'gestion_des_clubs') return 'clubs';
   return '';
 }
 
@@ -195,6 +198,8 @@ export function canAccessStaffService(value: unknown, service: StaffService, ass
       return assignment === 'communication';
     case 'human_resources':
       return assignment === 'rh';
+    case 'clubs':
+      return assignment === 'clubs';
   }
 
   return false;
@@ -233,6 +238,7 @@ export function getRolePath(role: string, _email?: string, assignedService?: unk
     ? normalizeStaffService(assignedService)
     : serviceAssignmentForRole(normalizedRole);
   if (assignment === 'rh') return '/admin/rh';
+  if (assignment === 'clubs') return '/clubs';
   if (assignment === 'scolarite') return '/scolarite';
   if (assignment === 'communication') return '/annonces/gestion';
   if (assignment === 'direction_etudes') return '/concours';

@@ -34,7 +34,7 @@ const admissionSteps = [
   {
     number: '06',
     title: 'Régler les frais de dossier — dernière étape',
-    text: 'Le paiement de 20 000 FCFA par Airtel Money ou Moov Money se débloque uniquement lorsque le dossier est complet à 100 % : préinscription enregistrée, pièces validées et formulaire officiel envoyé. Validez ensuite la demande sur votre téléphone.',
+    text: 'Le paiement de 20 000 FCFA par Airtel Money ou Moov Money se débloque uniquement lorsque le dossier est complet à 100 % : préinscription enregistrée, pièces obligatoires jointes et formulaire officiel entièrement rempli puis enregistré. Validez ensuite la demande sur votre téléphone.',
   },
 ];
 
