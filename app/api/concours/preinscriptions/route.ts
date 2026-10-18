@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
+import { isAdmissionRegistrationOpen } from '@/lib/admissionsWorkflow';
 
 async function authorizeStaff(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -71,12 +72,7 @@ async function siteAuditedPOST(request: NextRequest) {
     console.error('Erreur PostgreSQL lors de la vérification du concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Vérification du concours impossible.' }, { status: 503 });
   }
-  const registrationEnd = concours?.calendar?.registrationEnd;
-  const registrationStart = concours?.calendar?.registrationStart;
-  const registrationNotStarted =
-    typeof registrationStart === 'string' && new Date(registrationStart).getTime() > Date.now();
-  const registrationClosed = typeof registrationEnd === 'string' && new Date(registrationEnd).getTime() < Date.now();
-  if (!concours || concours.status !== 'en_cours' || registrationNotStarted || registrationClosed) {
+  if (!concours || !isAdmissionRegistrationOpen(concours)) {
     return NextResponse.json({ error: 'La session sélectionnée n’est pas ouverte aux préinscriptions.' }, { status: 400 });
   }
 

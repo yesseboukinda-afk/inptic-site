@@ -8,7 +8,6 @@ import {
   Calendar,
   ChevronRight,
   Download,
-  FileCheck,
   FileText,
   Filter,
   GraduationCap,
@@ -18,7 +17,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Sparkles,
   UploadCloud,
   UserCheck,
   Users,
@@ -38,6 +36,7 @@ import { canAccessStaffService, isStaffOrAdminUser } from '@/lib/roles';
 import { ConcoursAttachment, ConcoursItem, ConcoursStatus } from '@/types/concours';
 import DeleteButton from '@/components/DeleteButton';
 import TranslatedText from '@/components/TranslatedText';
+import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation';
 import { getCurrentAdmissionConcours } from '@/lib/admissionsWorkflow';
 
 function formatFileSize(bytes?: number) {
@@ -160,6 +159,9 @@ export default function ConcoursPage() {
     setPreRegistrationError('');
     setPreRegistrationMessage('');
     try {
+      if (!currentConcours) {
+        throw new Error('Aucun concours n’est ouvert aux préinscriptions pour le moment.');
+      }
       const { data, error } = await authClient.auth.getSession();
       if (error) throw error;
       const accessToken = data.session?.access_token;
@@ -174,7 +176,7 @@ export default function ConcoursPage() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          concoursSlug: currentConcours?.slug ?? null,
+          concoursSlug: currentConcours.slug,
           fullName: candidate.name || '',
           phone: candidate.phone || '',
         }),
@@ -186,8 +188,8 @@ export default function ConcoursPage() {
         admissionWorkflow: {
           ...candidate.admissionWorkflow,
           preRegistration: {
-            concoursSlug: currentConcours?.slug ?? null,
-            concoursTitle: currentConcours?.title ?? null,
+            concoursSlug: currentConcours.slug,
+            concoursTitle: currentConcours.title,
             completedAt,
             status: 'dossier_en_attente',
           },
@@ -216,7 +218,7 @@ export default function ConcoursPage() {
       window.dispatchEvent(new Event('auth-state-changed'));
       setPreRegistrationMessage('Préinscription enregistrée. Votre dossier est en attente de complément.');
       const destinationParams = new URLSearchParams({ newsletterReminder: '1' });
-      if (currentConcours) destinationParams.set('concours', currentConcours.slug);
+      destinationParams.set('concours', currentConcours.slug);
       router.push(`/admissions/depot?${destinationParams.toString()}`);
     } catch (error) {
       setPreRegistrationError(error instanceof Error ? error.message : 'Préinscription impossible.');
@@ -247,7 +249,7 @@ export default function ConcoursPage() {
   const fetchConcours = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/concours');
+      const res = await fetch('/api/concours', { cache: 'no-store' });
       const json = await res.json();
       if (json.data && Array.isArray(json.data)) {
         setConcours(json.data);
@@ -266,6 +268,12 @@ export default function ConcoursPage() {
     return () => {
       window.clearInterval(refreshInterval);
     };
+  }, []);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'resultats') {
+      setActiveTab('resultats');
+    }
   }, []);
 
   // Années disponibles
@@ -549,34 +557,6 @@ export default function ConcoursPage() {
             </div>
           </div>
 
-          {/* Raccourcis Admissions */}
-          <div className="mt-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-300">
-              Admissions &amp; Concours
-            </p>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              {[
-                { id: 'guide', label: t('concoursPage.guide', "Guide d'admission"),         href: '/admissions/guide',       icon: FileText },
-                { id: 'concours-results', label: t('concoursPage.concoursAndResults', 'Concours & Résultats'), href: '/concours',               icon: Award },
-                { id: 'calculator', label: t('concoursPage.calculator', "Calculateur d'éligibilité"), href: '/admissions/calculateur', icon: Sparkles },
-                { id: 'registration', label: t('concoursPage.fileDeposit', 'Commencer mon inscription'), href: '/concours',               icon: UploadCloud },
-                { id: 'tracking', label: t('concoursPage.tracking', 'Suivi en temps réel'),       href: '/admissions/suivi',       icon: FileCheck },
-              ].map((item) => {
-                const IconComp = item.icon;
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="inline-flex items-center justify-center sm:justify-start gap-2 rounded-xl border border-white/15 bg-white/15 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/25 hover:border-[#D4AF37] hover:text-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
-                  >
-                    <IconComp size={16} aria-hidden="true" className="text-[#D4AF37]" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Action admin si connecté */}
           {(canManageConcours || canManagePreinscriptions) && (
             <div className="mt-6 flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-950/60 p-4 backdrop-blur-md">
@@ -611,16 +591,22 @@ export default function ConcoursPage() {
         </div>
       </section>
 
+      <section className="py-8">
+        <AdmissionJourneyNavigation current={activeTab === 'resultats' ? 'results' : 'concours'} />
+      </section>
+
       {!loading && (
         <section id="inscription" className="container-x px-4 pt-6 md:px-0">
           <div className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Inscription au concours</p>
               <h2 className="mt-1 text-lg font-black text-slate-900">
-                {currentConcours ? currentConcours.title : 'Préinscription ouverte'}
+                {currentConcours ? currentConcours.title : 'Aucune session ouverte actuellement'}
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Préinscrivez-vous en un clic avec votre compte. Vous pourrez compléter votre dossier plus tard.
+                {currentConcours
+                  ? 'Préinscrivez-vous en un clic avec votre compte. Vous pourrez compléter votre dossier plus tard.'
+                  : 'Les préinscriptions ne sont pas ouvertes pour le moment. Consultez les annonces ci-dessous pour connaître les prochaines sessions.'}
               </p>
               {preRegistrationMessage && <p role="status" className="mt-2 text-sm font-medium text-emerald-800">{preRegistrationMessage}</p>}
               {preRegistrationError && <p role="alert" className="mt-2 text-sm font-medium text-rose-700">{preRegistrationError}</p>}
@@ -633,14 +619,16 @@ export default function ConcoursPage() {
                 Continuer mon dossier
               </Link>
             ) : (
-              <button
+              currentConcours ? <button
                 type="button"
                 disabled={preRegistrationSaving}
                 onClick={() => candidate?.email ? void handlePreRegistration() : router.push('/candidat')}
                 className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-60"
               >
                 {preRegistrationSaving ? 'Enregistrement…' : candidate?.email ? 'Me préinscrire' : 'Se connecter pour se préinscrire'}
-              </button>
+              </button> : <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-200 px-5 py-3 text-sm font-bold text-slate-600">
+                Inscriptions fermées
+              </span>
             )}
           </div>
         </section>

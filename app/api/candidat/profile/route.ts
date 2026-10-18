@@ -36,6 +36,15 @@ function documentUrl(email: string, path: string) {
 
 function withDocumentUrls(profile: Record<string, any>) {
   const documents: ProfileDocument[] = Array.isArray(profile.documents) ? profile.documents : [];
+  const admissionWorkflow = profile.admission_workflow || {};
+  const payment = admissionWorkflow.payment || {};
+  const candidatureData = profile.candidature_data || null;
+  const filieres = candidatureData && typeof candidatureData === 'object'
+    ? [
+        ...(Array.isArray(candidatureData.filieresInitiale) ? candidatureData.filieresInitiale : []),
+        ...(Array.isArray(candidatureData.filieresContinue) ? candidatureData.filieresContinue : []),
+      ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    : [];
   return {
     ...profile,
     name: profile.full_name || '',
@@ -46,8 +55,17 @@ function withDocumentUrls(profile: Record<string, any>) {
       ...document,
       url: document.path ? documentUrl(profile.email, document.path) : '',
     })),
-    admissionWorkflow: profile.admission_workflow || {},
-    candidatureData: profile.candidature_data || null,
+    admissionWorkflow,
+    candidatureData,
+    filieres,
+    filiere: filieres.join(', ') || profile.filiere || '',
+    paymentStatus: payment.status === 'success' ? 'paid' : payment.status || undefined,
+    paymentOperator: payment.operator || undefined,
+    paymentPhone: payment.phone || undefined,
+    paymentAmount: payment.amount || undefined,
+    paymentTransactionId: payment.transactionId || undefined,
+    paymentReference: payment.reference || undefined,
+    paymentDate: payment.paidAt || undefined,
     departement: profile.departement || '',
     emploiDuTemps: Array.isArray(profile.emploi_du_temps) ? profile.emploi_du_temps : [],
   };

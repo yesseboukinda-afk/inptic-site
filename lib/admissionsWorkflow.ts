@@ -25,6 +25,7 @@ export type AdmissionWorkflowProfile = {
 };
 
 type AdmissionConcours = {
+  id?: string;
   slug: string;
   status: string;
   sessionYear: number;
@@ -35,18 +36,37 @@ type AdmissionConcours = {
   };
 };
 
-export function getCurrentAdmissionConcours<T extends AdmissionConcours>(concours: T[], now = Date.now()) {
+export function isAdmissionRegistrationOpen(
+  concours: Pick<AdmissionConcours, 'status' | 'calendar'>,
+  now = Date.now(),
+) {
+  if (concours.status !== 'en_cours') return false;
+  const startValue = concours.calendar?.registrationStart;
+  const endValue = concours.calendar?.registrationEnd;
+  const start = startValue ? new Date(startValue).getTime() : null;
+  const end = endValue ? new Date(endValue).getTime() : null;
+  if (start !== null && (!Number.isFinite(start) || start > now)) return false;
+  if (end !== null && (!Number.isFinite(end) || end < now)) return false;
+  return true;
+}
+
+export function getOpenAdmissionConcours<T extends AdmissionConcours>(concours: T[], now = Date.now()) {
   return concours
     .filter((item) => {
-      if (item.status !== 'en_cours') return false;
-      const start = item.calendar?.registrationStart ? new Date(item.calendar.registrationStart).getTime() : null;
-      const end = item.calendar?.registrationEnd ? new Date(item.calendar.registrationEnd).getTime() : null;
-      return (start === null || start <= now) && (end === null || end >= now);
+      if (
+        item.id?.startsWith('annonce-migrated-') ||
+        item.id?.startsWith('seed-concours-')
+      ) return false;
+      return isAdmissionRegistrationOpen(item, now);
     })
     .sort((a, b) => {
       if (b.sessionYear !== a.sessionYear) return b.sessionYear - a.sessionYear;
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-    })[0] ?? null;
+    });
+}
+
+export function getCurrentAdmissionConcours<T extends AdmissionConcours>(concours: T[], now = Date.now()) {
+  return getOpenAdmissionConcours(concours, now)[0] ?? null;
 }
 
 export function hasCompletedAdmissionPreRegistration(profile: AdmissionWorkflowProfile | null | undefined) {

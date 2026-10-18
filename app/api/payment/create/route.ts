@@ -236,6 +236,38 @@ async function siteAuditedPOST(request: NextRequest) {
       );
     }
 
+    try {
+      await getPostgresPool().query(
+        `UPDATE public.profiles
+         SET admission_workflow = COALESCE(admission_workflow, '{}'::jsonb) ||
+               jsonb_build_object('payment', $2::jsonb),
+             updated_at = NOW()
+         WHERE email = $1`,
+        [
+          user.email,
+          JSON.stringify({
+            status: 'pending',
+            operator,
+            phone: phone.trim(),
+            amount: finalAmount,
+            transactionId,
+            reference: paymentReference,
+            createdAt: new Date().toISOString(),
+          }),
+        ],
+      );
+    } catch (error) {
+      console.error('Échec de persistance du suivi de paiement:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json(
+        {
+          success: false,
+          transactionId,
+          error: 'La demande de paiement a été envoyée, mais son suivi n’a pas pu être enregistré. Ne relancez pas le paiement et contactez la Scolarité.',
+        },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
       transactionId,

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
+import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation';
 
 export default function Admissions() {
   const { t } = useTranslation();
@@ -20,78 +21,46 @@ export default function Admissions() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
-        <div className="grid gap-8 md:grid-cols-2">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.whyChoose')}</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.admissionHeading')}</h2>
-            <p className="mt-5 text-lg leading-8 text-slate-600">
-              {t('public.admissionText')}
-            </p>
-            <p className="mt-4 text-base leading-7 text-slate-600">
-              {t('public.admissionText2')}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h3 className="text-2xl font-bold text-slate-900">{t('public.steps')}</h3>
-            <ul className="mt-6 space-y-5 text-slate-700">
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">1</span>
-                <div>
-                  <p className="font-semibold text-slate-900">{t('public.guide')}</p>
-                  <p className="text-sm text-slate-600">{t('public.guideText')}</p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">2</span>
-                <div>
-                  <p className="font-semibold text-slate-900">{t('public.eligibility')}</p>
-                  <p className="text-sm text-slate-600">{t('public.eligibilityText')}</p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">3</span>
-                <div>
-                  <p className="font-semibold text-slate-900">{t('public.submit')}</p>
-                  <p className="text-sm text-slate-600">{t('public.submitText')}</p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">4</span>
-                <div>
-                  <p className="font-semibold text-slate-900">{t('public.tracking')}</p>
-                  <p className="text-sm text-slate-600">{t('public.trackingText')}</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
+      <section className="py-8">
+        <AdmissionJourneyNavigation current="guide" />
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-8">
-          <div className="mb-10 text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-600">{t('public.offers')}</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">{t('public.applyHeading')}</h2>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {[
-              { title: t('public.guide'), text: t('public.guideText') },
-              { title: t('public.eligibility'), text: t('public.eligibilityText') },
-              { title: t('public.submit'), text: t('public.submitText') },
-              { title: t('public.tracking'), text: t('public.trackingText') },
-            ].map((item) => (
-              <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-                <div className="mb-4 h-12 w-12 rounded-xl bg-blue-600/10 flex items-center justify-center text-xl font-black text-blue-700">
-                  ✓
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
-              </div>
-            ))}
-          </div>
+      <section className="mx-auto max-w-6xl px-4 py-10 md:px-8">
+        <div className="grid gap-6 md:grid-cols-2">
+          {[
+            {
+              title: '1. Lire le guide d’admission',
+              text: 'Comprenez les étapes, les pièces à préparer, la validation préalable et les frais avant de commencer.',
+              href: '/admissions/guide',
+              action: 'Ouvrir le guide',
+            },
+            {
+              title: '2. Consulter les concours',
+              text: 'Vérifiez la session publiée, ses dates, les conditions officielles et les résultats disponibles.',
+              href: '/concours',
+              action: 'Voir les concours',
+            },
+            {
+              title: '3. Créer votre dossier candidat',
+              text: 'Activez votre compte, préinscrivez-vous à la session ouverte, puis déposez vos pièces et votre formulaire.',
+              href: '/admissions/depot',
+              action: 'Accéder au dépôt',
+            },
+            {
+              title: '4. Suivre votre candidature',
+              text: 'Consultez l’étape en cours, les corrections demandées, la confirmation du paiement et les décisions.',
+              href: '/admissions/suivi',
+              action: 'Ouvrir le suivi',
+            },
+          ].map((item) => (
+            <article key={item.title} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900">{item.title}</h2>
+              <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{item.text}</p>
+              <Link href={item.href} className="mt-5 inline-flex w-fit items-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800">
+                {item.action}
+              </Link>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -102,8 +71,8 @@ export default function Admissions() {
               <p className="text-sm uppercase tracking-[0.2em] text-blue-200">{t('public.stayInformed')}</p>
               <h3 className="mt-2 text-3xl font-bold">{t('public.applyToday')}</h3>
             </div>
-            <Link href="/concours" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500">
-              {t('public.submitMine')}
+            <Link href="/admissions/guide" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500">
+              Lire le guide d’admission
             </Link>
           </div>
         </div>

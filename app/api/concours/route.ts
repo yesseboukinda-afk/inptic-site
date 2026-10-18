@@ -180,7 +180,9 @@ export async function GET(request: NextRequest) {
     );
     items = rows.length
       ? rows.map((row) => normalizeConcoursRow(row as Record<string, unknown>))
-      : [...SEED_CONCOURS];
+      : process.env.NODE_ENV === 'production'
+        ? []
+        : [...SEED_CONCOURS];
 
     const { rows: newsRows } = await getPostgresPool().query(
       `SELECT id, title, slug, excerpt, attachments, published_at, created_at, updated_at
@@ -244,7 +246,10 @@ export async function GET(request: NextRequest) {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  return NextResponse.json({ data: items, count: items.length });
+  return NextResponse.json(
+    { data: items, count: items.length },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } },
+  );
 }
 
 async function siteAuditedPOST(request: NextRequest) {
@@ -373,6 +378,24 @@ async function siteAuditedDELETE(request: NextRequest) {
     return NextResponse.json({ error: 'La base PostgreSQL n’est pas configurée.' }, { status: 503 });
   }
   try {
+    const migratedAnnouncementPrefix = 'annonce-migrated-';
+    if (id.startsWith(migratedAnnouncementPrefix)) {
+      const announcementId = id.slice(migratedAnnouncementPrefix.length);
+      if (!announcementId) {
+        return NextResponse.json({ error: 'Identifiant d’annonce invalide.' }, { status: 400 });
+      }
+      const { rowCount } = await getPostgresPool().query(
+        'DELETE FROM public.actualites WHERE id::text = $1',
+        [announcementId],
+      );
+      if (!rowCount) return NextResponse.json({ error: 'Annonce introuvable.' }, { status: 404 });
+      return NextResponse.json({ success: true, id });
+    }
+
+    if (id.startsWith('seed-concours-')) {
+      return NextResponse.json({ error: 'Cette fiche de démonstration ne peut pas être supprimée.' }, { status: 400 });
+    }
+
     const { rowCount } = await getPostgresPool().query(
       `DELETE FROM public.concours WHERE ${UUID_REGEX.test(id) ? 'id::text' : 'slug'} = $1`,
       [id],

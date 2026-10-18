@@ -7,9 +7,10 @@ import { LogIn, CheckCircle2, ArrowRight, ShieldCheck, Upload, FileText } from '
 import { authClient } from '@/lib/auth-client';
 import { useTranslation } from 'react-i18next';
 import FormulaireCandidatureLicence, { CandidatureValues } from '@/app/scolarite/formulaire/Formulairecandidature';
+import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation';
 import type { ConcoursItem } from '@/types/concours';
 import {
-  getCurrentAdmissionConcours,
+  getOpenAdmissionConcours,
   hasApprovedPreAdmissionDocuments,
   hasCompletedAdmissionPreRegistration,
   REQUIRED_ADMISSION_DOCUMENTS,
@@ -24,6 +25,18 @@ type AdmissionDocument = {
   url?: string;
 };
 
+function formatAdmissionDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat('fr-GA', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Africa/Libreville',
+  }).format(date);
+}
+
 export default function DepotPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -36,7 +49,6 @@ export default function DepotPage() {
   const [submittingPreliminaryDocuments, setSubmittingPreliminaryDocuments] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [openConcours, setOpenConcours] = useState<ConcoursItem[]>([]);
-  const [selectedConcoursSlug, setSelectedConcoursSlug] = useState('');
   const [preRegistrationSaving, setPreRegistrationSaving] = useState(false);
   const [preRegistrationError, setPreRegistrationError] = useState('');
   const [accountCreated, setAccountCreated] = useState(false);
@@ -105,16 +117,10 @@ export default function DepotPage() {
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || 'Impossible de charger les concours ouverts.');
-        const available = Array.isArray(payload.data)
-          ? payload.data.filter((item: ConcoursItem) => item.status === 'en_cours')
-          : [];
-        setOpenConcours(available);
-        const current = getCurrentAdmissionConcours(available);
-        setSelectedConcoursSlug((previous) =>
-          available.some((item: ConcoursItem) => item.slug === concoursSlug)
-            ? concoursSlug
-            : previous || current?.slug || available[0]?.slug || ''
+        const available = getOpenAdmissionConcours(
+          Array.isArray(payload.data) ? payload.data as ConcoursItem[] : [],
         );
+        setOpenConcours(available);
       })
       .catch((error) => {
         setPreRegistrationError(error instanceof Error ? error.message : 'Impossible de charger les concours ouverts.');
@@ -232,7 +238,8 @@ export default function DepotPage() {
       setPreRegistrationError('Connectez-vous à votre compte candidat pour continuer.');
       return;
     }
-    if (!selectedConcoursSlug) {
+    const selectedConcours = openConcours[0];
+    if (!selectedConcours) {
       setPreRegistrationError('Aucun concours ouvert n’est disponible pour le moment.');
       return;
     }
@@ -247,8 +254,6 @@ export default function DepotPage() {
         return;
       }
 
-      const selectedConcours = openConcours.find((item) => item.slug === selectedConcoursSlug);
-      if (!selectedConcours) throw new Error('Le concours sélectionné n’est plus disponible.');
       const response = await fetch('/api/concours/preinscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -328,6 +333,7 @@ export default function DepotPage() {
 
     const nowIso = new Date().toISOString();
     const dossierNumero = `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const selectedFilieres = [...values.filieresInitiale, ...values.filieresContinue];
 
     const updatedProfile = {
       ...currentUser,
@@ -335,7 +341,7 @@ export default function DepotPage() {
       name: `${values.nom} ${values.prenoms}`.trim() || currentUser.name,
       phone: values.telephone1 || currentUser.phone,
       photo: photoUrl || currentUser.photo,
-      filiere: values.filieresInitiale[0] || values.filieresContinue[0] || 'Licence Professionnelle',
+      filiere: selectedFilieres.join(', ') || 'Licence Professionnelle',
       niveau: 'Licence Professionnelle',
       diplome: values.baccalaureat,
       parcours: `Bac ${values.baccalaureat} (${values.anneeBac}). ${values.cursus.filter(c => c.etablissement).map(c => `${c.annee}: ${c.etablissement} (${c.diplome})`).join('; ')}`,
@@ -422,6 +428,10 @@ export default function DepotPage() {
         </div>
       </section>
 
+      <section className="py-8">
+        <AdmissionJourneyNavigation current="deposit" />
+      </section>
+
       {/* Si non connecté */}
       {!currentUser ? (
         <section className="container-x mt-10 px-4 md:px-0 max-w-xl mx-auto">
@@ -448,33 +458,43 @@ export default function DepotPage() {
         (concoursSlug && currentUser.admissionWorkflow?.preRegistration?.concoursSlug !== concoursSlug) ? (
         <section className="container-x mt-10 px-4 md:px-0 max-w-xl mx-auto">
           <div className="rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-lg">
-            <h2 className="text-xl font-black text-slate-900">{missingPreRegistration ? 'Choisissez votre concours' : 'Préinscription requise'}</h2>
+            <h2 className="text-xl font-black text-slate-900">{missingPreRegistration ? 'Concours ouvert' : 'Préinscription requise'}</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
               {missingPreRegistration
-                ? 'Sélectionnez une session ouverte. Votre préinscription et la transmission de vos pièces se feront ensuite depuis cette page.'
-                : 'Votre préinscription correspond à une autre session. Sélectionnez la session ouverte pour continuer.'}
+                ? 'Votre préinscription sera automatiquement rattachée à la session actuellement ouverte. Vérifiez les informations ci-dessous avant de continuer.'
+                : 'Votre préinscription correspond à une autre session. La session actuellement ouverte sera sélectionnée automatiquement.'}
             </p>
-            {openConcours.length ? (
+            {openConcours[0] ? (
               <>
-                <label className="mt-5 block text-left">
-                  <span className="mb-2 block text-xs font-bold text-slate-700">Session du concours</span>
-                  <select
-                    value={selectedConcoursSlug}
-                    onChange={(event) => setSelectedConcoursSlug(event.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm"
-                  >
-                    {openConcours.map((item) => (
-                      <option key={item.slug} value={item.slug}>{item.title}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-left">
+                  <h3 className="font-bold text-slate-900">{openConcours[0].title}</h3>
+                  <p className="mt-1 text-sm font-semibold text-blue-800">
+                    Session {openConcours[0].sessionYear}
+                  </p>
+                  <dl className="mt-3 space-y-2 text-sm text-slate-700">
+                    <div className="flex flex-wrap gap-x-1">
+                      <dt className="font-semibold">Préinscriptions :</dt>
+                      <dd>
+                        {formatAdmissionDate(openConcours[0].calendar.registrationStart) || 'date non précisée'}
+                        {' – '}
+                        {formatAdmissionDate(openConcours[0].calendar.registrationEnd) || 'date non précisée'}
+                      </dd>
+                    </div>
+                    {formatAdmissionDate(openConcours[0].calendar.examDate) && (
+                      <div className="flex flex-wrap gap-x-1">
+                        <dt className="font-semibold">Date du concours :</dt>
+                        <dd>{formatAdmissionDate(openConcours[0].calendar.examDate)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
                 <button
                   type="button"
-                  disabled={preRegistrationSaving || !selectedConcoursSlug}
+                  disabled={preRegistrationSaving}
                   onClick={handlePreRegistration}
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {preRegistrationSaving ? 'Enregistrement...' : 'Continuer mon dossier'} <ArrowRight size={16} />
+                  {preRegistrationSaving ? 'Enregistrement...' : 'Me préinscrire'} <ArrowRight size={16} />
                 </button>
               </>
             ) : (

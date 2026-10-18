@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, ShieldCheck } from 'lucide-react';
+import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, ShieldCheck, FolderOpen } from 'lucide-react';
 import { ChangeEvent, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
@@ -30,6 +30,11 @@ type Student = {
   diplome?: string;
   photo?: string;
   filiere?: string;
+  filieres?: string[];
+  candidatureData?: {
+    filieresInitiale?: string[];
+    filieresContinue?: string[];
+  };
   dossierNumero?: string;
   departement?: string;
   role?: string;
@@ -74,6 +79,13 @@ const departments = [
   'Audiovisuel',
 ];
 
+const dossierDepartments = [
+  { id: 'reseaux', name: 'Réseaux et Systèmes Numériques' },
+  { id: 'audiovisuel', name: 'Audiovisuel' },
+  { id: 'management', name: 'Management des TIC' },
+  { id: 'genie-informatique', name: 'Génie informatique' },
+];
+
 const defaultDepartments: Department[] = departments.map((name) => ({
   id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
   name,
@@ -89,6 +101,51 @@ const addNotification = (existing: Notification[] | undefined, message: string, 
   },
   ...(Array.isArray(existing) ? existing : []),
 ];
+
+function getStudentFilieres(student: Student) {
+  const values = [
+    ...(Array.isArray(student.filieres) ? student.filieres : []),
+    ...(Array.isArray(student.candidatureData?.filieresInitiale) ? student.candidatureData.filieresInitiale : []),
+    ...(Array.isArray(student.candidatureData?.filieresContinue) ? student.candidatureData.filieresContinue : []),
+    ...(typeof student.filiere === 'string' ? student.filiere.split(',') : []),
+  ];
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function getStudentDossierDepartments(student: Student) {
+  const filieres = getStudentFilieres(student).map((filiere) =>
+    filiere.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  );
+  const departmentIds = new Set<string>();
+
+  filieres.forEach((filiere) => {
+    if (filiere.includes('reseau') || filiere.includes('telecom')) {
+      departmentIds.add('reseaux');
+    }
+    if (filiere.includes('audiovisuel') || filiere.includes('multimedia')) {
+      departmentIds.add('audiovisuel');
+    }
+    if (
+      filiere.includes('management') ||
+      filiere.includes('communication') ||
+      filiere.includes('marketing') ||
+      filiere.includes('commercialisation')
+    ) {
+      departmentIds.add('management');
+    }
+    if (
+      filiere.includes('genie') ||
+      filiere.includes('developpement des applications') ||
+      filiere.includes('systeme d information') ||
+      filiere.includes('bases de donnees') ||
+      filiere.includes('webmastering')
+    ) {
+      departmentIds.add('genie-informatique');
+    }
+  });
+
+  return Array.from(departmentIds);
+}
 
 export default function StaffDashboard({ role }: { role: Role }) {
   const router = useRouter();
@@ -111,6 +168,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const [preAdmissionFeedback, setPreAdmissionFeedback] = useState('');
   const [preAdmissionReviewSaving, setPreAdmissionReviewSaving] = useState(false);
   const [quotaAlert, setQuotaAlert] = useState<string | null>(null);
+  const [selectedFiliere, setSelectedFiliere] = useState('all');
 
   useEffect(() => {
     const director = localStorage.getItem('inptic_directeur');
@@ -197,8 +255,36 @@ export default function StaffDashboard({ role }: { role: Role }) {
   }, [students]);
 
   const filteredDossiers = useMemo(() => {
-    return students.filter((s) => s.status !== 'valide' && s.status !== 'refuse' && !s.isArchived);
-  }, [students]);
+    return students.filter((student) => {
+      if (student.status === 'valide' || student.status === 'refuse' || student.isArchived) return false;
+      if (selectedFiliere === 'all') return true;
+      return getStudentDossierDepartments(student).includes(selectedFiliere);
+    });
+  }, [students, selectedFiliere]);
+
+  const dossiersByFiliere = useMemo(() => {
+    const groups = new Map<string, Student[]>();
+    filteredDossiers.forEach((student) => {
+      const departmentIds = getStudentDossierDepartments(student);
+      const groupsForStudent = selectedFiliere === 'all'
+        ? departmentIds
+        : departmentIds.filter((departmentId) => departmentId === selectedFiliere);
+      const groupIds = groupsForStudent.length ? groupsForStudent : selectedFiliere === 'all' ? ['non-classe'] : [];
+      groupIds.forEach((departmentId) => {
+        const groupName = dossierDepartments.find((item) => item.id === departmentId)?.name || 'Filière non renseignée';
+        groups.set(groupName, [...(groups.get(groupName) || []), student]);
+      });
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, 'fr'));
+  }, [filteredDossiers, selectedFiliere]);
+
+  const dossierDepartmentCounts = useMemo(
+    () => dossierDepartments.map((department) => ({
+      ...department,
+      count: filteredDossiers.filter((student) => getStudentDossierDepartments(student).includes(department.id)).length,
+    })),
+    [filteredDossiers],
+  );
 
   const pendingPreAdmissionReviews = useMemo(
     () => students.filter((student) => student.admissionWorkflow?.documentReview?.status === 'pending'),
@@ -639,53 +725,99 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
             {activeTab === 'dossiers' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-black text-slate-900">Dossiers de candidature en attente de validation</h2>
-                  <span className="text-xs text-slate-500">{filteredDossiers.length} dossier(s) à traiter</span>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">Dossiers de candidature par filière</h2>
+                    <span className="text-xs text-slate-500">{filteredDossiers.length} dossier(s) à traiter</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {dossierDepartmentCounts.map((department) => (
+                    <button
+                      key={department.id}
+                      type="button"
+                      aria-pressed={selectedFiliere === department.id}
+                      onClick={() => setSelectedFiliere(
+                        selectedFiliere === department.id ? 'all' : department.id
+                      )}
+                      className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                        selectedFiliere === department.id
+                          ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-100'
+                          : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className={`rounded-xl p-2 ${
+                        selectedFiliere === department.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        <FolderOpen size={20} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold text-slate-900">{department.name}</span>
+                        <span className="text-xs text-slate-500">{department.count} dossier(s) en attente</span>
+                      </span>
+                    </button>
+                  ))}
                 </div>
 
                 {filteredDossiers.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-                    Aucun dossier en attente pour le moment. Tous les dossiers ont été traités.
+                    {selectedFiliere === 'all'
+                      ? 'Aucun dossier en attente pour le moment. Tous les dossiers ont été traités.'
+                      : `Aucun dossier en attente pour la filière « ${dossierDepartments.find((department) => department.id === selectedFiliere)?.name || selectedFiliere} ».`}
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredDossiers.map((student) => (
-                      <div key={student.email} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-xs font-bold text-slate-500">{student.dossierNumero || 'N/A'}</span>
-                            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
-                              En attente
-                            </span>
-                          </div>
-                          <div className="mt-3">
-                            <h3 className="font-black text-slate-900">{student.name || 'Candidat'}</h3>
-                            <p className="text-xs text-slate-500">{student.email}</p>
-                          </div>
-                          <div className="mt-3 space-y-1 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Filière :</span>
-                              <span className="font-semibold text-slate-800">{student.filiere || 'Non renseigné'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Niveau :</span>
-                              <span className="font-semibold text-slate-800">{student.niveau || 'Non renseigné'}</span>
-                            </div>
-                          </div>
+                  <div className="space-y-6">
+                    {dossiersByFiliere.map(([filiere, groupStudents]) => (
+                      <section key={filiere} className="space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <h3 className="font-bold text-slate-800">{filiere}</h3>
+                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800">{groupStudents.length} dossier(s)</span>
                         </div>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {groupStudents.map((student) => (
+                            <div key={student.email} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                              <div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-xs font-bold text-slate-500">{student.dossierNumero || 'N/A'}</span>
+                                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                                    En attente
+                                  </span>
+                                </div>
+                                <div className="mt-3">
+                                  <h4 className="font-black text-slate-900">{student.name || 'Candidat'}</h4>
+                                  <p className="text-xs text-slate-500">{student.email}</p>
+                                </div>
+                                <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">
+                                  <p className="font-semibold text-slate-500">Filière(s) choisie(s)</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {getStudentFilieres(student).map((choice) => (
+                                      <span key={choice} className="rounded-full bg-white px-2 py-1 font-semibold text-slate-800 ring-1 ring-slate-200">
+                                        {choice}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <p className="mt-2">
+                                    <span className="text-slate-400">Niveau :</span>{' '}
+                                    <span className="font-semibold text-slate-800">{student.niveau || 'Non renseigné'}</span>
+                                  </p>
+                                </div>
+                              </div>
 
-                        <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedStudent(student)}
-                            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-xs font-bold text-white hover:bg-blue-600 transition"
-                          >
-                            <Eye size={14} />
-                            <span>Examiner &amp; Valider</span>
-                          </button>
+                              <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedStudent(student)}
+                                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-xs font-bold text-white transition hover:bg-blue-600"
+                                >
+                                  <Eye size={14} />
+                                  <span>Examiner &amp; Valider</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
+                      </section>
                     ))}
                   </div>
                 )}
@@ -717,6 +849,9 @@ export default function StaffDashboard({ role }: { role: Role }) {
                         </div>
                         <p className="mt-3 text-xs text-slate-600">
                           Session : {student.admissionWorkflow?.preRegistration?.concoursSlug || 'Non précisée'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          Filière(s) : <span className="font-semibold text-slate-800">{getStudentFilieres(student).join(' • ') || 'Non renseignée'}</span>
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
                           Transmis : {student.admissionWorkflow?.documentReview?.submittedAt
@@ -985,7 +1120,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
             <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-2">
               <div>
                 <span className="text-slate-400">Filière demandée</span>
-                <p className="font-semibold text-slate-800">{selectedStudent.filiere || 'Non renseigné'}</p>
+                <p className="font-semibold text-slate-800">{getStudentFilieres(selectedStudent).join(' • ') || 'Non renseignée'}</p>
               </div>
               <div>
                 <span className="text-slate-400">Niveau d&apos;études</span>

@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
+  AlertCircle,
   CheckCircle2,
+  Circle,
+  Clock3,
   CreditCard,
   FileCheck2,
   FileText,
@@ -17,9 +20,13 @@ import {
 } from 'lucide-react';
 import { generateQRCodeSVG } from '@/lib/qrcode';
 import { useTranslation } from 'react-i18next';
+import { authClient } from '@/lib/auth-client';
+import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation';
 import {
   hasCompletedAdmissionPreRegistration,
   hasCompleteAdmissionDossier,
+  hasApprovedPreAdmissionDocuments,
+  REQUIRED_ADMISSION_DOCUMENTS,
 } from '@/lib/admissionsWorkflow';
 
 type Notification = {
@@ -32,6 +39,7 @@ type Notification = {
 type ProfileDocument = {
   name: string;
   type: string;
+  category?: string;
   data?: string;
   url?: string;
 };
@@ -70,9 +78,27 @@ type CandidateProfile = {
       concoursSlug?: string;
       completedAt?: string;
     };
+    documentReview?: {
+      status?: 'pending' | 'approved' | 'correction_requested';
+      submittedAt?: string;
+      reviewedAt?: string;
+      feedback?: string;
+    };
     applicationCompletedAt?: string;
+    payment?: {
+      status?: 'pending' | 'paid' | 'failed';
+      transactionId?: string;
+      reference?: string;
+      paidAt?: string;
+    };
   };
   candidatureData?: Record<string, unknown>;
+};
+
+type JourneyStep = {
+  title: string;
+  description: string;
+  state: 'done' | 'current' | 'upcoming' | 'attention';
 };
 
 export default function Suivi() {
@@ -81,54 +107,133 @@ export default function Suivi() {
 
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [showQuittanceModal, setShowQuittanceModal] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<ProfileDocument | null>(null);
 
   useEffect(() => {
-    const syncProfile = () => {
-      const storedRaw = localStorage.getItem('inptic_user');
-      if (!storedRaw) {
-        router.replace('/candidat');
-        return;
-      }
-
+    let active = true;
+    let syncing = false;
+    const syncProfile = async () => {
+      if (syncing) return;
+      syncing = true;
       try {
-        const stored = JSON.parse(storedRaw) as CandidateProfile;
-        const concoursSlug = stored.admissionWorkflow?.preRegistration?.concoursSlug;
-        if (!hasCompletedAdmissionPreRegistration(stored)) {
-          router.replace('/concours');
+        const storedRaw = localStorage.getItem('inptic_user');
+        let stored: CandidateProfile | null = null;
+        try {
+          stored = storedRaw ? JSON.parse(storedRaw) as CandidateProfile : null;
+        } catch {
+          stored = null;
+        }
+
+        const { data, error } = await authClient.auth.getSession();
+        if (error) throw error;
+        const authUser = data.session?.user;
+        if (!authUser?.email) {
+          router.replace('/candidat');
           return;
         }
-        if (!hasCompleteAdmissionDossier(stored)) {
-          router.replace(`/admissions/depot?concours=${encodeURIComponent(concoursSlug || '')}`);
-          return;
+
+        const response = await fetch('/api/candidat/profile', { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Impossible d’actualiser votre dossier.');
+        const remote = Array.isArray(payload.profiles)
+          ? payload.profiles.find((item: CandidateProfile) => item.email?.toLowerCase() === authUser.email?.toLowerCase()) as CandidateProfile | undefined
+          : undefined;
+        const remoteWorkflow = remote?.admissionWorkflow;
+        const metadataName = typeof authUser.user_metadata?.full_name === 'string'
+          ? authUser.user_metadata.full_name
+          : typeof authUser.user_metadata?.name === 'string'
+            ? authUser.user_metadata.name
+            : 'Candidat';
+        const merged: CandidateProfile = {
+          ...stored,
+          ...remote,
+          email: authUser.email,
+          name: remote?.name || stored?.name || metadataName,
+          documents: remote?.documents ?? stored?.documents ?? [],
+          admissionWorkflow: remoteWorkflow ?? stored?.admissionWorkflow ?? {},
+          paymentStatus: remote?.paymentStatus ?? remoteWorkflow?.payment?.status ?? stored?.paymentStatus,
+          paymentTransactionId: remote?.paymentTransactionId ?? remoteWorkflow?.payment?.transactionId ?? stored?.paymentTransactionId,
+          paymentReference: remote?.paymentReference ?? remoteWorkflow?.payment?.reference ?? stored?.paymentReference,
+          paymentDate: remote?.paymentDate ?? remoteWorkflow?.payment?.paidAt ?? stored?.paymentDate,
+        };
+
+        let refreshWarning = '';
+        const payment = merged.admissionWorkflow?.payment;
+        if (payment?.status === 'pending' && payment.transactionId) {
+          const paymentResponse = await fetch(
+            `/api/payment/status?transactionId=${encodeURIComponent(payment.transactionId)}`,
+            { cache: 'no-store' },
+          );
+          const paymentPayload = await paymentResponse.json().catch(() => ({}));
+          if (paymentResponse.ok && paymentPayload.success) {
+            merged.paymentStatus = paymentPayload.status === 'success'
+              ? 'paid'
+              : paymentPayload.status === 'failed' ? 'failed' : 'pending';
+            if (paymentPayload.status === 'success') {
+              merged.paymentDate = new Date().toISOString();
+              merged.admissionWorkflow = {
+                ...merged.admissionWorkflow,
+                payment: { ...payment, status: 'paid', paidAt: merged.paymentDate },
+              };
+            }
+          } else if (!paymentResponse.ok) {
+            refreshWarning = paymentPayload.error || 'Le statut du paiement ne peut pas être actualisé momentanément.';
+          }
         }
-        if (stored.paymentStatus !== 'paid') {
-          router.replace(`/admissions/paiement?concours=${encodeURIComponent(concoursSlug || '')}`);
-          return;
-        }
-        // Garantir un accusé de réception automatique si dossier soumis
-        if (!stored.accuseReceptionDate && (stored.status === 'en_attente' || stored.status === 'valide')) {
-          stored.accuseReceptionDate = new Date().toISOString();
-        }
-        setProfile(stored);
-      } catch {
-        localStorage.removeItem('inptic_user');
-        router.replace('/candidat');
+
+        if (!active) return;
+        localStorage.setItem('inptic_user', JSON.stringify(merged));
+        setProfile(merged);
+        setLastUpdatedAt(new Date());
+        setLoadError(refreshWarning);
+      } catch (error) {
+        if (!active) return;
+        setLoadError(error instanceof Error ? error.message : 'Impossible d’actualiser votre dossier.');
       } finally {
-        setLoading(false);
+        syncing = false;
+        if (active) setLoading(false);
       }
     };
 
-    syncProfile();
+    void syncProfile();
+    const refreshInterval = window.setInterval(() => void syncProfile(), 15_000);
+    window.addEventListener('focus', syncProfile);
     window.addEventListener('auth-state-changed', syncProfile);
-    return () => window.removeEventListener('auth-state-changed', syncProfile);
+    return () => {
+      active = false;
+      window.clearInterval(refreshInterval);
+      window.removeEventListener('focus', syncProfile);
+      window.removeEventListener('auth-state-changed', syncProfile);
+    };
   }, [router]);
 
-  if (loading || !profile) {
+  if (loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50">
         <p className="text-sm font-medium text-slate-500">Chargement de votre espace de suivi...</p>
+      </main>
+    );
+  }
+  if (!profile) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
+        <div className="max-w-lg rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-black text-slate-900">Suivi temporairement indisponible</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            {loadError || 'Connectez-vous à votre compte candidat pour afficher votre avancement.'}
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button type="button" onClick={() => window.location.reload()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">
+              Réessayer
+            </button>
+            <Link href="/candidat" className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700">
+              Connexion
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -136,6 +241,72 @@ export default function Suivi() {
   const isPaid = profile.paymentStatus === 'paid';
   const isValide = profile.status === 'valide' || profile.dossierValide;
   const isRefuse = profile.status === 'refuse';
+  const isPreRegistered = hasCompletedAdmissionPreRegistration(profile);
+  const isApplicationComplete = hasCompleteAdmissionDossier(profile);
+  const reviewStatus = profile.admissionWorkflow?.documentReview?.status;
+  const hasLegacyApplication = Boolean(profile.admissionWorkflow?.applicationCompletedAt) &&
+    !profile.admissionWorkflow?.documentReview?.submittedAt;
+  const documentsApproved = hasApprovedPreAdmissionDocuments(profile) || hasLegacyApplication;
+  const uploadedCategories = new Set(
+    (profile.documents || []).map((document) => document.category || document.name.split(' - ')[0]),
+  );
+  const missingDocuments = REQUIRED_ADMISSION_DOCUMENTS.filter((category) => !uploadedCategories.has(category));
+  const concoursSlug = profile.admissionWorkflow?.preRegistration?.concoursSlug || '';
+  const nextStep = !isPreRegistered
+    ? { message: 'Vous n’avez pas encore effectué votre préinscription. Commencez par sélectionner le concours ouvert.', href: '/admissions/depot', label: 'Commencer la préinscription' }
+    : reviewStatus === 'pending'
+      ? { message: 'Vos pièces sont en cours de vérification par la Scolarité. Vous recevrez une notification après leur examen.', href: null, label: '' }
+      : reviewStatus === 'correction_requested'
+        ? { message: `Des corrections sont demandées sur vos pièces${profile.admissionWorkflow?.documentReview?.feedback ? ` : ${profile.admissionWorkflow.documentReview.feedback}` : '.'}`, href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`, label: 'Corriger mes pièces' }
+        : !documentsApproved
+          ? { message: missingDocuments.length
+              ? `Votre dossier est incomplet : ajoutez ${missingDocuments.join(', ')}.`
+              : 'Vos pièces sont prêtes à être transmises à la Scolarité pour vérification.',
+            href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`,
+            label: 'Continuer le dépôt de dossier' }
+          : !isApplicationComplete
+            ? { message: 'Vos pièces sont validées. Il vous reste à compléter et envoyer le formulaire officiel de candidature.', href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`, label: 'Compléter mon dossier' }
+            : isRefuse
+              ? { message: 'La Scolarité a rendu une décision sur votre dossier. Consultez les notifications reçues ou contactez le service pour connaître la suite.', href: null, label: '' }
+              : !isPaid
+                ? { message: 'Votre dossier est complet. Le règlement des frais est la prochaine étape.', href: `/admissions/paiement?concours=${encodeURIComponent(concoursSlug)}`, label: 'Procéder au paiement' }
+                : !isValide
+                  ? { message: 'Votre paiement est enregistré. Votre dossier est en attente de vérification finale par la Scolarité.', href: null, label: '' }
+                  : { message: 'Toutes les étapes sont terminées. Votre dossier est validé par la Scolarité.', href: null, label: '' };
+  const journeySteps: JourneyStep[] = [
+    { title: 'Compte candidat', description: 'Compte activé et connecté', state: 'done' },
+    {
+      title: 'Préinscription au concours',
+      description: isPreRegistered ? `Enregistrée${profile.admissionWorkflow?.preRegistration?.completedAt ? ` le ${new Date(profile.admissionWorkflow.preRegistration.completedAt).toLocaleDateString('fr-GA')}` : ''}` : 'À effectuer',
+      state: isPreRegistered ? 'done' : 'current',
+    },
+    {
+      title: 'Pièces justificatives',
+      description: reviewStatus === 'pending'
+        ? 'En cours de vérification par la Scolarité'
+        : reviewStatus === 'correction_requested'
+          ? 'Corrections demandées'
+          : documentsApproved
+            ? 'Validées par la Scolarité'
+            : `${uploadedCategories.size} / ${REQUIRED_ADMISSION_DOCUMENTS.length} pièces transmises`,
+      state: !isPreRegistered ? 'upcoming' : reviewStatus === 'correction_requested' ? 'attention' : reviewStatus === 'pending' ? 'current' : documentsApproved ? 'done' : 'current',
+    },
+    {
+      title: 'Formulaire de candidature',
+      description: isApplicationComplete ? 'Candidature envoyée' : 'À compléter après validation des pièces',
+      state: isApplicationComplete ? 'done' : !documentsApproved ? 'upcoming' : 'current',
+    },
+    {
+      title: 'Paiement des frais de dossier',
+      description: isPaid ? 'Paiement confirmé' : profile.paymentStatus === 'pending' ? 'Confirmation en attente' : profile.paymentStatus === 'failed' ? 'Paiement refusé ou échoué' : 'En attente',
+      state: isPaid ? 'done' : !isApplicationComplete ? 'upcoming' : profile.paymentStatus === 'failed' ? 'attention' : 'current',
+    },
+    {
+      title: 'Vérification finale par la Scolarité',
+      description: isValide ? 'Dossier validé' : isRefuse ? 'Dossier refusé' : isPaid ? 'En attente de décision' : 'Après le paiement',
+      state: isValide ? 'done' : isRefuse ? 'attention' : isPaid ? 'current' : 'upcoming',
+    },
+  ];
 
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://inptic.ga');
   const verificationUrl = `${siteUrl}/quittance/${profile.paymentReference || profile.paymentTransactionId || 'OFFICIEL'}`;
@@ -156,7 +327,90 @@ export default function Suivi() {
         </div>
       </section>
 
+      <section className="py-8">
+        <AdmissionJourneyNavigation current="tracking" />
+      </section>
+
       <section className="container-x mt-8 px-4 md:px-0 max-w-4xl mx-auto space-y-6">
+        {loadError && (
+          <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            <p className="font-bold">Actualisation temporairement indisponible</p>
+            <p className="mt-1">{loadError}</p>
+          </div>
+        )}
+
+        <div
+          role="status"
+          className={`rounded-2xl border p-5 ${
+            isRefuse ? 'border-rose-300 bg-rose-50 text-rose-950'
+              : isValide ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
+                : isPaid && !isValide ? 'border-blue-300 bg-blue-50 text-blue-950'
+                  : 'border-amber-300 bg-amber-50 text-amber-950'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle size={21} className="mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <h2 className="font-black">État actuel de votre dossier</h2>
+              <p className="mt-1 text-sm leading-relaxed">{nextStep.message}</p>
+              {nextStep.href && (
+                <Link
+                  href={nextStep.href}
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                >
+                  {nextStep.label} <ArrowRight size={15} />
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-5 flex flex-col gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">Étapes de votre candidature</h2>
+              <p className="text-sm text-slate-500">Le statut est actualisé automatiquement pendant que cette page reste ouverte.</p>
+            </div>
+            <p className="text-xs text-slate-500">
+              {lastUpdatedAt ? `Dernière actualisation : ${lastUpdatedAt.toLocaleTimeString('fr-GA')}` : 'Actualisation en cours…'}
+            </p>
+          </div>
+          <ol className="space-y-3">
+            {journeySteps.map((step, index) => (
+              <li
+                key={step.title}
+                className={`flex items-start gap-3 rounded-2xl border p-4 ${
+                  step.state === 'done' ? 'border-emerald-200 bg-emerald-50/60'
+                    : step.state === 'attention' ? 'border-rose-200 bg-rose-50'
+                      : step.state === 'current' ? 'border-blue-200 bg-blue-50'
+                        : 'border-slate-200 bg-slate-50'
+                }`}
+              >
+                <span className="mt-0.5 shrink-0">
+                  {step.state === 'done'
+                    ? <CheckCircle2 size={20} className="text-emerald-600" />
+                    : step.state === 'attention'
+                      ? <AlertCircle size={20} className="text-rose-600" />
+                      : step.state === 'current'
+                        ? <Clock3 size={20} className="text-blue-700" />
+                        : <Circle size={20} className="text-slate-400" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">{index + 1}. {step.title}</h3>
+                    <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                      {step.state === 'done' ? 'Terminé' : step.state === 'attention' ? 'Action requise' : step.state === 'current' ? 'En cours' : 'À venir'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600">{step.description}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {isApplicationComplete && (
+          <>
         {/* ── CARD ACCUSÉ DE RÉCEPTION ── */}
         <div className="rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -249,6 +503,8 @@ export default function Suivi() {
               </button>
             </div>
           </div>
+        )}
+          </>
         )}
 
         {/* ── PIÈCES JOINTES SOUMISES ── */}
