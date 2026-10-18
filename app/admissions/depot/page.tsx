@@ -400,6 +400,65 @@ export default function DepotPage() {
     router.push(`/admissions/paiement?concours=${encodeURIComponent(concoursSlug)}`);
   };
 
+  const handleFormDraftSave = async (values: CandidatureValues, photo: File | null) => {
+    if (!currentUser?.email) {
+      throw new Error('Connectez-vous à votre compte candidat pour enregistrer le formulaire.');
+    }
+
+    let photoUrl = currentUser.photo || '';
+    if (photo) {
+      photoUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') resolve(reader.result);
+          else reject(new Error('La photo sélectionnée n’a pas pu être lue.'));
+        };
+        reader.onerror = () => reject(new Error('La photo sélectionnée n’a pas pu être lue.'));
+        reader.readAsDataURL(photo);
+      });
+    }
+
+    const selectedFilieres = [...values.filieresInitiale, ...values.filieresContinue];
+    const draftProfile = {
+      ...currentUser,
+      email: values.email || currentUser.email,
+      name: `${values.nom} ${values.prenoms}`.trim() || currentUser.name,
+      phone: values.telephone1 || currentUser.phone,
+      photo: photoUrl,
+      filiere: selectedFilieres.join(', '),
+      niveau: 'Licence Professionnelle',
+      diplome: values.baccalaureat,
+      candidatureData: values,
+    };
+    const response = await fetch('/api/candidat/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draftProfile),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || 'Le formulaire n’a pas pu être enregistré.');
+    }
+
+    const savedProfile = {
+      ...draftProfile,
+      ...(payload.profile || {}),
+      admissionWorkflow: currentUser.admissionWorkflow,
+      candidatureData: values,
+    };
+    setCurrentUser(savedProfile);
+    localStorage.setItem('inptic_user', JSON.stringify(savedProfile));
+    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]');
+    const nextUsers = storedUsers.map((user: any) =>
+      user.email === savedProfile.email ? { ...user, ...savedProfile } : user
+    );
+    if (!storedUsers.some((user: any) => user.email === savedProfile.email)) {
+      nextUsers.push(savedProfile);
+    }
+    localStorage.setItem('inptic_users', JSON.stringify(nextUsers));
+    window.dispatchEvent(new Event('auth-state-changed'));
+  };
+
   if (loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50">
@@ -448,7 +507,7 @@ export default function DepotPage() {
           <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
           <h1 className="text-4xl font-black md:text-6xl">{t('depotPage.title', 'Dépôt de Dossier de Candidature')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            {t('depotPage.intro', 'Après votre préinscription et la validation de vos pièces, complétez le formulaire officiel. Le paiement ne sera accessible qu’une fois le dossier complet à 100 %.')}
+            {t('depotPage.intro', 'À l’étape 5, transmettez vos pièces et complétez le formulaire officiel. Le paiement ne sera accessible qu’une fois les pièces validées et le dossier complet à 100 %.')}
           </p>
         </div>
       </section>
@@ -614,13 +673,14 @@ export default function DepotPage() {
               <p className="mt-2 text-sm text-rose-800">Rechargez cette page lorsque le service sera rétabli. Le formulaire reste verrouillé tant que le statut des pièces n’a pas pu être confirmé.</p>
             </div>
           ) : showPreliminaryReview ? (
-            <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="mx-auto max-w-5xl space-y-6">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-start gap-4">
                 <div className="rounded-2xl bg-blue-50 p-3 text-blue-700"><ShieldCheck size={24} /></div>
                 <div>
                   <h2 className="text-xl font-black text-slate-900">Vérification préalable des pièces</h2>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                    Avant de remplir le formulaire officiel, la Scolarité vérifie vos trois pièces. Après validation, vous recevrez un e-mail vous invitant à poursuivre votre candidature.
+                    Déposez vos trois pièces et complétez le formulaire de candidature à cette étape. Vous pouvez enregistrer le formulaire pendant que la Scolarité vérifie les justificatifs.
                   </p>
                 </div>
               </div>
@@ -628,7 +688,7 @@ export default function DepotPage() {
               {documentReview?.status === 'pending' ? (
                 <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
                   <p className="font-bold text-amber-900">Vos pièces sont en cours de vérification.</p>
-                  <p className="mt-1 text-sm text-amber-800">Le formulaire de candidature sera accessible après validation par la Scolarité.</p>
+                  <p className="mt-1 text-sm text-amber-800">Vos pièces sont verrouillées pendant la vérification. Vous pouvez compléter ou modifier le formulaire ci-dessous.</p>
                   <ul className="mt-4 space-y-2 text-sm text-slate-700">
                     {uploadedFiles.map((document) => <li key={document.category}>✓ {document.category}</li>)}
                   </ul>
@@ -675,6 +735,31 @@ export default function DepotPage() {
                 </>
               )}
             </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm sm:p-6">
+              <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <h2 className="font-bold text-blue-950">Formulaire de candidature — étape 5</h2>
+                <p className="mt-1 text-sm text-blue-900">
+                  Indiquez notamment vos filières. Ces choix servent à classer votre dossier dans le service de la Scolarité. L’enregistrement du formulaire ne finalise pas le dépôt et ne débloque pas le paiement.
+                </p>
+              </div>
+              <FormulaireCandidatureLicence
+                logoSrc="/logoinptic.png"
+                initialValues={{
+                  ...currentUser.candidatureData,
+                  nom: currentUser.candidatureData?.nom || candidateNameParts[0] || '',
+                  prenoms: currentUser.candidatureData?.prenoms || candidateNameParts.slice(1).join(' '),
+                  email: currentUser.candidatureData?.email || currentUser.email || '',
+                  telephone1: currentUser.candidatureData?.telephone1 || currentUser.phone || '',
+                }}
+                lockEmail
+                submitLabel="Enregistrer le formulaire"
+                successTitle="Formulaire enregistré"
+                successMessage="Vos réponses et vos choix de filière sont enregistrés. Vous pourrez les modifier pendant la vérification des pièces. Le dépôt définitif restera à envoyer après validation des justificatifs."
+                allowEditAfterSubmit
+                onSubmit={handleFormDraftSave}
+              />
+            </div>
+            </div>
           ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
             {/* Formulaire principal */}
@@ -697,10 +782,11 @@ export default function DepotPage() {
               <FormulaireCandidatureLicence
                 logoSrc="/logoinptic.png"
                 initialValues={{
-                  nom: candidateNameParts[0] || '',
-                  prenoms: candidateNameParts.slice(1).join(' '),
-                  email: currentUser.email || '',
-                  telephone1: currentUser.phone || '',
+                  ...currentUser.candidatureData,
+                  nom: currentUser.candidatureData?.nom || candidateNameParts[0] || '',
+                  prenoms: currentUser.candidatureData?.prenoms || candidateNameParts.slice(1).join(' '),
+                  email: currentUser.candidatureData?.email || currentUser.email || '',
+                  telephone1: currentUser.candidatureData?.telephone1 || currentUser.phone || '',
                 }}
                 lockEmail
                 submitDisabled={!canSubmitPreliminaryDocuments}

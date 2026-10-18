@@ -4,6 +4,7 @@ import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
 import { ConcoursItem } from '@/types/concours';
+import { sendContestNewsletter } from '@/lib/newsletter';
 
 // Graines initiales réalistes INPTIC Gabon en cas de table vide ou hors ligne
 const SEED_CONCOURS: ConcoursItem[] = [
@@ -299,7 +300,20 @@ async function siteAuditedPOST(request: NextRequest) {
         JSON.stringify(row.attachments), JSON.stringify(row.results),
       ],
     );
-    return NextResponse.json({ data: normalizeConcoursRow(rows[0] as Record<string, unknown>) }, { status: 201 });
+    const concours = normalizeConcoursRow(rows[0] as Record<string, unknown>);
+    const newsletter = concours.status === 'en_cours' || concours.status === 'a_venir'
+      ? await sendContestNewsletter({
+          id: concours.id,
+          title: concours.title,
+          slug: concours.slug,
+          department: concours.department,
+          sessionYear: concours.sessionYear,
+          description: concours.description,
+          conditions: concours.conditions,
+          calendar: concours.calendar,
+        })
+      : undefined;
+    return NextResponse.json({ data: concours, ...(newsletter ? { newsletter } : {}) }, { status: 201 });
   } catch (error) {
     console.error('Erreur PostgreSQL lors de la création d’un concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible d’enregistrer le concours.' }, { status: 503 });
@@ -357,7 +371,20 @@ async function siteAuditedPATCH(request: NextRequest) {
       values,
     );
     if (!rows[0]) return NextResponse.json({ error: 'Concours introuvable.' }, { status: 404 });
-    return NextResponse.json({ data: normalizeConcoursRow(rows[0] as Record<string, unknown>) });
+    const concours = normalizeConcoursRow(rows[0] as Record<string, unknown>);
+    const newsletter = concours.status === 'en_cours' || concours.status === 'a_venir'
+      ? await sendContestNewsletter({
+          id: concours.id,
+          title: concours.title,
+          slug: concours.slug,
+          department: concours.department,
+          sessionYear: concours.sessionYear,
+          description: concours.description,
+          conditions: concours.conditions,
+          calendar: concours.calendar,
+        })
+      : undefined;
+    return NextResponse.json({ data: concours, ...(newsletter ? { newsletter } : {}) });
   } catch (error) {
     console.error('Erreur PostgreSQL lors de la mise à jour d’un concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible de mettre à jour le concours.' }, { status: 503 });

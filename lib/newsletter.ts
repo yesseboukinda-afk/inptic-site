@@ -16,6 +16,21 @@ type NewsletterPublication = {
   attachments?: unknown[];
 };
 
+type NewsletterContest = {
+  id: string;
+  title: string;
+  slug: string;
+  department: string;
+  sessionYear: number;
+  description: string;
+  conditions: string[];
+  calendar: {
+    registrationStart?: string | null;
+    registrationEnd?: string | null;
+    examDate?: string | null;
+  };
+};
+
 type NewsletterResult = {
   status: 'sent' | 'no_subscribers' | 'not_configured' | 'partial' | 'failed' | 'skipped';
   sent: number;
@@ -576,6 +591,158 @@ async function dispatchPublicationNewsletter(
     sent,
     failed,
   };
+}
+
+async function dispatchContestNewsletter(contest: NewsletterContest): Promise<NewsletterResult> {
+  if (!isSmtpEmailConfigured() || !process.env.DATABASE_URL) {
+    return { status: 'not_configured', sent: 0, failed: 0 };
+  }
+
+  let subscribers;
+  try {
+    const { rows } = await getPostgresPool().query(
+      'SELECT email, unsubscribe_token FROM public.subscribers WHERE is_active = TRUE AND is_blocked = FALSE',
+    );
+    subscribers = rows;
+  } catch (error) {
+    console.error('Erreur de lecture des abonnés newsletter pour le concours:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return { status: 'failed', sent: 0, failed: 0 };
+  }
+  if (!subscribers?.length) return { status: 'no_subscribers', sent: 0, failed: 0 };
+
+  const siteUrl = (
+    process.env.NEWSLETTER_SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    'https://inptic-ga.org.tld'
+  ).replace(/\/+$/, '');
+  const contestUrl = `${siteUrl}/concours`;
+  const unsubscribeBaseUrl = `${siteUrl}/api/newsletter/unsubscribe`;
+  const safeTitle = escapeHtml(contest.title);
+  const safeDepartment = escapeHtml(contest.department);
+  const safeDescription = escapeHtml(contest.description);
+  const safeConditions = contest.conditions.map((condition) => escapeHtml(condition));
+  const formatDate = (value?: string | null) => {
+    if (!value) return 'À préciser';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return 'À préciser';
+    return new Intl.DateTimeFormat('fr-GA', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Africa/Libreville',
+    }).format(date);
+  };
+  const registrationStart = formatDate(contest.calendar.registrationStart);
+  const registrationEnd = formatDate(contest.calendar.registrationEnd);
+  const examDate = formatDate(contest.calendar.examDate);
+  const conditionsHtml = safeConditions.length
+    ? `<ul>${safeConditions.map((condition) => `<li>${condition}</li>`).join('')}</ul>`
+    : '';
+  const conditionsText = contest.conditions.length
+    ? `\nConditions :\n${contest.conditions.map((condition) => `- ${condition}`).join('\n')}`
+    : '';
+  let sent = 0;
+  let failed = 0;
+
+  for (const subscriber of subscribers) {
+    const email = String(subscriber.email);
+    const unsubscribeToken = String(subscriber.unsubscribe_token || '');
+    if (!unsubscribeToken) {
+      failed += 1;
+      continue;
+    }
+
+    const publicationId = `concours-${contest.id}`;
+    const claim = await claimDelivery(publicationId, email);
+    if (claim === 'already_claimed') continue;
+    if (claim === 'failed') {
+      failed += 1;
+      continue;
+    }
+
+    try {
+      const unsubscribeUrl = `${unsubscribeBaseUrl}?token=${encodeURIComponent(unsubscribeToken)}`;
+      const result = await sendSmtpEmail({
+        to: email,
+        subject: `Concours INPTIC ${contest.sessionYear} — ${contest.title}`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
+            <div style="margin:0 0 24px;text-align:center">
+              <img src="${escapeHtml(`${siteUrl}/logoinptic.png`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
+            </div>
+            <p style="font-size:12px;font-weight:bold;letter-spacing:.12em;color:#1d4ed8">NOUVEAU CONCOURS INPTIC</p>
+            <h1 style="font-size:24px;line-height:1.3">${safeTitle}</h1>
+            <p style="font-size:14px;color:#475569"><strong>Session :</strong> ${contest.sessionYear}<br><strong>Filières / département :</strong> ${safeDepartment}</p>
+            <p style="font-size:15px;line-height:1.7">${safeDescription}</p>
+            <div style="margin:20px 0;padding:16px;border-radius:10px;background:#f1f5f9;font-size:14px;line-height:1.8">
+              <strong>Ouverture des inscriptions :</strong> ${escapeHtml(registrationStart)}<br>
+              <strong>Clôture des inscriptions :</strong> ${escapeHtml(registrationEnd)}<br>
+              <strong>Date du concours :</strong> ${escapeHtml(examDate)}
+            </div>
+            ${conditionsHtml ? `<h2 style="font-size:17px">Conditions de candidature</h2>${conditionsHtml}` : ''}
+            <p><a href="${escapeHtml(contestUrl)}" style="display:inline-block;padding:12px 18px;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:8px">Consulter le concours</a></p>
+            <hr style="border:0;border-top:1px solid #e2e8f0;margin:32px 0 16px">
+            <p style="font-size:12px;color:#64748b">Vous recevez ce message car vous êtes abonné à la newsletter de l’INPTIC.</p>
+            <p style="font-size:12px"><a href="${escapeHtml(unsubscribeUrl)}">Se désabonner</a></p>
+          </div>`,
+        text: [
+          `NOUVEAU CONCOURS INPTIC — Session ${contest.sessionYear}`,
+          contest.title,
+          `Filières / département : ${contest.department}`,
+          '',
+          contest.description,
+          '',
+          `Ouverture des inscriptions : ${registrationStart}`,
+          `Clôture des inscriptions : ${registrationEnd}`,
+          `Date du concours : ${examDate}`,
+          conditionsText,
+          '',
+          `Consulter le concours : ${contestUrl}`,
+          '',
+          `Se désabonner : ${unsubscribeUrl}`,
+        ].join('\n'),
+      });
+      await getPostgresPool().query(
+        `UPDATE public.newsletter_deliveries
+         SET status = 'sent', resend_email_id = $3, error_code = NULL, updated_at = NOW()
+         WHERE publication_id = $1 AND subscriber_email = $2`,
+        [publicationId, email, result.messageId],
+      );
+      sent += 1;
+    } catch (error) {
+      failed += 1;
+      const errorCode = getEmailErrorCode(error) || 'SMTP_ERROR';
+      console.error('Erreur d’envoi de la newsletter concours:', errorCode);
+      try {
+        await getPostgresPool().query(
+          `UPDATE public.newsletter_deliveries
+           SET status = 'failed', error_code = $3, updated_at = NOW()
+           WHERE publication_id = $1 AND subscriber_email = $2`,
+          [publicationId, email, errorCode],
+        );
+      } catch (updateError) {
+        console.error('Erreur de sauvegarde de l’échec de la newsletter concours:', updateError instanceof Error ? updateError.message : 'UNKNOWN_ERROR');
+      }
+    }
+  }
+
+  return {
+    status: failed > 0 ? (sent > 0 ? 'partial' : 'failed') : (sent > 0 ? 'sent' : 'skipped'),
+    sent,
+    failed,
+  };
+}
+
+export async function sendContestNewsletter(contest: NewsletterContest): Promise<NewsletterResult> {
+  try {
+    return await dispatchContestNewsletter(contest);
+  } catch (error) {
+    console.error(
+      'Erreur inattendue pendant l’envoi de la newsletter concours:',
+      error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+    );
+    return { status: 'failed', sent: 0, failed: 0 };
+  }
 }
 
 export async function sendPublicationNewsletter(

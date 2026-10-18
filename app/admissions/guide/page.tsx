@@ -29,7 +29,7 @@ const admissionSteps = [
   {
     number: '05',
     title: 'Déposer le dossier de candidature complet',
-    text: 'Transmettez l’acte de naissance ou la CNI, le baccalauréat ou justificatif de scolarité en Terminale et le relevé de notes officiel. La Scolarité vérifie les pièces et peut demander une correction. Après validation, complétez le formulaire officiel (filière, identité, coordonnées, cursus et contact d’urgence), puis envoyez le dossier. Ces sous-étapes constituent un seul dépôt et doivent être terminées pour atteindre 100 %.',
+    text: 'Transmettez l’acte de naissance ou la CNI, le baccalauréat ou justificatif de scolarité en Terminale et le relevé de notes officiel, puis complétez le formulaire officiel dans la même étape (filières choisies, identité, coordonnées, cursus et contact d’urgence). Vous pouvez enregistrer le formulaire pendant que la Scolarité vérifie les pièces et peut demander une correction. Après validation des pièces, envoyez le dossier complet. Ces sous-étapes constituent un seul dépôt et doivent être terminées pour atteindre 100 %.',
   },
   {
     number: '06',

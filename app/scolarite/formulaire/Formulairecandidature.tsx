@@ -110,6 +110,10 @@ interface Props {
   submitDisabled?: boolean;
   initialValues?: Partial<CandidatureValues>;
   lockEmail?: boolean;
+  submitLabel?: string;
+  successTitle?: string;
+  successMessage?: string;
+  allowEditAfterSubmit?: boolean;
   /** Appelé à l'envoi. Lancer une erreur affiche un message d'échec. */
   onSubmit?: (values: CandidatureValues, photo: File | null) => void | Promise<void>;
 }
@@ -284,6 +288,10 @@ export default function FormulaireCandidatureLicence({
   submitDisabled = false,
   initialValues,
   lockEmail = false,
+  submitLabel = 'Envoyer ma candidature',
+  successTitle = 'Candidature envoyée',
+  successMessage = 'Votre dossier a bien été enregistré. Pensez à déposer les pièces cochées à l’institut aux dates indiquées.',
+  allowEditAfterSubmit = false,
   onSubmit,
 }: Props) {
   const [values, setValues] = useState<CandidatureValues>(() => ({
@@ -376,18 +384,25 @@ export default function FormulaireCandidatureLicence({
   if (status === 'sent') {
     return (
       <div className="mx-auto max-w-2xl rounded-xl border border-green-200 bg-green-50 p-8 text-center">
-        <h2 className="text-xl font-bold text-green-800">Candidature envoyée</h2>
-        <p className="mt-2 text-sm text-green-900">
-          Votre dossier a bien été enregistré. Pensez à déposer les pièces cochées à l’institut
-          aux dates indiquées.
-        </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="mt-5 rounded-md bg-[#14306b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2f6db5]"
-        >
-          Nouvelle candidature
-        </button>
+        <h2 className="text-xl font-bold text-green-800">{successTitle}</h2>
+        <p className="mt-2 text-sm text-green-900">{successMessage}</p>
+        {allowEditAfterSubmit ? (
+          <button
+            type="button"
+            onClick={() => setStatus('idle')}
+            className="mt-5 rounded-md bg-[#14306b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2f6db5]"
+          >
+            Modifier mes informations
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-5 rounded-md bg-[#14306b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2f6db5]"
+          >
+            Nouvelle candidature
+          </button>
+        )}
       </div>
     );
   }
@@ -938,7 +953,7 @@ export default function FormulaireCandidatureLicence({
           disabled={status === 'sending' || submitDisabled}
           className="rounded-md bg-[#14306b] px-6 py-2 text-sm font-semibold text-white hover:bg-[#2f6db5] disabled:opacity-60"
         >
-          {status === 'sending' ? 'Envoi en cours…' : 'Envoyer ma candidature'}
+          {status === 'sending' ? 'Enregistrement en cours…' : submitLabel}
         </button>
       </div>
 
