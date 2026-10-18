@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 import { translateNotification } from '@/lib/authMessages';
+import { authClient } from '@/lib/auth-client';
 import type { CandidatureValues } from '@/app/scolarite/formulaire/Formulairecandidature';
 
 type Role = 'scolarite' | 'direction_etudes';
@@ -281,23 +282,33 @@ export default function StaffDashboard({ role }: { role: Role }) {
   useEffect(() => {
     const controller = new AbortController();
     setProfilesLoading(true);
+    setProfilesError('');
 
-    fetch('/api/candidat/profile', { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || 'Impossible de charger les dossiers candidats.');
-        }
-        return data;
-      })
-      .then((data) => {
-        const remoteProfiles = Array.isArray(data.profiles) ? (data.profiles as Student[]) : [];
-        setStudents(remoteProfiles.map((profile) => ({ ...profile, role: 'etudiant' })));
-        setProfilesError('');
-      })
+    void (async () => {
+      const { data: sessionData, error: sessionError } = await authClient.auth.getSession();
+      if (controller.signal.aborted) return;
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
+        throw new Error('Votre session a expiré. Reconnectez-vous pour consulter les dossiers candidats.');
+      }
+
+      const response = await fetch('/api/candidat/profile', {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Impossible de charger les dossiers candidats.');
+      }
+      if (!Array.isArray(data.profiles)) {
+        throw new Error('Le serveur a renvoyé une liste de dossiers invalide.');
+      }
+
+      setStudents(data.profiles.map((profile: Student) => ({ ...profile, role: 'etudiant' })));
+      setProfilesError('');
+    })()
       .catch((error: unknown) => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setStudents([]);
+        if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
         setProfilesError(error instanceof Error ? error.message : 'Impossible de charger les dossiers candidats.');
       })
       .finally(() => {
@@ -305,7 +316,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
       });
 
     return () => controller.abort();
-  }, [activeTab, profilesRefreshKey, role]);
+  }, [profilesRefreshKey, role]);
 
   // Quota email notification check (every 100 registrations)
   useEffect(() => {
@@ -765,12 +776,23 @@ export default function StaffDashboard({ role }: { role: Role }) {
                         <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-100 text-2xl font-black text-blue-700">
                           <span aria-hidden="true">{(selectedStudent.name || selectedStudent.candidatureData?.nom || 'C').slice(0, 2).toUpperCase()}</span>
                           {selectedStudent.photo && (
-                            <img
-                              src={selectedStudent.photo}
-                              alt={`Photo de ${selectedStudent.name || 'la candidate ou du candidat'}`}
-                              className="absolute inset-0 h-full w-full object-cover"
-                              onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setViewingDocument({
+                                name: `Photo d’identité - ${selectedStudent.name || 'candidat'}`,
+                                url: selectedStudent.photo || '',
+                                type: 'image/jpeg',
+                              })}
+                              className="absolute inset-0 h-full w-full cursor-zoom-in"
+                              aria-label="Ouvrir la photo d’identité"
+                            >
+                              <img
+                                src={selectedStudent.photo}
+                                alt={`Photo de ${selectedStudent.name || 'la candidate ou du candidat'}`}
+                                className="h-full w-full object-cover"
+                                onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                              />
+                            </button>
                           )}
                         </div>
                         <div className="min-w-0">
@@ -779,6 +801,9 @@ export default function StaffDashboard({ role }: { role: Role }) {
                           </h3>
                           <p className="mt-1 break-all text-sm text-slate-500">{selectedStudent.email}</p>
                           <p className="mt-2 font-mono text-xs font-bold text-blue-700">N° de dossier : {selectedStudent.dossierNumero || 'Non attribué'}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {selectedStudent.photo ? 'Photo d’identité enregistrée' : 'Aucune photo d’identité enregistrée dans ce dossier'}
+                          </p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             {getStudentFilieres(selectedStudent).map((choice) => (
                               <span key={choice} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
@@ -790,9 +815,55 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       </div>
                     </section>
 
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <h3 className="text-sm font-black text-slate-900">Contenu du dossier</h3>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        <button
+                          type="button"
+                          disabled={!selectedStudent.photo}
+                          onClick={() => selectedStudent.photo && setViewingDocument({
+                            name: `Photo d’identité - ${selectedStudent.name || 'candidat'}`,
+                            url: selectedStudent.photo,
+                            type: 'image/jpeg',
+                          })}
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Eye size={18} className="shrink-0 text-blue-700" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-slate-800">Photo d’identité</span>
+                            <span className="block truncate text-xs text-slate-500">{selectedStudent.photo ? 'Ouvrir la photo' : 'Aucune photo enregistrée'}</span>
+                          </span>
+                        </button>
+                        <a
+                          href="#candidate-application-form"
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                        >
+                          <ClipboardList size={18} className="shrink-0 text-blue-700" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-slate-800">Fiche de candidature</span>
+                            <span className="block truncate text-xs text-slate-500">{selectedStudent.candidatureData ? 'Consulter le formulaire transmis' : 'Aucun formulaire enregistré'}</span>
+                          </span>
+                        </a>
+                        <a
+                          href="#candidate-supporting-documents"
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                        >
+                          <FileCheck2 size={18} className="shrink-0 text-blue-700" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-slate-800">Pièces justificatives</span>
+                            <span className="block truncate text-xs text-slate-500">{selectedStudent.documents?.length || 0} fichier(s) enregistré(s)</span>
+                          </span>
+                        </a>
+                      </div>
+                    </section>
+
                     <div className="space-y-4">
-                      {candidatureFieldGroups.map((group) => (
-                        <section key={group.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      {candidatureFieldGroups.map((group, groupIndex) => (
+                        <section
+                          key={group.title}
+                          id={groupIndex === 0 ? 'candidate-application-form' : undefined}
+                          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                        >
                           <h3 className="mb-4 text-sm font-black text-slate-900">{group.title}</h3>
                           {group.fields.length > 0 ? (
                             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -837,7 +908,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       ))}
                     </div>
 
-                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <section id="candidate-supporting-documents" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                       <h3 className="text-sm font-black text-slate-900">Documents justificatifs</h3>
                       {selectedStudent.documents?.length ? (
                         <div className="mt-3 space-y-2">
@@ -934,11 +1005,11 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       </div>
                     </div>
 
-                    {profilesLoading ? (
+                    {profilesLoading && students.length === 0 ? (
                       <div role="status" className="rounded-2xl border border-blue-100 bg-blue-50 p-8 text-center text-sm font-medium text-blue-800">
                         Chargement des dossiers candidats...
                       </div>
-                    ) : profilesError ? (
+                    ) : profilesError && students.length === 0 ? (
                       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
                         <p className="text-sm font-semibold text-red-800">{profilesError}</p>
                         <button

@@ -9,6 +9,9 @@ import { canAccessStaffService } from '@/lib/roles';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
+const PRIVATE_NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+};
 const ALLOWED_DOCUMENT_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
@@ -80,7 +83,10 @@ function decodeBase64Document(value: string) {
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
-    return NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Session requise. Veuillez vous connecter.' },
+      { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
+    );
   }
 
   try {
@@ -96,10 +102,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       profiles: result.rows.map(withDocumentUrls),
       source: 'postgres',
-    });
+    }, { headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     console.error('Erreur PostgreSQL lors du chargement des profils candidats:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Impossible de charger les profils candidats.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Impossible de charger les profils candidats.' },
+      { status: 503, headers: PRIVATE_NO_STORE_HEADERS },
+    );
   }
 }
 

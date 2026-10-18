@@ -7,6 +7,9 @@ import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { canAccessStaffService } from '@/lib/roles';
 
 const DOCUMENT_BUCKET = 'candidate-documents';
+const PRIVATE_NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+};
 
 function canManageCandidateProfiles(role: string, assignedService?: unknown) {
   return canAccessStaffService(role, 'candidate_profiles', assignedService);
@@ -15,19 +18,36 @@ function canManageCandidateProfiles(role: string, assignedService?: unknown) {
 async function validateDocumentAccess(request: NextRequest, emailValue: unknown, pathValue: unknown) {
   const user = await getAuthenticatedUser(request);
   if (!user) {
-    return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
+    return {
+      error: NextResponse.json(
+        { error: 'Session requise. Veuillez vous connecter.' },
+        { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
+      ),
+    };
   }
   if (typeof emailValue !== 'string' || typeof pathValue !== 'string') {
-    return { error: NextResponse.json({ error: 'Adresse courriel et chemin de document requis.' }, { status: 400 }) };
+    return {
+      error: NextResponse.json(
+        { error: 'Adresse courriel et chemin de document requis.' },
+        { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
+      ),
+    };
   }
 
   const email = emailValue.trim().toLowerCase();
   const path = pathValue;
   if (!email || !path.startsWith(getProfileDocumentPrefix(email))) {
-    return { error: NextResponse.json({ error: 'Chemin de document invalide.' }, { status: 400 }) };
+    return {
+      error: NextResponse.json({ error: 'Chemin de document invalide.' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS }),
+    };
   }
   if (!canManageCandidateProfiles(user.role, user.user_metadata.service ?? user.user_metadata.department) && email !== user.email) {
-    return { error: NextResponse.json({ error: 'Vous ne pouvez consulter que vos propres documents.' }, { status: 403 }) };
+    return {
+      error: NextResponse.json(
+        { error: 'Vous ne pouvez consulter que vos propres documents.' },
+        { status: 403, headers: PRIVATE_NO_STORE_HEADERS },
+      ),
+    };
   }
 
   const result = await getPostgresPool().query(
@@ -37,7 +57,9 @@ async function validateDocumentAccess(request: NextRequest, emailValue: unknown,
     [email, JSON.stringify([{ path }])],
   );
   if (!result.rowCount) {
-    return { error: NextResponse.json({ error: 'Document introuvable pour ce candidat.' }, { status: 404 }) };
+    return {
+      error: NextResponse.json({ error: 'Document introuvable pour ce candidat.' }, { status: 404, headers: PRIVATE_NO_STORE_HEADERS }),
+    };
   }
 
   return { email, path };
@@ -75,7 +97,12 @@ async function siteAuditedGET(request: NextRequest) {
     if ('error' in access && access.error) return access.error;
 
     const file = await readStoredPrivateFile(DOCUMENT_BUCKET, access.path);
-    if (!file) return NextResponse.json({ error: 'Document introuvable.' }, { status: 404 });
+    if (!file) {
+      return NextResponse.json(
+        { error: 'Document introuvable.' },
+        { status: 404, headers: PRIVATE_NO_STORE_HEADERS },
+      );
+    }
     return new NextResponse(file.contents, {
       headers: {
         'Content-Type': file.metadata.mime_type,
@@ -87,7 +114,10 @@ async function siteAuditedGET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Erreur de lecture du document candidat:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Document candidat indisponible.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Document candidat indisponible.' },
+      { status: 503, headers: PRIVATE_NO_STORE_HEADERS },
+    );
   }
 }
 
