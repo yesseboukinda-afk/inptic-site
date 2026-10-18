@@ -4,6 +4,30 @@ import { getPostgresPool } from '@/lib/postgres';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function getDatabaseErrorResponse(error: unknown) {
+  const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : '';
+
+  if (code === '42P01') {
+    return {
+      message: 'La table des candidatures aux clubs est absente. Vérifiez que scripts/20_create_clubs.sql a été exécuté sur la base de production.',
+      status: 503,
+    };
+  }
+  if (code === '42501') {
+    return {
+      message: 'Le compte PostgreSQL de l’application ne possède pas les droits requis sur les candidatures aux clubs. Réexécutez scripts/20_create_clubs.sql.',
+      status: 503,
+    };
+  }
+
+  return {
+    message: 'Impossible de charger la liste des membres des clubs. Vérifiez les journaux PostgreSQL de l’application.',
+    status: 503,
+  };
+}
+
 export async function GET() {
   try {
     const { rows } = await getPostgresPool().query(
@@ -19,10 +43,12 @@ export async function GET() {
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
-    console.error('[Club members GET] PostgreSQL error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    const databaseError = getDatabaseErrorResponse(error);
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN_ERROR';
+    console.error('[Club members GET] PostgreSQL error:', code, error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json(
-      { error: 'Impossible de charger la liste des membres des clubs.' },
-      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+      { error: databaseError.message },
+      { status: databaseError.status, headers: { 'Cache-Control': 'no-store' } },
     );
   }
 }
