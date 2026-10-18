@@ -1,11 +1,12 @@
 'use client';
 
-import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, FolderOpen, ArrowLeft } from 'lucide-react';
+import { CalendarDays, ChevronRight, FileCheck2, Folder, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, FolderOpen, ArrowLeft, RefreshCw } from 'lucide-react';
 import { ChangeEvent, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 import { translateNotification } from '@/lib/authMessages';
+import type { CandidatureValues } from '@/app/scolarite/formulaire/Formulairecandidature';
 
 type Role = 'scolarite' | 'direction_etudes';
 
@@ -31,10 +32,7 @@ type Student = {
   photo?: string;
   filiere?: string;
   filieres?: string[];
-  candidatureData?: {
-    filieresInitiale?: string[];
-    filieresContinue?: string[];
-  };
+  candidatureData?: Partial<CandidatureValues>;
   dossierNumero?: string;
   departement?: string;
   role?: string;
@@ -79,6 +77,72 @@ const dossierDepartments = [
   { id: 'management', name: 'Management des TIC' },
   { id: 'genie-informatique', name: 'Génie informatique' },
 ];
+
+const candidatureFieldLabels: Partial<Record<keyof CandidatureValues, string>> = {
+  filieresInitiale: 'Filières en formation initiale',
+  filieresContinue: 'Filières en formation continue',
+  nom: 'Nom',
+  prenoms: 'Prénoms',
+  dateNaissance: 'Date de naissance',
+  lieuNaissance: 'Lieu de naissance',
+  nationalite: 'Nationalité',
+  nationaliteAutre: 'Autre nationalité',
+  adressePostale: 'Adresse postale',
+  quartier: 'Quartier',
+  ville: 'Ville',
+  pays: 'Pays',
+  telephone1: 'Téléphone principal',
+  telephone2: 'Téléphone secondaire',
+  telephone3: 'Autre téléphone',
+  email: 'Adresse e-mail',
+  baccalaureat: 'Série du baccalauréat',
+  anneeBac: 'Année du baccalauréat',
+  niveauInformatique: 'Niveau en informatique',
+  urgenceNom: 'Nom du contact d’urgence',
+  urgenceProfession: 'Profession du contact d’urgence',
+  urgenceAdresse: 'Adresse du contact d’urgence',
+  urgenceVille: 'Ville du contact d’urgence',
+  urgencePays: 'Pays du contact d’urgence',
+  urgenceTelephone: 'Téléphone du contact d’urgence',
+  urgenceFax: 'Fax du contact d’urgence',
+  urgenceEmail: 'E-mail du contact d’urgence',
+  financeur: 'Mode de financement',
+  financeurPrecision: 'Précision sur le financement',
+  financeurNom: 'Nom du financeur',
+  financeurVille: 'Ville du financeur',
+  financeurPays: 'Pays du financeur',
+  financeurTelephone: 'Téléphone du financeur',
+  financeurEmail: 'E-mail du financeur',
+  formationContinueSiEchec: 'Formation continue en cas d’échec',
+  pieces: 'Pièces déclarées dans le formulaire',
+  faitA: 'Fait à',
+  faitLe: 'Fait le',
+  certifie: 'Déclaration certifiée',
+};
+
+const candidatureFieldGroups: Array<{ title: string; fields: Array<keyof CandidatureValues> }> = [
+  { title: 'Identité et coordonnées', fields: ['nom', 'prenoms', 'dateNaissance', 'lieuNaissance', 'nationalite', 'nationaliteAutre', 'adressePostale', 'quartier', 'ville', 'pays', 'telephone1', 'telephone2', 'telephone3', 'email'] },
+  { title: 'Candidature et études', fields: ['filieresInitiale', 'filieresContinue', 'baccalaureat', 'anneeBac', 'niveauInformatique'] },
+  { title: 'Parcours scolaire antérieur', fields: [] },
+  { title: 'Contact en cas d’urgence', fields: ['urgenceNom', 'urgenceProfession', 'urgenceAdresse', 'urgenceVille', 'urgencePays', 'urgenceTelephone', 'urgenceFax', 'urgenceEmail'] },
+  { title: 'Financement', fields: ['financeur', 'financeurPrecision', 'financeurNom', 'financeurVille', 'financeurPays', 'financeurTelephone', 'financeurEmail', 'formationContinueSiEchec'] },
+  { title: 'Déclaration', fields: ['pieces', 'faitA', 'faitLe', 'certifie'] },
+];
+
+function formatCandidatureValue(field: keyof CandidatureValues, value: unknown) {
+  if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
+  if (Array.isArray(value)) return value.filter((item) => typeof item === 'string' && item.trim()).join(' · ') || 'Non renseigné';
+  if (typeof value === 'string') {
+    const choices: Partial<Record<keyof CandidatureValues, Record<string, string>>> = {
+      nationalite: { gabonaise: 'Gabonaise', autre: 'Autre' },
+      niveauInformatique: { faible: 'Faible', moyen: 'Moyen', suffisant: 'Suffisant' },
+      financeur: { parents: 'Parents', etat: 'État', organisme: 'Organisme', autre: 'Autre' },
+      formationContinueSiEchec: { oui: 'Oui', non: 'Non' },
+    };
+    return choices[field]?.[value] || value.trim() || 'Non renseigné';
+  }
+  return 'Non renseigné';
+}
 
 const defaultDepartments: Department[] = departments.map((name) => ({
   id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
@@ -155,11 +219,15 @@ export default function StaffDashboard({ role }: { role: Role }) {
   const [newDepartment, setNewDepartment] = useState('');
   const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [profilesError, setProfilesError] = useState('');
+  const [profilesLoading, setProfilesLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<'dossiers' | 'documents' | 'quota'>('dossiers');
   const [viewingDocument, setViewingDocument] = useState<{ name: string; url: string; type: string } | null>(null);
   const [quotaAlert, setQuotaAlert] = useState<string | null>(null);
   const [selectedFiliere, setSelectedFiliere] = useState('all');
+  const [isUpdatingDossier, setIsUpdatingDossier] = useState(false);
+  const [profilesRefreshKey, setProfilesRefreshKey] = useState(0);
 
   useEffect(() => {
     const director = localStorage.getItem('inptic_directeur');
@@ -208,22 +276,36 @@ export default function StaffDashboard({ role }: { role: Role }) {
       setDepartment(normalizedDepartments[0].name);
     }
 
-    const storedUsers = JSON.parse(localStorage.getItem('inptic_users') || '[]') as Student[];
-    fetch('/api/candidat/profile')
-      .then((response) => (response.ok ? response.json() : { profiles: [] }))
+  }, [router, role]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setProfilesLoading(true);
+
+    fetch('/api/candidat/profile', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Impossible de charger les dossiers candidats.');
+        }
+        return data;
+      })
       .then((data) => {
         const remoteProfiles = Array.isArray(data.profiles) ? (data.profiles as Student[]) : [];
-        const profilesByEmail = new Map<string, Student>(storedUsers.map((p) => [p.email.toLowerCase(), p]));
-        remoteProfiles.forEach((p) => {
-          const local = profilesByEmail.get(p.email.toLowerCase());
-          profilesByEmail.set(p.email.toLowerCase(), { ...(local || {}), ...p, role: 'etudiant' } as Student);
-        });
-        setStudents(Array.from(profilesByEmail.values()));
+        setStudents(remoteProfiles.map((profile) => ({ ...profile, role: 'etudiant' })));
+        setProfilesError('');
       })
-      .catch(() => {
-        setStudents(storedUsers);
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setStudents([]);
+        setProfilesError(error instanceof Error ? error.message : 'Impossible de charger les dossiers candidats.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProfilesLoading(false);
       });
-  }, [router, role]);
+
+    return () => controller.abort();
+  }, [activeTab, profilesRefreshKey, role]);
 
   // Quota email notification check (every 100 registrations)
   useEffect(() => {
@@ -270,53 +352,53 @@ export default function StaffDashboard({ role }: { role: Role }) {
   async function updateStudentStatus(studentEmail: string, decision: 'valide' | 'refuse') {
     const status: Student['status'] = decision === 'valide' ? 'valide' : 'refuse';
     const isArchived = decision === 'refuse' ? true : false;
-    const stored = JSON.parse(localStorage.getItem('inptic_users') || '[]');
-    const nextProfiles: Student[] = Array.isArray(stored)
-      ? stored.map((entry: Student) => {
-          if (entry.email !== studentEmail) return entry;
+    const studentProfile = students.find((entry) => entry.email === studentEmail);
+    if (!studentProfile) {
+      setMessage('Le dossier candidat est introuvable. Rechargez la liste avant de réessayer.');
+      return;
+    }
 
-          const message =
-            decision === 'valide'
-              ? 'Votre dossier a été validé par la Scolarité. Vous pouvez maintenant accéder à votre espace personnel.'
-              : 'Votre dossier a été refusé et archivé par la Scolarité. Un e-mail de notification officielle vous a été transmis.';
+    const notification =
+      decision === 'valide'
+        ? 'Votre dossier a été validé par la Scolarité. Vous pouvez maintenant accéder à votre espace personnel.'
+        : 'Votre dossier a été refusé et archivé par la Scolarité. Un e-mail de notification officielle vous a été transmis.';
+    const updatedProfile: Student = {
+      ...studentProfile,
+      dossierValide: decision === 'valide',
+      status,
+      isArchived,
+      role: 'etudiant',
+      notifications: addNotification(studentProfile.notifications, notification, decision === 'valide' ? 'success' : 'danger'),
+    };
 
-          return {
-            ...entry,
-            dossierValide: decision === 'valide',
-            status,
-            dossierStep: status,
-            isArchived,
-            role: 'etudiant',
-            notifications: addNotification(entry.notifications, message, decision === 'valide' ? 'success' : 'danger'),
-          };
-        })
-      : [];
-
-    localStorage.setItem('inptic_users', JSON.stringify(nextProfiles));
-    setStudents(nextProfiles);
-    setSelectedStudent(null);
-
-    const studentProfile = nextProfiles.find((entry) => entry.email === studentEmail);
-    if (!studentProfile) return;
-
+    setIsUpdatingDossier(true);
     try {
-      await fetch('/api/candidat/profile', {
+      const response = await fetch('/api/candidat/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...studentProfile,
+          ...updatedProfile,
           email: studentEmail,
           role: 'etudiant',
           dossierValide: decision === 'valide',
           status,
           dossierStep: status,
           isArchived,
-          notifications: studentProfile.notifications || [],
+          notifications: updatedProfile.notifications || [],
         }),
       });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'La mise à jour du dossier a échoué.');
+      }
+
+      setStudents((current) => current.map((entry) => entry.email === studentEmail ? updatedProfile : entry));
+      setSelectedStudent(null);
       setMessage(decision === 'valide' ? `Dossier de ${studentEmail} validé avec succès.` : `Dossier de ${studentEmail} refusé et archivé automatiquement.`);
-    } catch (error) {
-      console.error('Erreur persistence statut:', error);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'La mise à jour du dossier a échoué.');
+    } finally {
+      setIsUpdatingDossier(false);
     }
   }
 
@@ -616,6 +698,11 @@ export default function StaffDashboard({ role }: { role: Role }) {
             {message}
           </p>
         )}
+        {profilesError && (
+          <p className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">
+            {profilesError} Vérifiez les droits PostgreSQL des tables `profiles` et `private_files`.
+          </p>
+        )}
 
         {role === 'scolarite' ? (
           <div>
@@ -652,102 +739,267 @@ export default function StaffDashboard({ role }: { role: Role }) {
 
             {activeTab === 'dossiers' && (
               <div className="space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-lg font-black text-slate-900">
-                      {selectedFiliere === 'all'
-                        ? 'Dossiers de candidature par filière'
-                        : dossierDepartments.find((department) => department.id === selectedFiliere)?.name}
-                    </h2>
-                    <span className="text-xs text-slate-500">
-                      {selectedFiliere === 'all'
-                        ? `${pendingDossiers.length} dossier(s) à classer`
-                        : `${filteredDossiers.length} candidat(s) dans cette filière`}
-                    </span>
-                  </div>
-                  {selectedFiliere !== 'all' && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFiliere('all')}
-                      className="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      <ArrowLeft size={16} />
-                      Retour aux filières
-                    </button>
-                  )}
-                </div>
+                {selectedStudent ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500">
+                          {dossierDepartments.find((department) => department.id === selectedFiliere)?.name} / Dossier candidat
+                        </p>
+                        <h2 className="text-lg font-black text-slate-900">
+                          {selectedStudent.name || `${selectedStudent.candidatureData?.prenoms || ''} ${selectedStudent.candidatureData?.nom || ''}`.trim() || 'Candidat'}
+                        </h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudent(null)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <ArrowLeft size={16} />
+                        Retour aux candidats
+                      </button>
+                    </div>
 
-                {selectedFiliere === 'all' && (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {dossierDepartmentCounts.map((department) => (
-                    <button
-                      key={department.id}
-                      type="button"
-                      onClick={() => setSelectedFiliere(department.id)}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:bg-slate-50"
-                    >
-                      <span className="rounded-xl bg-slate-100 p-2 text-slate-700">
-                        <FolderOpen size={20} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-slate-900">{department.name}</span>
-                        <span className="text-xs text-slate-500">{department.count} dossier(s) en attente</span>
-                      </span>
-                    </button>
-                  ))}
-                  </div>
-                )}
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                        <div className="relative flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-100 text-2xl font-black text-blue-700">
+                          <span aria-hidden="true">{(selectedStudent.name || selectedStudent.candidatureData?.nom || 'C').slice(0, 2).toUpperCase()}</span>
+                          {selectedStudent.photo && (
+                            <img
+                              src={selectedStudent.photo}
+                              alt={`Photo de ${selectedStudent.name || 'la candidate ou du candidat'}`}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-xl font-black text-slate-900">
+                            {selectedStudent.name || `${selectedStudent.candidatureData?.prenoms || ''} ${selectedStudent.candidatureData?.nom || ''}`.trim() || 'Candidat'}
+                          </h3>
+                          <p className="mt-1 break-all text-sm text-slate-500">{selectedStudent.email}</p>
+                          <p className="mt-2 font-mono text-xs font-bold text-blue-700">N° de dossier : {selectedStudent.dossierNumero || 'Non attribué'}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {getStudentFilieres(selectedStudent).map((choice) => (
+                              <span key={choice} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
+                                {choice}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
 
-                {filteredDossiers.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-                    {selectedFiliere === 'all'
-                      ? 'Aucun dossier en attente pour le moment. Tous les dossiers ont été traités.'
-                      : `Aucun dossier en attente pour la filière « ${dossierDepartments.find((department) => department.id === selectedFiliere)?.name || selectedFiliere} ».`}
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredDossiers.map((student) => (
-                            <div key={student.email} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                              <div>
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-xs font-bold text-slate-500">{student.dossierNumero || 'N/A'}</span>
-                                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-                                    En attente
-                                  </span>
+                    <div className="space-y-4">
+                      {candidatureFieldGroups.map((group) => (
+                        <section key={group.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <h3 className="mb-4 text-sm font-black text-slate-900">{group.title}</h3>
+                          {group.fields.length > 0 ? (
+                            <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                              {group.fields.map((field) => (
+                                <div key={field} className="min-w-0">
+                                  <dt className="text-xs font-medium text-slate-500">{candidatureFieldLabels[field] || field}</dt>
+                                  <dd className="mt-1 break-words text-sm font-semibold text-slate-800">
+                                    {formatCandidatureValue(field, selectedStudent.candidatureData?.[field])}
+                                  </dd>
                                 </div>
-                                <div className="mt-3">
-                                  <h4 className="font-black text-slate-900">{student.name || 'Candidat'}</h4>
-                                  <p className="text-xs text-slate-500">{student.email}</p>
-                                </div>
-                                <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">
-                                  <p className="font-semibold text-slate-500">Filière(s) choisie(s)</p>
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {getStudentFilieres(student).map((choice) => (
-                                      <span key={choice} className="rounded-full bg-white px-2 py-1 font-semibold text-slate-800 ring-1 ring-slate-200">
-                                        {choice}
-                                      </span>
-                                    ))}
+                              ))}
+                            </dl>
+                          ) : (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {(selectedStudent.candidatureData?.cursus || [])
+                                .filter((row) => Object.values(row).some((value) => typeof value === 'string' && value.trim()))
+                                .map((row, index) => (
+                                  <div key={`${row.annee}-${index}`} className="rounded-xl bg-slate-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Parcours {index + 1}</p>
+                                    <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                                      {([
+                                        ['Année', row.annee],
+                                        ['Établissement', row.etablissement],
+                                        ['Ville', row.ville],
+                                        ['Classe', row.classe],
+                                        ['Diplôme', row.diplome],
+                                      ] as const).map(([label, value]) => (
+                                        <div key={label}>
+                                          <dt className="text-xs text-slate-500">{label}</dt>
+                                          <dd className="text-sm font-semibold text-slate-800">{value || 'Non renseigné'}</dd>
+                                        </div>
+                                      ))}
+                                    </dl>
                                   </div>
-                                  <p className="mt-2">
-                                    <span className="text-slate-400">Niveau :</span>{' '}
-                                    <span className="font-semibold text-slate-800">{student.niveau || 'Non renseigné'}</span>
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedStudent(student)}
-                                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2 text-xs font-bold text-white transition hover:bg-blue-600"
-                                >
-                                  <Eye size={14} />
-                                  <span>Examiner &amp; Valider</span>
-                                </button>
-                              </div>
+                                ))}
+                              {!selectedStudent.candidatureData?.cursus?.some((row) => Object.values(row).some((value) => typeof value === 'string' && value.trim())) && (
+                                <p className="text-sm text-slate-500">Aucun parcours antérieur renseigné.</p>
+                              )}
                             </div>
-                    ))}
-                  </div>
+                          )}
+                        </section>
+                      ))}
+                    </div>
+
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <h3 className="text-sm font-black text-slate-900">Documents justificatifs</h3>
+                      {selectedStudent.documents?.length ? (
+                        <div className="mt-3 space-y-2">
+                          {selectedStudent.documents.map((doc, index) => {
+                            const source = doc.url || doc.data || '';
+                            return (
+                              <div key={`${doc.name}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
+                                <div className="flex min-w-0 items-center gap-2 text-slate-700">
+                                  <FileCheck2 size={16} className="shrink-0 text-blue-600" />
+                                  <span className="truncate font-medium">{doc.name}</span>
+                                </div>
+                                {source ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewingDocument({ name: doc.name, url: source, type: doc.type })}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                                  >
+                                    <Eye size={13} />
+                                    Prévisualiser
+                                  </button>
+                                ) : (
+                                  <span className="text-xs italic text-slate-400">Fichier non disponible</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm italic text-slate-500">Aucun document justificatif joint.</p>
+                      )}
+                    </section>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">En attente d&apos;examen</span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={isUpdatingDossier}
+                          onClick={() => updateStudentStatus(selectedStudent.email, 'valide')}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <CheckCircle2 size={15} />
+                          Valider le dossier
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUpdatingDossier}
+                          onClick={() => updateStudentStatus(selectedStudent.email, 'refuse')}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <X size={15} />
+                          Refuser &amp; archiver
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-lg font-black text-slate-900">
+                          {selectedFiliere === 'all'
+                            ? 'Dossiers de candidature par filière'
+                            : dossierDepartments.find((department) => department.id === selectedFiliere)?.name}
+                        </h2>
+                        <span className="text-xs text-slate-500">
+                          {profilesLoading
+                            ? 'Chargement des dossiers...'
+                            : selectedFiliere === 'all'
+                            ? `${pendingDossiers.length} dossier(s) à classer`
+                            : `${filteredDossiers.length} dossier(s) candidat`}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProfilesRefreshKey((current) => current + 1)}
+                          disabled={profilesLoading}
+                          className="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          <RefreshCw size={16} className={profilesLoading ? 'animate-spin' : ''} />
+                          Actualiser
+                        </button>
+                        {selectedFiliere !== 'all' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFiliere('all')}
+                          className="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <ArrowLeft size={16} />
+                          Retour aux filières
+                        </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {profilesLoading ? (
+                      <div role="status" className="rounded-2xl border border-blue-100 bg-blue-50 p-8 text-center text-sm font-medium text-blue-800">
+                        Chargement des dossiers candidats...
+                      </div>
+                    ) : profilesError ? (
+                      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+                        <p className="text-sm font-semibold text-red-800">{profilesError}</p>
+                        <button
+                          type="button"
+                          onClick={() => setProfilesRefreshKey((current) => current + 1)}
+                          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800"
+                        >
+                          <RefreshCw size={15} />
+                          Réessayer
+                        </button>
+                      </div>
+                    ) : selectedFiliere === 'all' ? (
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {dossierDepartmentCounts.map((department) => (
+                          <button
+                            key={department.id}
+                            type="button"
+                            onClick={() => setSelectedFiliere(department.id)}
+                            className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:bg-slate-50"
+                          >
+                            <span className="rounded-xl bg-slate-100 p-2 text-slate-700">
+                              <FolderOpen size={20} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-bold text-slate-900">{department.name}</span>
+                              <span className="text-xs text-slate-500">{department.count} dossier(s) en attente</span>
+                            </span>
+                            <ChevronRight size={18} className="text-slate-400" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : filteredDossiers.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
+                        Aucun dossier en attente pour cette filière.
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {filteredDossiers.map((student) => {
+                          const folderName = student.name || `${student.candidatureData?.prenoms || ''} ${student.candidatureData?.nom || ''}`.trim() || 'Candidat';
+                          return (
+                            <button
+                              key={student.email}
+                              type="button"
+                              onClick={() => setSelectedStudent(student)}
+                              className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                            >
+                              <span className="rounded-xl bg-amber-50 p-3 text-amber-600 transition group-hover:bg-blue-50 group-hover:text-blue-700">
+                                <Folder size={22} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold text-slate-900">{folderName}</span>
+                                <span className="block truncate text-xs text-slate-500">{student.email}</span>
+                                <span className="mt-1 block font-mono text-[11px] text-slate-400">{student.dossierNumero || 'Dossier candidat'}</span>
+                              </span>
+                              <ChevronRight size={18} className="shrink-0 text-slate-400 transition group-hover:text-blue-600" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -880,109 +1132,6 @@ export default function StaffDashboard({ role }: { role: Role }) {
           </div>
         )}
       </section>
-
-      {/* ── MODAL EXAMEN DE DOSSIER ÉTUDIANT (SCOLARITÉ) ── */}
-      {selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 sm:p-6 backdrop-blur-sm">
-          <div className="relative my-4 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 sm:p-8 shadow-2xl">
-            <button
-              onClick={() => setSelectedStudent(null)}
-              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-black text-xl shrink-0">
-                {(selectedStudent.name || 'C').slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-900">{selectedStudent.name || 'Candidat'}</h3>
-                <p className="text-xs text-slate-500">{selectedStudent.email}</p>
-                <span className="mt-1 inline-block font-mono text-xs font-bold text-blue-600">{selectedStudent.dossierNumero || 'N/A'}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-2">
-              <div>
-                <span className="text-slate-400">Filière demandée</span>
-                <p className="font-semibold text-slate-800">{getStudentFilieres(selectedStudent).join(' • ') || 'Non renseignée'}</p>
-              </div>
-              <div>
-                <span className="text-slate-400">Niveau d&apos;études</span>
-                <p className="font-semibold text-slate-800">{selectedStudent.niveau || 'Non renseigné'}</p>
-              </div>
-              <div>
-                <span className="text-slate-400">Téléphone</span>
-                <p className="font-semibold text-slate-800">{selectedStudent.phone || 'Non renseigné'}</p>
-              </div>
-            </div>
-
-            {/* Documents justificatifs avec bouton Voir ouvrant la boîte de dialogue */}
-            <div className="mt-6">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Documents justificatifs</h4>
-              {selectedStudent.documents?.length ? (
-                <div className="mt-2 space-y-2">
-                  {selectedStudent.documents.map((doc, i) => {
-                    const source = doc.url || doc.data || '';
-                    return (
-                      <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 p-3 text-xs font-medium text-slate-700">
-                        <div className="flex items-center gap-2 truncate">
-                          <FileCheck2 size={16} className="text-blue-600 shrink-0" />
-                          <span className="truncate">{doc.name}</span>
-                        </div>
-                        {source ? (
-                          <button
-                            type="button"
-                            onClick={() => setViewingDocument({ name: doc.name, url: source, type: doc.type })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
-                          >
-                            <Eye size={13} />
-                            Voir
-                          </button>
-                        ) : (
-                          <span className="text-slate-400 italic">Non disponible</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="mt-2 text-xs italic text-slate-400">Aucun document justificatif joint.</p>
-              )}
-            </div>
-
-            {/* Actions de validation avec archivage automatique sur refus et mail de notification */}
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-                En attente d&apos;examen
-              </span>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={async () => {
-                    await updateStudentStatus(selectedStudent.email, 'valide');
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-700 transition"
-                >
-                  <CheckCircle2 size={15} />
-                  Valider le dossier
-                </button>
-
-                <button
-                  onClick={async () => {
-                    await updateStudentStatus(selectedStudent.email, 'refuse');
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-red-700 transition"
-                >
-                  <X size={15} />
-                  Refuser &amp; Archiver
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── MODAL DIALOGUE DE PRÉVISUALISATION DES PIÈCES JOINTES ── */}
       {viewingDocument && (
