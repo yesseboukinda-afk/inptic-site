@@ -247,13 +247,26 @@ export default function Suivi() {
   const hasLegacyApplication = Boolean(profile.admissionWorkflow?.applicationCompletedAt) &&
     !profile.admissionWorkflow?.documentReview?.submittedAt;
   const documentsApproved = hasApprovedPreAdmissionDocuments(profile) || hasLegacyApplication;
+  const completedJourneySteps = [
+    'account' as const,
+    ...(isPreRegistered ? ['opening' as const, 'contest' as const, 'preRegistration' as const] : []),
+    ...(isApplicationComplete ? ['dossier' as const] : []),
+    ...(isPaid ? ['payment' as const] : []),
+  ];
+  const currentJourneyStep = !isPreRegistered
+    ? 'preRegistration'
+    : !isApplicationComplete
+        ? 'dossier'
+        : !isPaid
+          ? 'payment'
+          : undefined;
   const uploadedCategories = new Set(
     (profile.documents || []).map((document) => document.category || document.name.split(' - ')[0]),
   );
   const missingDocuments = REQUIRED_ADMISSION_DOCUMENTS.filter((category) => !uploadedCategories.has(category));
   const concoursSlug = profile.admissionWorkflow?.preRegistration?.concoursSlug || '';
   const nextStep = !isPreRegistered
-    ? { message: 'Vous n’avez pas encore effectué votre préinscription. Commencez par sélectionner le concours ouvert.', href: '/admissions/depot', label: 'Commencer la préinscription' }
+    ? { message: 'La session ouverte sera sélectionnée automatiquement. Effectuez votre préinscription pour commencer le dépôt du dossier.', href: '/admissions/depot', label: 'Me préinscrire' }
     : reviewStatus === 'pending'
       ? { message: 'Vos pièces sont en cours de vérification par la Scolarité. Vous recevrez une notification après leur examen.', href: null, label: '' }
       : reviewStatus === 'correction_requested'
@@ -265,7 +278,7 @@ export default function Suivi() {
             href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`,
             label: 'Continuer le dépôt de dossier' }
           : !isApplicationComplete
-            ? { message: 'Vos pièces sont validées. Il vous reste à compléter et envoyer le formulaire officiel de candidature.', href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`, label: 'Compléter mon dossier' }
+            ? { message: 'Les pièces sont validées. Terminez le formulaire et envoyez votre dossier pour atteindre 100 %.', href: `/admissions/depot?concours=${encodeURIComponent(concoursSlug)}`, label: 'Continuer le dépôt du dossier' }
             : isRefuse
               ? { message: 'La Scolarité a rendu une décision sur votre dossier. Consultez les notifications reçues ou contactez le service pour connaître la suite.', href: null, label: '' }
               : !isPaid
@@ -274,30 +287,31 @@ export default function Suivi() {
                   ? { message: 'Votre paiement est enregistré. Votre dossier est en attente de vérification finale par la Scolarité.', href: null, label: '' }
                   : { message: 'Toutes les étapes sont terminées. Votre dossier est validé par la Scolarité.', href: null, label: '' };
   const journeySteps: JourneyStep[] = [
-    { title: 'Compte candidat', description: 'Compte activé et connecté', state: 'done' },
+    { title: 'Création du compte candidat', description: 'Compte créé', state: 'done' },
+    { title: 'Activation du compte', description: 'Adresse e-mail vérifiée', state: 'done' },
     {
-      title: 'Préinscription au concours',
-      description: isPreRegistered ? `Enregistrée${profile.admissionWorkflow?.preRegistration?.completedAt ? ` le ${new Date(profile.admissionWorkflow.preRegistration.completedAt).toLocaleDateString('fr-GA')}` : ''}` : 'À effectuer',
+      title: 'Session ouverte automatiquement',
+      description: isPreRegistered ? 'Session rattachée à votre candidature' : 'En attente de la session ouverte',
       state: isPreRegistered ? 'done' : 'current',
     },
     {
-      title: 'Pièces justificatives',
+      title: 'Préinscription au concours',
+      description: isPreRegistered ? `Enregistrée${profile.admissionWorkflow?.preRegistration?.completedAt ? ` le ${new Date(profile.admissionWorkflow.preRegistration.completedAt).toLocaleDateString('fr-GA')}` : ''}` : 'À effectuer lorsque la session est ouverte',
+      state: isPreRegistered ? 'done' : 'upcoming',
+    },
+    {
+      title: 'Dépôt du dossier (étape 5)',
       description: reviewStatus === 'pending'
-        ? 'En cours de vérification par la Scolarité'
+        ? 'Pièces transmises, vérification de la Scolarité en cours'
         : reviewStatus === 'correction_requested'
-          ? 'Corrections demandées'
+          ? 'Corrections demandées sur les pièces'
           : documentsApproved
-            ? 'Validées par la Scolarité'
-            : `${uploadedCategories.size} / ${REQUIRED_ADMISSION_DOCUMENTS.length} pièces transmises`,
-      state: !isPreRegistered ? 'upcoming' : reviewStatus === 'correction_requested' ? 'attention' : reviewStatus === 'pending' ? 'current' : documentsApproved ? 'done' : 'current',
+            ? isApplicationComplete ? 'Dossier complet à 100 %, pièces validées et formulaire envoyé' : 'Pièces validées, formulaire à compléter'
+            : `${uploadedCategories.size} / ${REQUIRED_ADMISSION_DOCUMENTS.length} pièces ajoutées au dossier`,
+      state: !isPreRegistered ? 'upcoming' : reviewStatus === 'correction_requested' ? 'attention' : isApplicationComplete ? 'done' : 'current',
     },
     {
-      title: 'Formulaire de candidature',
-      description: isApplicationComplete ? 'Candidature envoyée' : 'À compléter après validation des pièces',
-      state: isApplicationComplete ? 'done' : !documentsApproved ? 'upcoming' : 'current',
-    },
-    {
-      title: 'Paiement des frais de dossier',
+      title: 'Paiement des frais (étape 6)',
       description: isPaid ? 'Paiement confirmé' : profile.paymentStatus === 'pending' ? 'Confirmation en attente' : profile.paymentStatus === 'failed' ? 'Paiement refusé ou échoué' : 'En attente',
       state: isPaid ? 'done' : !isApplicationComplete ? 'upcoming' : profile.paymentStatus === 'failed' ? 'attention' : 'current',
     },
@@ -328,7 +342,11 @@ export default function Suivi() {
       </section>
 
       <section className="py-8">
-        <AdmissionJourneyNavigation current="tracking" />
+        <AdmissionJourneyNavigation
+          current={currentJourneyStep}
+          completed={completedJourneySteps}
+          paymentUnlocked={isApplicationComplete}
+        />
       </section>
 
       <section className="container-x mt-8 px-4 md:px-0 max-w-4xl mx-auto space-y-6">

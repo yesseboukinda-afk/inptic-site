@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, ShieldCheck, FolderOpen } from 'lucide-react';
+import { CalendarDays, FileCheck2, LogOut, Plus, Upload, Users, ClipboardList, CheckCircle2, X, Eye, Bell, Award, ShieldCheck, FolderOpen, ArrowLeft } from 'lucide-react';
 import { ChangeEvent, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { canAccessStaffService, getRolePath, isSuperAdminRole } from '@/lib/roles';
@@ -254,36 +254,26 @@ export default function StaffDashboard({ role }: { role: Role }) {
     return { total, enAttente, valides, refuses };
   }, [students]);
 
-  const filteredDossiers = useMemo(() => {
+  const pendingDossiers = useMemo(() => {
     return students.filter((student) => {
       if (student.status === 'valide' || student.status === 'refuse' || student.isArchived) return false;
-      if (selectedFiliere === 'all') return true;
-      return getStudentDossierDepartments(student).includes(selectedFiliere);
+      return true;
     });
-  }, [students, selectedFiliere]);
+  }, [students]);
 
-  const dossiersByFiliere = useMemo(() => {
-    const groups = new Map<string, Student[]>();
-    filteredDossiers.forEach((student) => {
-      const departmentIds = getStudentDossierDepartments(student);
-      const groupsForStudent = selectedFiliere === 'all'
-        ? departmentIds
-        : departmentIds.filter((departmentId) => departmentId === selectedFiliere);
-      const groupIds = groupsForStudent.length ? groupsForStudent : selectedFiliere === 'all' ? ['non-classe'] : [];
-      groupIds.forEach((departmentId) => {
-        const groupName = dossierDepartments.find((item) => item.id === departmentId)?.name || 'Filière non renseignée';
-        groups.set(groupName, [...(groups.get(groupName) || []), student]);
-      });
-    });
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, 'fr'));
-  }, [filteredDossiers, selectedFiliere]);
+  const filteredDossiers = useMemo(
+    () => selectedFiliere === 'all'
+      ? pendingDossiers
+      : pendingDossiers.filter((student) => getStudentDossierDepartments(student).includes(selectedFiliere)),
+    [pendingDossiers, selectedFiliere],
+  );
 
   const dossierDepartmentCounts = useMemo(
     () => dossierDepartments.map((department) => ({
       ...department,
-      count: filteredDossiers.filter((student) => getStudentDossierDepartments(student).includes(department.id)).length,
+      count: pendingDossiers.filter((student) => getStudentDossierDepartments(student).includes(department.id)).length,
     })),
-    [filteredDossiers],
+    [pendingDossiers],
   );
 
   const pendingPreAdmissionReviews = useMemo(
@@ -692,7 +682,7 @@ export default function StaffDashboard({ role }: { role: Role }) {
                 }`}
               >
                 <ClipboardList size={15} />
-                <span>Dossiers d&apos;admission ({filteredDossiers.length})</span>
+                <span>Dossiers d&apos;admission ({pendingDossiers.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('preinscriptions')}
@@ -727,29 +717,39 @@ export default function StaffDashboard({ role }: { role: Role }) {
               <div className="space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-lg font-black text-slate-900">Dossiers de candidature par filière</h2>
-                    <span className="text-xs text-slate-500">{filteredDossiers.length} dossier(s) à traiter</span>
+                    <h2 className="text-lg font-black text-slate-900">
+                      {selectedFiliere === 'all'
+                        ? 'Dossiers de candidature par filière'
+                        : dossierDepartments.find((department) => department.id === selectedFiliere)?.name}
+                    </h2>
+                    <span className="text-xs text-slate-500">
+                      {selectedFiliere === 'all'
+                        ? `${pendingDossiers.length} dossier(s) à classer`
+                        : `${filteredDossiers.length} candidat(s) dans cette filière`}
+                    </span>
                   </div>
+                  {selectedFiliere !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFiliere('all')}
+                      className="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <ArrowLeft size={16} />
+                      Retour aux filières
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {selectedFiliere === 'all' && (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {dossierDepartmentCounts.map((department) => (
                     <button
                       key={department.id}
                       type="button"
-                      aria-pressed={selectedFiliere === department.id}
-                      onClick={() => setSelectedFiliere(
-                        selectedFiliere === department.id ? 'all' : department.id
-                      )}
-                      className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                        selectedFiliere === department.id
-                          ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-100'
-                          : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
-                      }`}
+                      onClick={() => setSelectedFiliere(department.id)}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:bg-slate-50"
                     >
-                      <span className={`rounded-xl p-2 ${
-                        selectedFiliere === department.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
-                      }`}>
+                      <span className="rounded-xl bg-slate-100 p-2 text-slate-700">
                         <FolderOpen size={20} />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -758,7 +758,8 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       </span>
                     </button>
                   ))}
-                </div>
+                  </div>
+                )}
 
                 {filteredDossiers.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
@@ -767,15 +768,8 @@ export default function StaffDashboard({ role }: { role: Role }) {
                       : `Aucun dossier en attente pour la filière « ${dossierDepartments.find((department) => department.id === selectedFiliere)?.name || selectedFiliere} ».`}
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    {dossiersByFiliere.map(([filiere, groupStudents]) => (
-                      <section key={filiere} className="space-y-3">
-                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                          <h3 className="font-bold text-slate-800">{filiere}</h3>
-                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800">{groupStudents.length} dossier(s)</span>
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {groupStudents.map((student) => (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredDossiers.map((student) => (
                             <div key={student.email} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                               <div>
                                 <div className="flex items-center justify-between gap-2">
@@ -815,9 +809,6 @@ export default function StaffDashboard({ role }: { role: Role }) {
                                 </button>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </section>
                     ))}
                   </div>
                 )}

@@ -21,6 +21,7 @@ import {
   hasCompletedAdmissionPreRegistration,
   hasCompleteAdmissionDossier,
 } from '@/lib/admissionsWorkflow';
+import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation';
 
 type CandidateProfile = {
   name: string;
@@ -32,6 +33,10 @@ type CandidateProfile = {
     preRegistration?: {
       concoursSlug?: string;
       completedAt?: string;
+    };
+    documentReview?: {
+      submittedAt?: string;
+      status?: 'pending' | 'approved' | 'correction_requested';
     };
     applicationCompletedAt?: string;
   };
@@ -225,6 +230,14 @@ export default function PaiementPage() {
   }
 
   const isPaid = profile.paymentStatus === 'paid' || pollingStatus === 'success';
+  const isPreRegistered = hasCompletedAdmissionPreRegistration(profile);
+  const isDossierComplete = hasCompleteAdmissionDossier(profile);
+  const completedJourneySteps = [
+    'account' as const,
+    ...(isPreRegistered ? ['opening' as const, 'contest' as const, 'preRegistration' as const] : []),
+    ...(isDossierComplete ? ['dossier' as const] : []),
+    ...(isPaid ? ['payment' as const] : []),
+  ];
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://inptic.ga');
   const verificationUrl = `${siteUrl}/quittance/${profile.paymentReference || profile.paymentTransactionId || 'OFFICIEL'}`;
   const quittanceQrSvg = generateQRCodeSVG(verificationUrl, { size: 160 });
@@ -244,6 +257,14 @@ export default function PaiementPage() {
         </div>
       </section>
 
+      <section className="py-8">
+        <AdmissionJourneyNavigation
+          current={isPaid ? undefined : 'payment'}
+          completed={completedJourneySteps}
+          paymentUnlocked={isDossierComplete}
+        />
+      </section>
+
       <section className="container-x mt-8 px-4 md:px-0 max-w-3xl mx-auto space-y-6">
         {/* Banner Accusé de réception */}
         <div className="rounded-3xl border border-emerald-300 bg-emerald-50 p-6 shadow-sm">
@@ -253,14 +274,14 @@ export default function PaiementPage() {
             </div>
             <div>
               <span className="inline-block rounded-full bg-emerald-200/80 px-3 py-0.5 text-xs font-bold text-emerald-900 uppercase">
-                Accusé de Réception E-mail Envoyé
+                Dossier complet à 100 %
               </span>
               <h2 className="mt-2 text-xl font-black text-slate-900">
-                Dossier Réceptionné &amp; Accusé de Réception Émis
+                Paiement débloqué
               </h2>
               <p className="mt-1 text-xs text-slate-700 leading-relaxed">
-                Un e-mail de confirmation a été envoyé en temps réel à <strong className="text-slate-900">{profile.email}</strong>.
-                Vous êtes autorisé à procéder au règlement sécurisé des frais de dossier (<strong>20 000 FCFA</strong>).
+                Votre préinscription, vos pièces validées et votre formulaire sont complets.
+                Vous pouvez maintenant régler les frais de dossier (<strong>20 000 FCFA</strong>).
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-800">
                 <span>Numéro de dossier :</span>

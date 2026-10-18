@@ -719,7 +719,7 @@ const pageSpecificTranslations = {
     depotPage: {
       portal: "Portail Officiel d'Admission INPTIC",
       title: "Dépôt de Dossier de Candidature",
-      intro: "Remplissez le formulaire officiel de candidature et téléversez vos pièces justificatives. Un accusé de réception vous autorisera à régler vos frais de dossier.",
+      intro: "Après votre préinscription automatique à la session ouverte et la validation de vos pièces, complétez le formulaire officiel. Le paiement s’ouvre uniquement lorsque le dossier est complet à 100 %.",
       loginRequired: "Connexion au compte requise",
       loginDesc: "Veuillez vous connecter à votre compte candidat ou créer un compte avant de remplir et soumettre votre dossier de candidature.",
       loginBtn: "Se connecter / S'inscrire",

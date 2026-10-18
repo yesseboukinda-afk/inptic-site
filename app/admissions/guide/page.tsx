@@ -8,43 +8,33 @@ import AdmissionJourneyNavigation from '@/components/AdmissionJourneyNavigation'
 const admissionSteps = [
   {
     number: '01',
-    title: 'Consulter le concours ouvert',
-    text: 'Consultez la page Concours pour vérifier la session publiée par l’administration, ses dates de préinscription, la date des épreuves et les documents officiels. Seule une session marquée ouverte et dans sa période permet de commencer une candidature.',
+    title: 'Créer votre compte candidat',
+    text: 'Créez votre compte depuis la page de connexion/inscription avec votre nom, votre adresse e-mail et un mot de passe.',
   },
   {
     number: '02',
-    title: 'Créer et activer votre compte candidat',
-    text: 'Créez un compte depuis la page de connexion/inscription avec votre nom, votre adresse e-mail et un mot de passe. Ouvrez l’e-mail de confirmation et cliquez sur son lien pour activer le compte. Si le message n’apparaît pas, vérifiez les courriers indésirables.',
+    title: 'Attendre l’ouverture des préinscriptions',
+    text: 'Votre compte est utilisable dès sa création, sans confirmation par e-mail. La préinscription devient possible lorsque l’administration ouvre une session de concours.',
   },
   {
     number: '03',
-    title: 'Se préinscrire à la session',
-    text: 'Connectez-vous puis cliquez sur « Me préinscrire ». Le site rattache automatiquement votre compte à l’unique concours actuellement ouvert. Vérifiez le titre, l’année et les dates affichés avant de confirmer.',
+    title: 'Utiliser la session sélectionnée automatiquement',
+    text: 'Dès qu’une session est ouverte, le site la sélectionne automatiquement. Vous n’avez pas à choisir le concours dans une liste : consultez simplement ses dates et ses conditions.',
   },
   {
     number: '04',
-    title: 'Déposer les pièces pour vérification',
-    text: 'Transmettez les pièces demandées à l’écran : acte de naissance ou CNI, baccalauréat/attestation/certificat de scolarité en Terminale, et relevé de notes officiel. Les fichiers acceptés sont PDF, JPG, PNG ou WebP, dans la limite indiquée dans le formulaire.',
+    title: 'Se préinscrire',
+    text: 'Connectez-vous à votre compte puis cliquez sur « Me préinscrire ». Votre compte est automatiquement rattaché à la session ouverte. Cette étape est obligatoire avant le dépôt.',
   },
   {
     number: '05',
-    title: 'Attendre la vérification de la Scolarité',
-    text: 'Après transmission, les pièces passent « En cours de vérification ». La Scolarité peut les valider ou demander une correction avec un commentaire. En cas de correction, retournez au dépôt, remplacez les pièces concernées et transmettez-les à nouveau. Le formulaire officiel reste verrouillé jusqu’à validation.',
+    title: 'Déposer le dossier de candidature complet',
+    text: 'Transmettez l’acte de naissance ou la CNI, le baccalauréat ou justificatif de scolarité en Terminale et le relevé de notes officiel. La Scolarité vérifie les pièces et peut demander une correction. Après validation, complétez le formulaire officiel (filière, identité, coordonnées, cursus et contact d’urgence), puis envoyez le dossier. Ces sous-étapes constituent un seul dépôt et doivent être terminées pour atteindre 100 %.',
   },
   {
     number: '06',
-    title: 'Compléter et envoyer le formulaire officiel',
-    text: 'Après validation des pièces, renseignez le formulaire : filière(s), identité et naissance, coordonnées, baccalauréat et année, cursus scolaire, personne à contacter en urgence, puis certification de l’exactitude des informations. Vérifiez les champs obligatoires avant l’envoi.',
-  },
-  {
-    number: '07',
-    title: 'Régler les frais de dossier',
-    text: 'Lorsque le formulaire et les pièces sont complets, procédez au paiement en ligne de 20 000 FCFA par Airtel Money ou Moov Money. Saisissez le numéro à débiter et validez la demande sur votre téléphone. Le suivi indique si le paiement est en attente, confirmé ou échoué.',
-  },
-  {
-    number: '08',
-    title: 'Suivre l’examen final et consulter les résultats',
-    text: 'Depuis Suivi, consultez les étapes terminées, en cours ou nécessitant une action. Après le paiement, la Scolarité effectue l’examen final du dossier. Les résultats officiels du concours sont publiés dans l’onglet Résultats de la page Concours après leur proclamation.',
+    title: 'Régler les frais de dossier — dernière étape',
+    text: 'Le paiement de 20 000 FCFA par Airtel Money ou Moov Money se débloque uniquement lorsque le dossier est complet à 100 % : préinscription enregistrée, pièces validées et formulaire officiel envoyé. Validez ensuite la demande sur votre téléphone.',
   },
 ];
 
@@ -75,7 +65,7 @@ export default function GuideAdmission() {
       </section>
 
       <div className="py-8">
-        <AdmissionJourneyNavigation current="guide" />
+        <AdmissionJourneyNavigation />
       </div>
 
       <section className="mx-auto max-w-6xl px-4 pb-8 md:px-8">
@@ -85,7 +75,7 @@ export default function GuideAdmission() {
             <div>
               <h2 className="text-lg font-black text-slate-900">Avant de commencer</h2>
               <p className="mt-2 text-sm leading-6 text-slate-700">
-                Les dates d’ouverture, de clôture et des épreuves sont celles publiées par l’administration sur la fiche de la session. Une préinscription n’est possible que pendant la période ouverte. Préparez des fichiers lisibles et vérifiez que votre compte utilise une adresse e-mail à laquelle vous avez accès.
+                Votre compte est activé immédiatement, sans validation de l’adresse e-mail. Les dates d’ouverture, de clôture et des épreuves sont celles publiées par l’administration sur la fiche de la session. Une préinscription n’est possible que pendant la période ouverte. Préparez des fichiers lisibles et utilisez une adresse e-mail valide pour recevoir les informations relatives à votre dossier.
               </p>
             </div>
           </div>
@@ -95,9 +85,9 @@ export default function GuideAdmission() {
       <section className="mx-auto max-w-6xl px-4 py-8 md:px-8">
         <div className="mb-8">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">Parcours candidat</p>
-          <h2 className="mt-2 text-3xl font-black text-slate-900">De la préinscription à la décision</h2>
+          <h2 className="mt-2 text-3xl font-black text-slate-900">Les six étapes de l’inscription</h2>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-            Suivez les étapes dans l’ordre. Le bouton « Suivi » reste accessible à tout moment et vous indique ce qu’il reste à faire.
+            Le dépôt est l’étape 5. Le paiement est l’étape 6 et ne s’ouvre qu’après la complétion du dossier à 100 %. Après le paiement, utilisez la page Suivi pour consulter l’examen final et les résultats.
           </p>
         </div>
         <ol className="space-y-4">

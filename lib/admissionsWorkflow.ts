@@ -77,37 +77,46 @@ export function hasApprovedPreAdmissionDocuments(profile: AdmissionWorkflowProfi
   return profile?.admissionWorkflow?.documentReview?.status === 'approved';
 }
 
-export function hasCompleteAdmissionDossier(profile: AdmissionWorkflowProfile | null | undefined) {
-  if (profile?.admissionWorkflow?.documentReview?.submittedAt && !hasApprovedPreAdmissionDocuments(profile)) {
-    return false;
-  }
-  if (!profile?.admissionWorkflow?.applicationCompletedAt) return false;
+export function getAdmissionDossierCompletionPercent(profile: AdmissionWorkflowProfile | null | undefined) {
   const values = profile?.candidatureData;
-  if (!values) return false;
-
-  const requiredValuesPresent =
-    Array.isArray(values.filieresInitiale) &&
-    Array.isArray(values.filieresContinue) &&
-    (values.filieresInitiale.length > 0 || values.filieresContinue.length > 0) &&
-    typeof values.nom === 'string' && Boolean(values.nom.trim()) &&
-    typeof values.prenoms === 'string' && Boolean(values.prenoms.trim()) &&
-    typeof values.dateNaissance === 'string' && Boolean(values.dateNaissance) &&
-    typeof values.lieuNaissance === 'string' && Boolean(values.lieuNaissance.trim()) &&
-    (values.nationalite !== 'autre' || (typeof values.nationaliteAutre === 'string' && Boolean(values.nationaliteAutre.trim()))) &&
-    typeof values.telephone1 === 'string' && Boolean(values.telephone1.trim()) &&
-    typeof values.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email) &&
-    typeof values.baccalaureat === 'string' && Boolean(values.baccalaureat.trim()) &&
-    typeof values.anneeBac === 'string' && /^\d{4}$/.test(values.anneeBac) &&
-    typeof values.urgenceNom === 'string' && Boolean(values.urgenceNom.trim()) &&
-    typeof values.urgenceTelephone === 'string' && Boolean(values.urgenceTelephone.trim()) &&
-    values.certifie === true;
+  const hasSubmittedDocumentReview = Boolean(profile?.admissionWorkflow?.documentReview?.submittedAt);
+  const isLegacyApplication = Boolean(profile?.admissionWorkflow?.applicationCompletedAt) && !hasSubmittedDocumentReview;
+  const nationalityComplete = values?.nationalite !== 'autre' ||
+    (typeof values?.nationaliteAutre === 'string' && Boolean(values.nationaliteAutre.trim()));
+  const selectedFilieres = [
+    ...(Array.isArray(values?.filieresInitiale) ? values.filieresInitiale : []),
+    ...(Array.isArray(values?.filieresContinue) ? values.filieresContinue : []),
+  ];
 
   const uploadedCategories = new Set(
-    (profile.documents ?? []).map((document) => document.category || document.name?.split(' - ')[0] || '')
+    (profile?.documents ?? []).map((document) => document.category || document.name?.split(' - ')[0] || '')
   );
 
-  return requiredValuesPresent &&
-    REQUIRED_ADMISSION_DOCUMENTS.every((category) => uploadedCategories.has(category));
+  const requirements = [
+    hasCompletedAdmissionPreRegistration(profile),
+    selectedFilieres.some((filiere) => typeof filiere === 'string' && Boolean(filiere.trim())),
+    typeof values?.nom === 'string' && Boolean(values.nom.trim()),
+    typeof values?.prenoms === 'string' && Boolean(values.prenoms.trim()),
+    typeof values?.dateNaissance === 'string' && Boolean(values.dateNaissance),
+    typeof values?.lieuNaissance === 'string' && Boolean(values.lieuNaissance.trim()),
+    nationalityComplete,
+    typeof values?.telephone1 === 'string' && Boolean(values.telephone1.trim()),
+    typeof values?.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email),
+    typeof values?.baccalaureat === 'string' && Boolean(values.baccalaureat.trim()),
+    typeof values?.anneeBac === 'string' && /^\d{4}$/.test(values.anneeBac),
+    typeof values?.urgenceNom === 'string' && Boolean(values.urgenceNom.trim()),
+    typeof values?.urgenceTelephone === 'string' && Boolean(values.urgenceTelephone.trim()),
+    values?.certifie === true,
+    ...REQUIRED_ADMISSION_DOCUMENTS.map((category) => uploadedCategories.has(category)),
+    hasSubmittedDocumentReview ? hasApprovedPreAdmissionDocuments(profile) : isLegacyApplication,
+    Boolean(profile?.admissionWorkflow?.applicationCompletedAt),
+  ];
+  const completedRequirements = requirements.filter(Boolean).length;
+  return Math.floor((completedRequirements / requirements.length) * 100);
+}
+
+export function hasCompleteAdmissionDossier(profile: AdmissionWorkflowProfile | null | undefined) {
+  return getAdmissionDossierCompletionPercent(profile) === 100;
 }
 
 export function getCandidateJourneyPath(

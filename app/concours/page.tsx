@@ -166,7 +166,7 @@ export default function ConcoursPage() {
       if (error) throw error;
       const accessToken = data.session?.access_token;
       if (!accessToken) {
-        throw new Error('Votre compte a été créé, mais la session n’est pas encore active. Confirmez votre adresse e-mail, puis connectez-vous avant de vous préinscrire.');
+        throw new Error('Votre session a expiré. Connectez-vous à nouveau avant de vous préinscrire.');
       }
       const completedAt = new Date().toISOString();
       const response = await fetch('/api/concours/preinscriptions', {
@@ -592,7 +592,9 @@ export default function ConcoursPage() {
       </section>
 
       <section className="py-8">
-        <AdmissionJourneyNavigation current={activeTab === 'resultats' ? 'results' : 'concours'} />
+        <AdmissionJourneyNavigation
+          current={activeTab === 'resultats' ? undefined : currentConcours ? 'preRegistration' : 'opening'}
+        />
       </section>
 
       {!loading && (

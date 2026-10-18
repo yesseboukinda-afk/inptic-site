@@ -81,6 +81,7 @@ export const authClient = {
           password: input.password,
           name: input.options?.data?.name || input.options?.data?.full_name || '',
         });
+        if (result.session) notify('SIGNED_IN', result.session);
         return { data: result, error: null };
       } catch (error) {
         return { data: { user: null, session: null }, error: error instanceof Error ? error : new Error('Inscription impossible.') };

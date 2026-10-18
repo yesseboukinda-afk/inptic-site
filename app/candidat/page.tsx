@@ -478,8 +478,7 @@ export default function Candidat() {
       }
 
       if (!data.session) {
-        setMsg('Compte créé. Confirmez votre adresse e-mail depuis le message reçu : le lien activera votre compte et vous redirigera directement vers le dépôt de dossier.');
-        return;
+        throw new Error('Le compte a été créé, mais la session de connexion n’a pas pu être ouverte. Connectez-vous pour continuer.');
       }
 
       if (!data.user) {
@@ -527,7 +526,7 @@ export default function Candidat() {
         throw new Error(result.error || 'Le profil candidat n’a pas pu être sauvegardé.');
       }
 
-      setMsg('Inscription enregistrée. Votre dossier est en cours de traitement.');
+      setMsg('Compte candidat créé et connecté. Complétez maintenant votre dossier de candidature.');
       router.push(getCandidateDestination(profile));
     } catch (error) {
       const message = error instanceof Error ? translateAuthError(error.message, t) : t('auth.genericError');

@@ -13,6 +13,8 @@ import {
   getOpenAdmissionConcours,
   hasApprovedPreAdmissionDocuments,
   hasCompletedAdmissionPreRegistration,
+  hasCompleteAdmissionDossier,
+  getAdmissionDossierCompletionPercent,
   REQUIRED_ADMISSION_DOCUMENTS,
 } from '@/lib/admissionsWorkflow';
 
@@ -364,6 +366,10 @@ export default function DepotPage() {
       },
     };
 
+    if (!hasCompleteAdmissionDossier(updatedProfile)) {
+      throw new Error('Le dépôt ne peut pas être finalisé : vérifiez que votre préinscription est enregistrée, que vos pièces sont validées et que tous les champs obligatoires du formulaire sont renseignés.');
+    }
+
     const response = await fetch('/api/candidat/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -412,6 +418,25 @@ export default function DepotPage() {
   const canSubmitPreliminaryDocuments = REQUIRED_ADMISSION_DOCUMENTS.every((category) => uploadedCategories.has(category));
   const uploadedRequiredCount = REQUIRED_ADMISSION_DOCUMENTS.filter((category) => uploadedCategories.has(category)).length;
   const missingPreRegistration = currentUser && !hasCompletedAdmissionPreRegistration(currentUser);
+  const dossierCompletionPercent = getAdmissionDossierCompletionPercent(currentUser);
+  const paymentUnlocked = Boolean(currentUser && hasCompleteAdmissionDossier(currentUser));
+  const isPreRegistered = hasCompletedAdmissionPreRegistration(currentUser);
+  const completedJourneySteps = [
+    ...(currentUser ? ['account' as const] : []),
+    ...(openConcours.length || isPreRegistered ? ['opening' as const, 'contest' as const] : []),
+    ...(isPreRegistered ? ['preRegistration' as const] : []),
+    ...(paymentUnlocked ? ['dossier' as const] : []),
+    ...(currentUser?.paymentStatus === 'paid' ? ['payment' as const] : []),
+  ];
+  const currentJourneyStep = !currentUser
+    ? 'account'
+    : !openConcours.length && !isPreRegistered
+      ? 'opening'
+      : !isPreRegistered
+        ? 'preRegistration'
+        : paymentUnlocked
+          ? 'payment'
+          : 'dossier';
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
@@ -423,13 +448,17 @@ export default function DepotPage() {
           <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
           <h1 className="text-4xl font-black md:text-6xl">{t('depotPage.title', 'Dépôt de Dossier de Candidature')}</h1>
           <p className="mt-5 max-w-3xl text-lg text-slate-200">
-            {t('depotPage.intro', 'Remplissez le formulaire officiel de candidature et téléversez vos pièces justificatives. Un accusé de réception vous autorisera à régler vos frais de dossier.')}
+            {t('depotPage.intro', 'Après votre préinscription et la validation de vos pièces, complétez le formulaire officiel. Le paiement ne sera accessible qu’une fois le dossier complet à 100 %.')}
           </p>
         </div>
       </section>
 
       <section className="py-8">
-        <AdmissionJourneyNavigation current="deposit" />
+        <AdmissionJourneyNavigation
+          current={currentJourneyStep}
+          completed={completedJourneySteps}
+          paymentUnlocked={paymentUnlocked}
+        />
       </section>
 
       {/* Si non connecté */}
@@ -523,6 +552,37 @@ export default function DepotPage() {
             <p role="status" className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
               Votre compte est activé. Continuez votre inscription au concours depuis cette page.
             </p>
+          )}
+
+          {hasCompletedAdmissionPreRegistration(currentUser) && (
+            <div className="mb-6 rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-bold text-slate-900">Complétion du dossier</h2>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {dossierCompletionPercent === 100
+                      ? 'Dossier complet : le paiement est débloqué.'
+                      : 'Le paiement sera disponible uniquement lorsque les pièces seront validées et le formulaire complet.'}
+                  </p>
+                </div>
+                <span className={`text-lg font-black ${dossierCompletionPercent === 100 ? 'text-emerald-700' : 'text-blue-700'}`}>
+                  {dossierCompletionPercent}%
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Complétion du dossier de candidature"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={dossierCompletionPercent}
+                className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100"
+              >
+                <div
+                  className={`h-full rounded-full transition-all ${dossierCompletionPercent === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                  style={{ width: `${dossierCompletionPercent}%` }}
+                />
+              </div>
+            </div>
           )}
 
           {showNewsletterReminder && (

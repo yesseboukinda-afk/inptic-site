@@ -22,33 +22,33 @@ export default function Admissions() {
       </section>
 
       <section className="py-8">
-        <AdmissionJourneyNavigation current="guide" />
+        <AdmissionJourneyNavigation />
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-10 md:px-8">
         <div className="grid gap-6 md:grid-cols-2">
           {[
             {
-              title: '1. Lire le guide d’admission',
+              title: 'Guide d’admission',
               text: 'Comprenez les étapes, les pièces à préparer, la validation préalable et les frais avant de commencer.',
               href: '/admissions/guide',
               action: 'Ouvrir le guide',
             },
             {
-              title: '2. Consulter les concours',
-              text: 'Vérifiez la session publiée, ses dates, les conditions officielles et les résultats disponibles.',
+              title: 'Étapes 2 et 3 — Session du concours',
+              text: 'Consultez les dates publiées. La session ouverte est sélectionnée automatiquement : vous n’avez pas à la choisir.',
               href: '/concours',
               action: 'Voir les concours',
             },
             {
-              title: '3. Créer votre dossier candidat',
-              text: 'Activez votre compte, préinscrivez-vous à la session ouverte, puis déposez vos pièces et votre formulaire.',
+              title: 'Étapes 4 et 5 — Préinscription et dépôt',
+              text: 'Après la préinscription à une session ouverte, faites valider vos pièces puis complétez le dossier de candidature jusqu’à 100 %.',
               href: '/admissions/depot',
               action: 'Accéder au dépôt',
             },
             {
-              title: '4. Suivre votre candidature',
-              text: 'Consultez l’étape en cours, les corrections demandées, la confirmation du paiement et les décisions.',
+              title: 'Après le paiement — Suivi',
+              text: 'Consultez l’avancement de l’examen final, les éventuelles corrections, la confirmation du paiement et les décisions.',
               href: '/admissions/suivi',
               action: 'Ouvrir le suivi',
             },

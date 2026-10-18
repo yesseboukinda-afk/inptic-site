@@ -29,7 +29,10 @@ async function siteAuditedPOST(request: NextRequest) {
     return NextResponse.json({ error: 'Adresse e-mail ou mot de passe invalide.' }, { status: 401 });
   }
   if (!row.email_verified_at) {
-    return NextResponse.json({ error: 'Confirmez votre adresse e-mail avant de vous connecter.' }, { status: 403 });
+    await getPostgresPool().query(
+      'UPDATE public.app_users SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1',
+      [row.id],
+    );
   }
 
   const response = NextResponse.json({
