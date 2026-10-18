@@ -16,9 +16,21 @@ function managerClub(user: Awaited<ReturnType<typeof getAuthenticatedUser>>) {
   return null;
 }
 
-function unavailable() {
+function unavailable(error: unknown) {
+  const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : '';
+  const message = code === '42P01'
+    ? 'La table des candidatures est absente de cette base PostgreSQL. Exécutez scripts/20_create_clubs.sql sur la base utilisée par le site.'
+    : code === '42501'
+      ? 'Le compte PostgreSQL du site n’a pas les droits de lecture sur les candidatures. Exécutez la version actuelle de scripts/20_create_clubs.sql.'
+      : code === '42703'
+        ? 'La table des candidatures existe, mais certaines colonnes manquent. Exécutez la version actuelle de scripts/20_create_clubs.sql.'
+        : code
+          ? `Erreur PostgreSQL lors de l’accès aux candidatures (code ${code}). Vérifiez les journaux de l’application.`
+          : 'Connexion à la base PostgreSQL indisponible. Vérifiez les journaux de l’application.';
   return NextResponse.json(
-    { error: 'Le service des clubs est indisponible. Vérifiez que la migration PostgreSQL des clubs a été exécutée.' },
+    { error: message },
     { status: 503 },
   );
 }
@@ -65,8 +77,9 @@ export async function GET(request: NextRequest) {
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
-    console.error('[Club applications GET] PostgreSQL error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return unavailable();
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN_ERROR';
+    console.error('[Club applications GET] PostgreSQL error:', code, error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return unavailable(error);
   }
 }
 
@@ -121,7 +134,7 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error('[Club applications POST] PostgreSQL error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return unavailable();
+    return unavailable(error);
   }
 }
 
@@ -183,7 +196,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
     console.error('[Club applications PATCH] PostgreSQL error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return unavailable();
+    return unavailable(error);
   } finally {
     client.release();
   }
