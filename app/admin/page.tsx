@@ -91,9 +91,9 @@ const managementAreas = [
     color: 'emerald',
   },
   {
-    title: 'Actualités et annonces',
-    description: 'Créer et gérer les publications diffusées sur le site.',
-    href: '/annonces/gestion',
+    title: 'Veille',
+    description: 'Consulter et gérer les publications diffusées sur le site.',
+    href: '/veille',
     icon: Megaphone,
     color: 'violet',
   },

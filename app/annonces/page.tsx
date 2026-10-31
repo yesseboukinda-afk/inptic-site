@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronUp, Download,
+  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download,
   ExternalLink, Eye, Facebook, FileText, Megaphone, X, ZoomIn,
   Pencil, Plus, ShieldCheck, Trash2,
 } from 'lucide-react';
@@ -227,10 +227,12 @@ function AnnonceCard({
     if (selectedPhotoIndex === null) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setSelectedPhotoIndex(null);
+      if (event.key === 'ArrowLeft') setSelectedPhotoIndex((index) => index === null ? null : Math.max(0, index - 1));
+      if (event.key === 'ArrowRight') setSelectedPhotoIndex((index) => index === null ? null : Math.min(photos.length - 1, index + 1));
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedPhotoIndex]);
+  }, [photos.length, selectedPhotoIndex]);
 
   const categoryLabel = t(`annonces.categories.${annonce.category}`, annonce.category);
 
@@ -445,13 +447,47 @@ function AnnonceCard({
             >
               <X size={20} aria-hidden="true" />
             </button>
-            <div className="grid min-h-0 flex-1 place-items-center overflow-hidden !rounded-xl bg-slate-100">
+            <div className="relative grid min-h-0 flex-1 place-items-center overflow-hidden !rounded-xl bg-slate-100">
               <img
                 src={photos[selectedPhotoIndex].url}
                 alt={photos[selectedPhotoIndex].name}
                 className="max-h-[calc(92vh-7rem)] max-w-full object-contain"
               />
+              {selectedPhotoIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhotoIndex((index) => index === null ? null : index - 1)}
+                  className="absolute left-5 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate-950/70 text-white transition hover:bg-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  aria-label="Photo précédente"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+              {selectedPhotoIndex < photos.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhotoIndex((index) => index === null ? null : index + 1)}
+                  className="absolute right-5 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate-950/70 text-white transition hover:bg-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  aria-label="Photo suivante"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
             </div>
+            <nav className="mt-3 flex flex-wrap items-center justify-center gap-2" aria-label="Navigation dans les photos">
+              {photos.map((photo, index) => (
+                <button
+                  key={`${photo.url}-page-${index}`}
+                  type="button"
+                  onClick={() => setSelectedPhotoIndex(index)}
+                  aria-label={`Afficher la photo ${index + 1} sur ${photos.length}`}
+                  aria-current={selectedPhotoIndex === index ? 'true' : undefined}
+                  className={`h-2.5 rounded-full transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+                    selectedPhotoIndex === index ? 'w-7 bg-blue-700' : 'w-2.5 bg-slate-300 hover:bg-blue-400'
+                  }`}
+                />
+              ))}
+            </nav>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <p className="min-w-0 truncate text-sm font-semibold text-slate-800">{photos[selectedPhotoIndex].name}</p>
               <a
@@ -674,10 +710,10 @@ export default function AnnoncesPublicPage() {
                   Nouvelle annonce
                 </button>
                 <Link
-                  href="/annonces/gestion"
+                  href="/veille"
                   className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:border-slate-400 hover:bg-slate-50 transition"
                 >
-                  Espace de gestion complet →
+                  Espace Veille →
                 </Link>
               </div>
             </div>

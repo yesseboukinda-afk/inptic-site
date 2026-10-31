@@ -252,7 +252,7 @@ export default function DirecteurDashboard() {
           </Link>
 
           <Link
-            href="/annonces/gestion"
+            href="/veille"
             className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-purple-500 hover:shadow-md transition space-y-3"
           >
             <div className="flex items-center justify-between">
@@ -261,9 +261,9 @@ export default function DirecteurDashboard() {
               </div>
               <ChevronRight size={18} className="text-slate-400 group-hover:text-purple-600 transition" />
             </div>
-            <h3 className="font-bold text-base text-slate-900 group-hover:text-purple-600 transition">Gestion Annonces &amp; Veille</h3>
+            <h3 className="font-bold text-base text-slate-900 group-hover:text-purple-600 transition">Veille</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Publication d&apos;annonces officielles, carrousel de veille technologique internationale et surveillance de l&apos;e-réputation.
+              Publier les annonces officielles et suivre la veille e-réputation.
             </p>
           </Link>
         </div>

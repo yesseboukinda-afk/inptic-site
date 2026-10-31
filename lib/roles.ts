@@ -240,7 +240,7 @@ export function getRolePath(role: string, _email?: string, assignedService?: unk
   if (assignment === 'rh') return '/admin/rh';
   if (assignment === 'clubs') return '/clubs';
   if (assignment === 'scolarite') return '/scolarite';
-  if (assignment === 'communication') return '/annonces/gestion';
+  if (assignment === 'communication') return '/veille';
   if (assignment === 'direction_etudes') return '/concours';
   return '/admissions/suivi';
 }

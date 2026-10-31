@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Megaphone, ChevronRight, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,7 +11,7 @@ type CarouselAnnouncement = {
   tag: string;
   title: string;
   description: string;
-  coverImage?: string;
+  images: string[];
   link: string;
   cta: string;
 };
@@ -18,13 +19,49 @@ type CarouselAnnouncement = {
 function getCoverImage(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const url = value.trim();
-  return url.startsWith('/') || /^https?:\/\//i.test(url) ? url : undefined;
+  if (url.startsWith('/') && !url.startsWith('//')) return url;
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return undefined;
+    if (
+      parsed.pathname.startsWith('/api/storage/annonces-attachments/') &&
+      ['inptic-ga.org', 'www.inptic-ga.org', 'localhost'].includes(parsed.hostname)
+    ) {
+      return `${parsed.pathname}${parsed.search}`;
+    }
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function getAnnouncementImages(description: string, attachments: unknown[], coverImage: unknown, coverImageSnake: unknown) {
+  const candidates: unknown[] = [
+    coverImage,
+    coverImageSnake,
+    ...Array.from(description.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g), (match) => match[1]),
+  ];
+  const coverLine = description.match(/(?:^|\n)\s*Image de couverture\s*:\s*(\S+)/i);
+  if (coverLine?.[1]) candidates.push(coverLine[1]);
+
+  for (const attachment of attachments) {
+    if (!attachment || typeof attachment !== 'object') continue;
+    const file = attachment as Record<string, unknown>;
+    const url = typeof file.url === 'string' ? file.url : '';
+    if (
+      typeof file.type === 'string' && file.type.startsWith('image/') ||
+      /\.(?:avif|gif|jpe?g|png|webp)(?:[?#]|$)/i.test(url)
+    ) candidates.push(url);
+  }
+
+  return [...new Set(candidates.map(getCoverImage).filter((url): url is string => Boolean(url)))];
 }
 
 export default function AnnouncementsCarousel() {
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
   const [publishedAnnouncements, setPublishedAnnouncements] = useState<CarouselAnnouncement[]>([]);
   const publishedSignature = useRef('');
   const announcements = publishedAnnouncements;
@@ -50,26 +87,24 @@ export default function AnnouncementsCarousel() {
           if (!id || !title) return [];
 
           const description = typeof attributes.excerpt === 'string' ? attributes.excerpt : '';
-          const coverLine = description.match(/(?:^|\n)\s*Image de couverture\s*:\s*(\S+)/i);
           const attachments = Array.isArray(attributes.attachments) ? attributes.attachments : [];
-          const attachmentImage = attachments.find((attachment) => {
-            if (!attachment || typeof attachment !== 'object') return false;
-            const file = attachment as Record<string, unknown>;
-            const url = typeof file.url === 'string' ? file.url : '';
-            return typeof file.type === 'string' && file.type.startsWith('image/')
-              || /\.(?:avif|gif|jpe?g|png|webp)(?:[?#]|$)/i.test(url);
-          }) as Record<string, unknown> | undefined;
-          const coverImage = getCoverImage(attributes.coverImage)
-            ?? getCoverImage(attributes.cover_image)
-            ?? getCoverImage(coverLine?.[1])
-            ?? getCoverImage(attachmentImage?.url);
+          const images = getAnnouncementImages(
+            description,
+            attachments,
+            attributes.coverImage,
+            attributes.cover_image,
+          );
           const slug = typeof attributes.slug === 'string' && attributes.slug ? attributes.slug : id;
+          const cleanDescription = description
+            .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+            .replace(/(?:^|\n)\s*Image de couverture\s*:\s*\S+/i, '')
+            .trim();
           return [{
             id: `published-${id}`,
             tag: typeof attributes.category === 'string' ? attributes.category : t('announcements.tagEvent', 'Annonce'),
             title,
-            description: description.replace(/(?:^|\n)\s*Image de couverture\s*:\s*\S+/i, '').trim(),
-            coverImage,
+            description: cleanDescription,
+            images,
             link: `/annonces#${encodeURIComponent(slug)}`,
             cta: t('announcements.ctaPublished', 'Lire l’annonce'),
           }];
@@ -83,6 +118,8 @@ export default function AnnouncementsCarousel() {
         }
       } catch {
         // Keep the last successfully loaded public announcements.
+      } finally {
+        if (active) setIsLoadingAnnouncements(false);
       }
     };
 
@@ -123,25 +160,19 @@ export default function AnnouncementsCarousel() {
     sessionStorage.setItem('inptic_announcement_closed_at', Date.now().toString());
   };
 
-  if (!isVisible || announcements.length === 0) return null;
+  if (!isVisible || (!isLoadingAnnouncements && announcements.length === 0)) return null;
 
   const current = announcements[currentIndex];
-  const visibleAnnouncements = Array.from(
-    { length: Math.min(announcements.length, 4) },
-    (_, offset) => {
-      const index = (currentIndex + offset) % announcements.length;
-      return { announcement: announcements[index], index };
-    },
-  );
-  const thumbnailFallbacks = [
-    '/institut/1.webp',
-    '/institut/3.webp',
-    '/institut/4.webp',
-    '/formations/informatique.webp',
-  ];
+  if (!current) {
+    return (
+      <div className="container-x relative z-10 my-3 min-h-[84px] px-4 md:px-0" aria-hidden="true">
+        <div className="flex min-h-[60px] items-center gap-3 rounded-full bg-[#073b8c] px-3 py-2 shadow-[0_8px_24px_rgba(7,59,140,0.18)] sm:gap-4 sm:px-4" />
+      </div>
+    );
+  }
 
   return (
-    <div className="container-x relative z-10 my-3 px-4 md:px-0">
+    <div className="container-x relative z-10 my-3 min-h-[84px] px-4 md:px-0">
       <div className="flex min-h-[60px] items-center gap-3 rounded-full bg-[#073b8c] px-3 py-2 text-white shadow-[0_8px_24px_rgba(7,59,140,0.18)] sm:gap-4 sm:px-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-blue-950 sm:h-11 sm:w-11">
           <Megaphone size={19} aria-hidden="true" />
@@ -160,51 +191,48 @@ export default function AnnouncementsCarousel() {
           )}
         </Link>
 
-        <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
-          {thumbnailFallbacks.map((fallback, index) => {
-            const visible = visibleAnnouncements[index];
-            const announcement = visible?.announcement;
-            const image = announcement?.coverImage || fallback;
-
-            return announcement ? (
-              <button
-                key={announcement.id}
-                type="button"
-                onClick={() => setCurrentIndex(visible.index)}
-                aria-label={`Afficher l’annonce : ${announcement.title}`}
-                aria-current={visible.index === currentIndex ? 'true' : undefined}
-                className={`h-11 w-11 overflow-hidden rounded-full border-2 transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${
-                  visible.index === currentIndex ? 'border-amber-300' : 'border-white/80'
-                }`}
-              >
-                <img
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          {current.images.slice(0, 4).map((image, index) => (
+            <Link
+              key={`${image}-${index}`}
+              href={current.link}
+              aria-label={`Ouvrir l’annonce « ${current.title} », photo ${index + 1}`}
+              className={`inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-white/80 transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 sm:h-11 sm:w-11 ${
+                index >= 2 ? 'hidden sm:flex' : ''
+              }`}
+            >
+                <Image
                   src={image}
                   alt=""
                   width={44}
                   height={44}
                   loading="lazy"
                   decoding="async"
+                  quality={65}
+                  sizes="44px"
+                  unoptimized={image.startsWith('http')}
                   className="h-full w-full object-cover"
                 />
-              </button>
-            ) : (
-              <div
-                key={fallback}
-                className="h-11 w-11 overflow-hidden rounded-full border-2 border-white/80"
-                aria-hidden="true"
-              >
-                <img
-                  src={fallback}
-                  alt=""
-                  width={44}
-                  height={44}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            );
-          })}
+            </Link>
+          ))}
+          {current.images.length > 2 && (
+            <Link
+              href={current.link}
+              className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white/80 px-1 text-[10px] font-bold text-white sm:hidden"
+              aria-label={`Ouvrir l’annonce et voir ${current.images.length - 2} autres photos`}
+            >
+              +{current.images.length - 2}
+            </Link>
+          )}
+          {current.images.length > 4 && (
+            <Link
+              href={current.link}
+              className="hidden h-11 min-w-11 items-center justify-center rounded-full border-2 border-white/80 px-2 text-xs font-bold text-white sm:flex"
+              aria-label={`Ouvrir l’annonce et voir ${current.images.length - 4} autres photos`}
+            >
+              +{current.images.length - 4}
+            </Link>
+          )}
         </div>
 
         <button

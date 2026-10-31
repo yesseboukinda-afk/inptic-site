@@ -18,8 +18,18 @@ export default function ScrollReveal() {
     });
 
     const elements = nodes.filter((element): element is HTMLElement => element instanceof HTMLElement);
+    const revealElements: HTMLElement[] = [];
 
-    if (!elements.length) return;
+    elements.forEach((element) => {
+      const bounds = element.getBoundingClientRect();
+      if (bounds.top < window.innerHeight && bounds.bottom > 0) {
+        element.classList.add('is-visible');
+      } else {
+        revealElements.push(element);
+      }
+    });
+
+    if (!revealElements.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -36,7 +46,7 @@ export default function ScrollReveal() {
       }
     );
 
-    elements.forEach((element) => observer.observe(element));
+    revealElements.forEach((element) => observer.observe(element));
 
     return () => observer.disconnect();
   }, [pathname]);

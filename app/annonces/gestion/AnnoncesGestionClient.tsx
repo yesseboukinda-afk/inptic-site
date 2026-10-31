@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { canAccessStaffService } from '@/lib/roles';
-import TechVeilleFeed from '@/components/TechVeilleFeed';
 import EReputationDashboard from '@/components/EReputationDashboard';
 
 /* Shared announcement management UI and page implementation. */
@@ -896,8 +895,8 @@ export default function GestionAnnoncesPage() {
                   <ArrowLeft size={16} />
                 </Link>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">INPTIC · Administration</p>
-                  <h1 className="text-2xl font-black text-slate-900">Gestion des annonces</h1>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">INPTIC · Veille</p>
+                  <h1 className="text-2xl font-black text-slate-900">Veille</h1>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -924,9 +923,6 @@ export default function GestionAnnoncesPage() {
           <div className="grid items-start gap-8 lg:grid-cols-2">
             {/* Colonne Principale (Gauche) */}
             <div className="min-w-0 space-y-8">
-              {/* ── Veille Technologique Internationale Carrousel ── */}
-              <TechVeilleFeed accessToken={accessToken} />
-
               {/* ── Stats bar ── */}
               <div className="grid grid-cols-3 gap-4">
                 {[

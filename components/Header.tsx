@@ -124,7 +124,7 @@ export default function Header() {
       : canManageScolarite
         ? '/scolarite'
         : canManageAnnouncements
-          ? '/annonces/gestion'
+          ? '/veille'
           : canManageClubs
             ? '/clubs'
           : canAccessStaffService(accountRole, 'concours', assignedService)
@@ -137,7 +137,7 @@ export default function Header() {
       : canManageScolarite
         ? 'Espace Scolarité'
         : canManageAnnouncements
-          ? 'Gestion Annonces'
+          ? 'Veille'
           : canManageClubs
             ? 'Gestion des clubs'
             : 'Direction des études';
@@ -400,7 +400,7 @@ export default function Header() {
         <header className="sticky top-0 z-50 flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18" role="banner">
           <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
             <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
-              <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-auto sm:h-9 md:h-10" />
+              <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
             </Link>
 
             <div className="ml-auto hidden items-center gap-3 lg:flex">
@@ -455,7 +455,7 @@ export default function Header() {
       <header className="sticky top-0 z-[70] flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18 lg:z-50" role="banner">
         <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
           <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
-            <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-auto sm:h-9 md:h-10" />
+            <Image src="/logoinptic.png" alt="Logo INPTIC" width={170} height={96} priority className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
           </Link>
 
           <div className="site-header-desktop-actions ml-auto hidden items-center gap-3 lg:flex">
@@ -724,11 +724,11 @@ export default function Header() {
 
           {canManageAnnouncements && (
             <Link
-              href="/annonces/gestion"
+              href="/veille"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
               role="menuitem"
             >
-              {t('common.gestionAnnonces', 'Gestion Annonces')}
+              {t('common.gestionAnnonces', 'Veille')}
             </Link>
           )}
 
@@ -846,8 +846,8 @@ export default function Header() {
             )}
 
             {canManageAnnouncements && (
-              <Link href="/annonces/gestion" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
-                {t('common.gestionAnnonces', 'Gestion Annonces')}
+              <Link href="/veille" className="block px-4 py-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold" onClick={() => setMobileMenuOpen(false)}>
+                {t('common.gestionAnnonces', 'Veille')}
               </Link>
             )}
 

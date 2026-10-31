@@ -1,5 +1,5 @@
-import AnnoncesGestionClient from './AnnoncesGestionClient';
+import { redirect } from 'next/navigation';
 
 export default function AnnoncesGestionPage() {
-  return <AnnoncesGestionClient />;
+  redirect('/veille');
 }
