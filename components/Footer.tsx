@@ -118,14 +118,6 @@ export default function Footer() {
                 </a>
               </li>
 
-              <li>
-                <a
-                  href="/institut/partenariats"
-                  className="transition-colors duration-200 hover:text-[#D4AF37]"
-                >
-                  {t("footer.partnerships")}
-                </a>
-              </li>
             </ul>
           </div>
 

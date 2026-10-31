@@ -49,7 +49,6 @@ export default function Header() {
         { id: 'presentation', label: t('header.presentation'), href: '/institut/presentation', description: '' },
         { id: 'gouvernance', label: t('header.governance'), href: '/institut/gouvernance', description: '' },
         { id: 'certifications', label: t('header.certifications'), href: '/institut/certifications', description: '' },
-        { id: 'partenariats', label: t('header.partnerships'), href: '/institut/partenariats', description: '' },
       ],
     },
     {

@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TrainingCatalog from '@/components/TrainingCatalog';
+import PublicCertifications from '@/components/PublicCertifications';
+import type { PublicSiteContent, SiteTrack, SiteTraining } from '@/lib/site-content';
 
 const departmentCards = [
   {
@@ -76,14 +78,6 @@ const qualifyingCards = [
   'Intelligence Artificielle',
   'Développement Web',
   'Journaliste Reporter d’Images (JRI)',
-];
-
-const certifyingCards = [
-  'Intelligence Artificielle',
-  'Internet des Objets (AET/IoT)',
-  'Big Data',
-  'Cybersécurité',
-  'Cloud Computing',
 ];
 
 const catalogLabels: Record<string, { en?: string; zh: string; ar: string }> = {
@@ -360,7 +354,60 @@ const modalContent = {
 
 export default function Formations() {
   const [selected, setSelected] = useState<SelectedCard | null>(null);
+  const [tracks, setTracks] = useState<SiteTrack[]>(() => departmentCards.map((card) => ({
+    id: `reference-${card.title}`,
+    name: card.title,
+    presentation: modalContent[card.title as keyof typeof modalContent]?.summary ?? '',
+    opportunities: modalContent[card.title as keyof typeof modalContent]?.debouches ?? card.debouches,
+  })));
+  const [trainings, setTrainings] = useState<SiteTraining[]>(() => [
+    ...departmentCards.flatMap((card) => card.items.map((name) => {
+      const details = modalContent[name as keyof typeof modalContent];
+      return {
+        id: `reference-${name}`,
+        name,
+        category: 'diplomante' as const,
+        trackId: `reference-${card.title}`,
+        trackName: card.title,
+        presentation: details?.summary ?? `Formation diplômante en ${name}.`,
+        opportunities: details?.debouches ?? card.debouches,
+      };
+    })),
+    ...qualifyingCards.map((name) => {
+      const details = modalContent[name as keyof typeof modalContent];
+      return {
+        id: `reference-${name}`,
+        name,
+        category: 'qualifiante' as const,
+        trackId: null,
+        trackName: null,
+        presentation: details?.summary ?? `Formation qualifiante en ${name}.`,
+        opportunities: details?.debouches ?? localizedGenericCareers('fr'),
+      };
+    }),
+  ]);
+  const [contentError, setContentError] = useState('');
   const { t, i18n } = useTranslation();
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/site-content', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Les filières ne sont pas disponibles.');
+        if (active) {
+          setTracks((result.data as PublicSiteContent).filieres);
+          setTrainings((result.data as PublicSiteContent).formations);
+          setContentError('');
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (active) setContentError(loadError instanceof Error ? loadError.message : 'Les filières ne sont pas disponibles.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -380,22 +427,22 @@ export default function Formations() {
       <TrainingCatalog />
 
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-8">
+        <h2 className="mb-6 text-3xl font-black text-slate-900">{t('public.formationsTitle')}</h2>
+        {contentError && <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{contentError} Les contenus de référence restent affichés.</p>}
         <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
-          {departmentCards.map((card) => (
-            <article key={card.title} className="flex flex-col rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-              <h2 className="text-2xl font-black text-slate-900">{localizedCatalogLabel(card.title, i18n.language)}</h2>
-              <ul className="mt-5 space-y-3 text-slate-700">
-                {card.items.map((item) => (
-                  <li key={item} className="rounded-xl bg-slate-50 p-3">{localizedCatalogLabel(item, i18n.language)}</li>
-                ))}
-              </ul>
+          {tracks.map((track) => (
+            <article key={track.id} className="flex flex-col rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+              <h2 className="text-2xl font-black text-slate-900">{localizedCatalogLabel(track.name, i18n.language)}</h2>
+              <p className="mt-4 text-sm leading-6 text-slate-600">{track.presentation}</p>
+              {trainings.filter((training) => training.category === 'diplomante' && training.trackId === track.id).map((training) => (
+                <p key={training.id} className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{localizedCatalogLabel(training.name, i18n.language)}</p>
+              ))}
               <button
                 type="button"
                 onClick={() => setSelected({
-                  title: card.title,
-                  summary: modalContent[card.title as keyof typeof modalContent]?.summary ?? t('public.defaultTraining'),
-                  debouches: modalContent[card.title as keyof typeof modalContent]?.debouches ?? card.debouches,
-                  items: card.items,
+                  title: track.name,
+                  summary: track.presentation,
+                  debouches: track.opportunities,
                 })}
                 className="mt-6 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
               >
@@ -411,12 +458,12 @@ export default function Formations() {
           <h2 className="text-3xl font-black text-slate-900">{t('public.qualifying')}</h2>
           <p className="mt-4 text-lg text-slate-600">{t('public.catalog')}</p>
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {qualifyingCards.map((item) => (
-              <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700 shadow-sm">
-                <div className="min-h-[72px]">{localizedCatalogLabel(item, i18n.language)}</div>
+            {trainings.filter((training) => training.category === 'qualifiante').map((training) => (
+              <div key={training.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700 shadow-sm">
+                <div className="min-h-[72px]">{localizedCatalogLabel(training.name, i18n.language)}</div>
                 <button
                   type="button"
-                  onClick={() => setSelected(modalContent[item as keyof typeof modalContent] ?? { title: item, summary: t('public.defaultTraining'), debouches: localizedGenericCareers(i18n.language) })}
+                  onClick={() => setSelected({ title: training.name, summary: training.presentation, debouches: training.opportunities })}
                   className="mt-4 inline-flex items-center rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-400 hover:text-blue-800"
                 >
                   {t('public.learnMore')}
@@ -427,28 +474,12 @@ export default function Formations() {
         </div>
       </section>
 
-      <section className="bg-slate-100">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-8">
-          <h2 className="text-3xl font-black text-slate-900">{t('public.certifying')}</h2>
-          <p className="mt-4 text-lg text-slate-600">
-            {t('public.certifyingText')}
-          </p>
-          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
-            {certifyingCards.map((item) => (
-              <div key={item} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div className="font-semibold text-slate-700">{localizedCatalogLabel(item, i18n.language)}</div>
-                <button
-                  type="button"
-                  onClick={() => setSelected(modalContent[item === 'Intelligence Artificielle' ? 'Intelligence Artificielle certif' : item === 'Cloud Computing' ? 'Cloud Computing' : item === 'Internet des Objets (AET/IoT)' ? 'Internet des Objets (AET/IoT)' : item === 'Big Data' ? 'Big Data' : 'Cybersécurité'])}
-                  className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-400 hover:text-blue-800"
-                >
-                  {t('public.learnMore')}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PublicCertifications
+        title={t('public.certifying')}
+        description={t('public.certifyingText')}
+        sectionClassName="bg-slate-100"
+        gridClassName="md:grid-cols-2 xl:grid-cols-5"
+      />
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">

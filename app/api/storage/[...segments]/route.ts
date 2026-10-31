@@ -8,6 +8,7 @@ const PUBLIC_BUCKETS = new Set([
   'formations-catalogue',
   'publications-docs',
   'rh-photos',
+  'site-media',
 ]);
 
 export async function GET(

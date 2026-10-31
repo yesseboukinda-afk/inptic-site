@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Megaphone, ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react';
+import { Megaphone, ChevronRight, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 type CarouselAnnouncement = {
@@ -126,92 +126,105 @@ export default function AnnouncementsCarousel() {
   if (!isVisible || announcements.length === 0) return null;
 
   const current = announcements[currentIndex];
+  const visibleAnnouncements = Array.from(
+    { length: Math.min(announcements.length, 4) },
+    (_, offset) => {
+      const index = (currentIndex + offset) % announcements.length;
+      return { announcement: announcements[index], index };
+    },
+  );
+  const thumbnailFallbacks = [
+    '/institut/1.webp',
+    '/institut/3.webp',
+    '/institut/4.webp',
+    '/formations/informatique.webp',
+  ];
 
   return (
-    <div className="container-x my-4 px-4 md:px-0 relative z-10">
-      <div className="relative overflow-hidden rounded-2xl border-2 border-[#D4AF37]/80 bg-gradient-to-r from-slate-950 via-[#14306b] to-slate-950 p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(212,175,55,0.35)] ring-2 ring-[#D4AF37]/25">
-        <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-[#D4AF37]/20 blur-3xl pointer-events-none" />
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex min-w-0 flex-1 items-start gap-3.5 sm:items-center">
-            {current.coverImage ? (
-              <img
-                src={current.coverImage}
-                alt={current.title}
-                loading="lazy"
-                decoding="async"
-                className="h-20 w-28 shrink-0 rounded-xl object-cover sm:h-24 sm:w-36"
-              />
-            ) : (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/30">
-                <Megaphone size={20} className="animate-bounce" />
-              </div>
-            )}
-
-            <div key={currentIndex} className="min-w-0 flex-1 transition-all">
-              <style jsx>{`
-                @keyframes slideInFromRight {
-                  0% {
-                    opacity: 0;
-                    transform: translateX(80px);
-                  }
-                  100% {
-                    opacity: 1;
-                    transform: translateX(0);
-                  }
-                }
-                .slide-in-1s {
-                  animation: slideInFromRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                }
-              `}</style>
-              <div className="slide-in-1s">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-300 border border-amber-400/30">
-                    {current.tag}
-                  </span>
-                  <span className="text-[10px] text-slate-400">Annonce {currentIndex + 1} / {announcements.length}</span>
-                </div>
-                <h3 className="mt-1 text-sm sm:text-base font-black text-white">{current.title}</h3>
-                <p className="text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">{current.description}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-            <Link
-              href={current.link}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4AF37] px-4 py-2 text-xs font-bold text-slate-950 shadow-lg hover:bg-[#e6c141] transition transform hover:scale-105 active:scale-95"
-            >
-              <span>{current.cta}</span>
-              <Sparkles size={13} />
-            </Link>
-
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length)}
-                className="rounded-lg bg-white/10 p-1.5 hover:bg-white/20 transition text-slate-200"
-                aria-label="Annonce précédente"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
-                className="rounded-lg bg-white/10 p-1.5 hover:bg-white/20 transition text-slate-200"
-                aria-label="Annonce suivante"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                onClick={handleClose}
-                className="rounded-lg bg-white/10 p-1.5 hover:bg-red-500/30 transition text-slate-400 hover:text-white ml-2"
-                aria-label="Fermer l'annonce"
-                title="Masquer (réapparaîtra dans 3 minutes)"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          </div>
+    <div className="container-x relative z-10 my-3 px-4 md:px-0">
+      <div className="flex min-h-[60px] items-center gap-3 rounded-full bg-[#073b8c] px-3 py-2 text-white shadow-[0_8px_24px_rgba(7,59,140,0.18)] sm:gap-4 sm:px-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-blue-950 sm:h-11 sm:w-11">
+          <Megaphone size={19} aria-hidden="true" />
         </div>
+
+        <div className="h-9 w-px shrink-0 bg-white/30" aria-hidden="true" />
+
+        <Link
+          href={current.link}
+          className="min-w-0 flex-1 text-left text-xs leading-5 text-blue-50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 sm:text-sm"
+          aria-label={`${current.tag} : ${current.title}. ${current.cta}`}
+        >
+          <span className="font-bold">{current.title}</span>
+          {current.description && (
+            <span className="hidden sm:inline"> : {current.description}</span>
+          )}
+        </Link>
+
+        <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+          {thumbnailFallbacks.map((fallback, index) => {
+            const visible = visibleAnnouncements[index];
+            const announcement = visible?.announcement;
+            const image = announcement?.coverImage || fallback;
+
+            return announcement ? (
+              <button
+                key={announcement.id}
+                type="button"
+                onClick={() => setCurrentIndex(visible.index)}
+                aria-label={`Afficher l’annonce : ${announcement.title}`}
+                aria-current={visible.index === currentIndex ? 'true' : undefined}
+                className={`h-11 w-11 overflow-hidden rounded-full border-2 transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${
+                  visible.index === currentIndex ? 'border-amber-300' : 'border-white/80'
+                }`}
+              >
+                <img
+                  src={image}
+                  alt=""
+                  width={44}
+                  height={44}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ) : (
+              <div
+                key={fallback}
+                className="h-11 w-11 overflow-hidden rounded-full border-2 border-white/80"
+                aria-hidden="true"
+              >
+                <img
+                  src={fallback}
+                  alt=""
+                  width={44}
+                  height={44}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
+          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+          aria-label="Annonce suivante"
+        >
+          <ChevronRight size={23} aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleClose}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+          aria-label="Fermer les annonces"
+          title="Masquer (réapparaîtra dans 3 minutes)"
+        >
+          <X size={15} aria-hidden="true" />
+        </button>
       </div>
     </div>
   );

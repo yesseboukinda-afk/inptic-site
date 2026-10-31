@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       const pool = getPostgresPool();
       const [counterResult, visitorResult] = await Promise.all([
         pool.query(
-          `SELECT likes_count, shares_count
+          `SELECT views_count, likes_count, shares_count
            FROM public.actualites_engagement_counters WHERE article_slug = $1`,
           [articleSlug],
         ),
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       const counter = counterResult.rows[0];
       return NextResponse.json({
         data: {
+          views: Number(counter?.views_count) || 0,
           likes: Number(counter?.likes_count) || 0,
           shares: Number(counter?.shares_count) || 0,
           liked: Boolean(visitorResult.rows[0]?.liked),

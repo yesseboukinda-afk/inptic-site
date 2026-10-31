@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Copy, Download,
-  ExternalLink, Facebook, FileText, Megaphone, Paperclip,
+  AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronUp, Download,
+  ExternalLink, Eye, Facebook, FileText, Megaphone, X, ZoomIn,
   Pencil, Plus, ShieldCheck, Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +27,11 @@ type Attachment = {
   type?: string;
 };
 
+type AnnouncementPhoto = {
+  name: string;
+  url: string;
+};
+
 type SocialLink = {
   label: string;
   url: string;
@@ -45,21 +51,9 @@ type Annonce = {
 };
 
 /* ─────────────────────────────── constants ── */
-const CATEGORY_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  Annonce:          { bg: 'bg-blue-50',   text: 'text-blue-700',   dot: 'bg-blue-500'   },
-  'Événement':      { bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
-  Concours:         { bg: 'bg-amber-50',  text: 'text-amber-700',  dot: 'bg-amber-500'  },
-  'Communiqué':     { bg: 'bg-emerald-50',text: 'text-emerald-700',dot: 'bg-emerald-500'},
-  'Vie étudiante':  { bg: 'bg-pink-50',   text: 'text-pink-700',   dot: 'bg-pink-500'   },
-};
-const DEFAULT_COLOR = { bg: 'bg-slate-50', text: 'text-slate-700', dot: 'bg-slate-400' };
 const POLL_MS = 30_000;
 
 /* ──────────────────────────────── helpers ── */
-function getColor(category: string) {
-  return CATEGORY_COLORS[category] ?? DEFAULT_COLOR;
-}
-
 function formatDate(value: string | null, locale = 'fr') {
   if (!value) return null;
   const l = locale === 'en' ? 'en-GB' : locale === 'ar' ? 'ar' : locale === 'zh' ? 'zh-CN' : 'fr-FR';
@@ -149,11 +143,6 @@ function parsePayload(payload: unknown): Annonce[] {
   return mapped.filter((a): a is Annonce => a !== null && Boolean(a.title));
 }
 
-function getShareUrl(slug: string) {
-  if (typeof window === 'undefined') return '';
-  return `${window.location.origin}/annonces#${encodeURIComponent(slug)}`;
-}
-
 function getCoverImage(annonce: Annonce) {
   const coverLine = annonce.excerpt
     .split(/\r?\n/)
@@ -172,6 +161,13 @@ function getCoverImage(annonce: Annonce) {
   } catch {
     return candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : undefined;
   }
+}
+
+function isImageAttachment(attachment: Attachment) {
+  return Boolean(
+    attachment.type?.startsWith('image/') ||
+    /\.(?:avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(attachment.url),
+  );
 }
 
 function getAnnouncementSummary(excerpt: string) {
@@ -205,9 +201,9 @@ function AnnonceCard({
 }) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
 
-  const color = getColor(annonce.category);
   const date = formatDate(annonce.publishedAt ?? annonce.createdAt, i18n.language);
 
   const summary = getAnnouncementSummary(annonce.excerpt);
@@ -215,68 +211,87 @@ function AnnonceCard({
   const previewText = paragraphs[0] ?? '';
   const hasMore = paragraphs.length > 1 || summary.length > 160;
   const coverImage = getCoverImage(annonce);
-
-  const shareUrl = getShareUrl(annonce.slug);
+  const photos = [
+    ...(coverImage ? [{ name: annonce.title, url: coverImage }] : []),
+    ...(annonce.attachments ?? [])
+      .filter(isImageAttachment)
+      .map((attachment) => ({ name: attachment.name, url: attachment.url })),
+  ].filter((photo, index, list) => list.findIndex((item) => item.url === photo.url) === index);
 
   const hasAttachments = Boolean(annonce.attachments && annonce.attachments.length > 0);
   const hasSocials = Boolean(annonce.socialLinks && annonce.socialLinks.length > 0);
+  const visiblePhotos = photos.slice(0, 4);
+  const remainingPhotos = photos.length - visiblePhotos.length;
 
-  async function copyLink() {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+  useEffect(() => {
+    if (selectedPhotoIndex === null) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedPhotoIndex(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPhotoIndex]);
 
   const categoryLabel = t(`annonces.categories.${annonce.category}`, annonce.category);
 
   return (
     <article
       id={annonce.slug}
-      className="group flex min-w-0 scroll-mt-28 flex-col overflow-hidden border border-slate-200 bg-white transition hover:border-cyan-700 hover:shadow-md"
+      className="group flex min-w-0 scroll-mt-28 flex-col overflow-hidden !rounded-2xl border border-blue-100 bg-white shadow-[0_8px_24px_rgba(15,55,120,0.08)] transition hover:border-blue-300 hover:shadow-lg"
     >
-      <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
-        {coverImage ? (
-          <img src={coverImage} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
-        ) : (
-          <div className="grid h-full place-items-center bg-gradient-to-br from-slate-100 via-blue-50 to-cyan-100 text-cyan-800">
-            <Megaphone size={34} aria-hidden="true" />
-          </div>
-        )}
-        <span className={`absolute bottom-3 left-3 rounded-full px-3 py-1 text-[10px] font-bold uppercase ${color.bg} ${color.text}`}>
+      <div className="relative overflow-hidden !rounded-t-2xl bg-gradient-to-br from-white via-white to-blue-50 px-4 pb-3 pt-4 sm:px-5">
+        <div className="pointer-events-none absolute -right-7 -top-14 h-28 w-28 rotate-45 border-l-[10px] border-yellow-400" aria-hidden="true" />
+        <span className="relative inline-flex items-center gap-1.5 !rounded-full bg-blue-600 px-3 py-1 text-[10px] font-bold text-white">
+          <Megaphone size={12} aria-hidden="true" />
           {categoryLabel}
         </span>
-      </div>
+        <h2 className="relative mt-2 text-xl font-black uppercase leading-[1.05] tracking-tight text-blue-950 sm:text-2xl">
+          {annonce.title}
+        </h2>
 
-      <div className="flex flex-1 flex-col p-4">
         {/* ── Meta row ── */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="relative mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-medium text-blue-950">
           {date && (
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
-              <Calendar size={11} />
+            <span className="flex items-center gap-1.5">
+              <Calendar size={13} aria-hidden="true" />
               {date}
             </span>
           )}
           {hasAttachments && (
-            <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-              <Paperclip size={11} />
-              {annonce.attachments!.length === 1
-                ? t('annonces.documentCount_one', { count: 1 })
-                : t('annonces.documentCount_other', { count: annonce.attachments!.length })}
+            <span className="flex items-center gap-1.5 border-l border-blue-200 pl-3">
+              <FileText size={13} aria-hidden="true" />
+              {annonce.attachments!.length} {t('annonces.downloadDocuments')}
             </span>
           )}
         </div>
+        <div className="mt-2 h-0.5 w-10 bg-yellow-400" aria-hidden="true" />
+      </div>
 
-        {/* ── Title ── */}
-        <h2 className="mt-2 line-clamp-2 text-base font-bold leading-5 text-slate-950 sm:text-lg">
-          {annonce.title}
-        </h2>
+      <div className="flex flex-1 flex-col px-4 pb-4 sm:px-5">
+        {coverImage ? (
+          <button
+            type="button"
+            onClick={() => setSelectedPhotoIndex(photos.findIndex((photo) => photo.url === coverImage))}
+            className="group/photo relative mt-1 block aspect-[16/9] w-full overflow-hidden !rounded-xl bg-slate-100 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            aria-label={`Ouvrir et télécharger la photo : ${annonce.title}`}
+          >
+            <img src={coverImage} alt={annonce.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-300 group-hover/photo:scale-[1.02]" />
+            <span className="absolute bottom-2 right-2 grid h-8 w-8 place-items-center !rounded-full bg-slate-950/70 text-white">
+              <ZoomIn size={16} aria-hidden="true" />
+            </span>
+          </button>
+        ) : (
+          <div className="mt-1 grid aspect-[16/9] place-items-center !rounded-xl bg-gradient-to-br from-slate-100 via-blue-50 to-cyan-100 text-blue-800">
+            <Megaphone size={34} aria-hidden="true" />
+          </div>
+        )}
 
         {/* ── Excerpt / Full text ── */}
-        <div className="mt-2 flex-1 text-xs leading-5 text-slate-600">
+        <div className="mt-3 flex-1 text-xs leading-5 text-blue-950">
           {expanded ? (
             <p className="whitespace-pre-wrap">{summary}</p>
           ) : (
-            <p className="whitespace-pre-wrap line-clamp-4">
+            <p className="whitespace-pre-wrap line-clamp-3">
               {previewText.length > 160 ? previewText.slice(0, 160) + '…' : previewText}
               {!hasMore && paragraphs.length > 1 && '…'}
             </p>
@@ -288,7 +303,7 @@ function AnnonceCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className={`mt-3 inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-[10px] font-bold transition ${color.bg} ${color.text} hover:opacity-80`}
+            className="mt-3 inline-flex items-center gap-1.5 self-center !rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-[10px] font-bold text-blue-800 transition hover:bg-blue-100"
           >
             {expanded ? (
               <><ChevronUp size={13} />{t('annonces.readLess')}</>
@@ -298,40 +313,63 @@ function AnnonceCard({
           </button>
         )}
 
+        {photos.length > 0 && (
+          <div className="mt-4 flex items-center justify-center gap-2">
+            {visiblePhotos.map((photo, index) => (
+              <button
+                key={`${photo.url}-${index}`}
+                type="button"
+                onClick={() => setSelectedPhotoIndex(index)}
+                aria-label={`Ouvrir et télécharger la photo : ${photo.name}`}
+                className="h-12 w-12 shrink-0 overflow-hidden !rounded-full border-2 border-white shadow-[0_1px_5px_rgba(15,23,42,0.35)] ring-1 ring-slate-200 transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                <img src={photo.url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+              </button>
+            ))}
+            {remainingPhotos > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoIndex(visiblePhotos.length)}
+                className="grid h-12 w-12 shrink-0 place-items-center !rounded-full bg-blue-700 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                aria-label={`Afficher les ${remainingPhotos} autres photos`}
+              >
+                +{remainingPhotos}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* ── Downloadable Attachments ── */}
         {hasAttachments && (
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 md:p-5">
-            <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-              <Paperclip size={13} className="text-blue-600" />
+          <div className="relative mt-4 self-center">
+            <button
+              type="button"
+              onClick={() => setDocumentsOpen((open) => !open)}
+              aria-expanded={documentsOpen}
+              className="inline-flex items-center gap-2 !rounded-full bg-blue-700 px-5 py-2 text-[10px] font-bold text-white shadow-md transition hover:bg-blue-800"
+            >
+              <Download size={14} aria-hidden="true" />
               {t('annonces.downloadDocuments')} ({annonce.attachments!.length})
-            </h4>
-            <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-              {annonce.attachments!.map((file, i) => (
-                <a
-                  key={i}
-                  href={file.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xs transition hover:border-blue-400 hover:shadow-md"
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <span className="rounded-lg bg-blue-50 p-2 text-blue-600">
-                      <FileText size={16} />
-                    </span>
-                    <div className="truncate">
-                      <p className="truncate text-xs font-bold text-slate-800">{file.name}</p>
-                      {file.size ? (
-                        <p className="text-[10px] text-slate-400">{formatFileSize(file.size)}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-slate-100 p-2 text-slate-600 transition group-hover:bg-blue-600 group-hover:text-white">
-                    <Download size={14} />
-                  </span>
-                </a>
-              ))}
-            </div>
+              <ChevronDown size={13} aria-hidden="true" />
+            </button>
+            {documentsOpen && (
+              <div className="absolute bottom-[calc(100%+0.5rem)] left-1/2 z-20 max-h-56 w-[min(20rem,calc(100vw-3rem))] -translate-x-1/2 overflow-y-auto !rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                {annonce.attachments!.map((file, index) => (
+                  <a
+                    key={`${file.url}-${index}`}
+                    href={file.url}
+                    download={file.name}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 !rounded-lg px-2.5 py-2 text-left text-xs text-slate-700 transition hover:bg-blue-50"
+                  >
+                    {isImageAttachment(file) ? <Eye size={14} className="shrink-0 text-blue-600" /> : <FileText size={14} className="shrink-0 text-blue-600" />}
+                    <span className="min-w-0 flex-1 truncate font-semibold">{file.name}</span>
+                    <span className="shrink-0 text-[10px] text-slate-400">{formatFileSize(file.size)}</span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -357,29 +395,8 @@ function AnnonceCard({
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-          <a
-            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(annonce.title)}&url=${encodeURIComponent(shareUrl)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t('annonces.shareOn', { network: 'X' })}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-600 transition hover:border-slate-800 hover:bg-slate-900 hover:text-white"
-          >
-            X
-          </a>
-          <button
-            type="button"
-            onClick={() => void copyLink()}
-            aria-label={t('annonces.copyLink')}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
-          >
-            <Copy size={12} />
-            {copied ? t('annonces.copied') : t('annonces.copyLink')}
-          </button>
-
-          {/* Admin actions: Edit & Delete */}
-          {isAdmin && (
-            <div className="ml-auto flex items-center gap-2">
+        {isAdmin && (
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
               <button
                 type="button"
                 onClick={onEdit}
@@ -396,16 +413,62 @@ function AnnonceCard({
                 <Trash2 size={12} />
                 Supprimer
               </button>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <ArticleEngagement
           articleSlug={`annonce-${annonce.slug}`}
           title={annonce.title}
           sharePath={`/annonces#${encodeURIComponent(annonce.slug)}`}
+          showViews
         />
       </div>
+      {selectedPhotoIndex !== null && photos[selectedPhotoIndex] && createPortal(
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/85 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedPhotoIndex(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Photo : ${photos[selectedPhotoIndex].name}`}
+            className="relative flex max-h-[92vh] w-full max-w-5xl flex-col !rounded-2xl bg-white p-3 shadow-2xl sm:p-5"
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedPhotoIndex(null)}
+              className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center !rounded-full bg-slate-950/70 text-white transition hover:bg-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              aria-label="Fermer la photo"
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+            <div className="grid min-h-0 flex-1 place-items-center overflow-hidden !rounded-xl bg-slate-100">
+              <img
+                src={photos[selectedPhotoIndex].url}
+                alt={photos[selectedPhotoIndex].name}
+                className="max-h-[calc(92vh-7rem)] max-w-full object-contain"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-sm font-semibold text-slate-800">{photos[selectedPhotoIndex].name}</p>
+              <a
+                href={photos[selectedPhotoIndex].url}
+                download={photos[selectedPhotoIndex].name}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center gap-2 !rounded-full bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-blue-800"
+              >
+                <Download size={15} aria-hidden="true" />
+                Télécharger la photo
+              </a>
+            </div>
+          </section>
+        </div>,
+        document.body,
+      )}
     </article>
   );
 }
@@ -417,7 +480,6 @@ export default function AnnoncesPublicPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('Toutes');
   const [search, setSearch] = useState('');
-  const [liveUpdated, setLiveUpdated] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Admin state
@@ -440,10 +502,6 @@ export default function AnnoncesPublicPage() {
       const data = await res.json();
       const list = parsePayload(data);
       setAnnonces(list);
-      if (isSilent) {
-        setLiveUpdated(true);
-        setTimeout(() => setLiveUpdated(false), 3000);
-      }
     } finally {
       if (!isSilent) setLoading(false);
     }
@@ -524,32 +582,6 @@ export default function AnnoncesPublicPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* ── Encart Espace Concours & Résultats dédié (Bloc A2) ── */}
-      <div className="mx-auto max-w-5xl px-4 pt-6 md:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37] text-xl text-slate-950 font-black shadow-sm">
-              🏆
-            </span>
-            <div>
-              <p className="text-sm font-bold text-slate-900">
-                Portail officiel des Concours &amp; Résultats de l&apos;INPTIC
-              </p>
-              <p className="text-xs text-slate-600">
-                Les concours, calendriers des épreuves, conditions d&apos;admission et procès-verbaux de résultats disposent désormais d&apos;un espace dédié.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/concours"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-blue-600"
-          >
-            <span>Accéder à l&apos;Espace Concours</span>
-            <ChevronRight size={14} />
-          </Link>
-        </div>
-      </div>
-
       {/* ── Hero Banner ── */}
       <section className="relative isolate overflow-hidden text-white bg-slate-950">
         <img src="/banniere/1.webp" alt="" fetchPriority="high" loading="eager" decoding="async" className="hero-image-reveal absolute inset-y-0 right-0 z-0 h-full w-3/5 scale-105 object-cover object-center brightness-105 saturate-105" aria-hidden="true" />
@@ -566,14 +598,6 @@ export default function AnnoncesPublicPage() {
               </p>
             </div>
 
-            {/* Live badge */}
-            <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs text-cyan-300 backdrop-blur-md">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              {liveUpdated ? t('annonces.liveUpdated') : t('annonces.realtimeBadge')}
-            </div>
           </div>
 
           {/* ── Search & Categories ── */}

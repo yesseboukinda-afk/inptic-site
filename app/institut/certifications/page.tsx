@@ -1,6 +1,7 @@
  'use client';
 
 import { useTranslation } from 'react-i18next';
+import PublicCertifications from '@/components/PublicCertifications';
 
 export default function Certifications() {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export default function Certifications() {
           ))}
         </div>
       </section>
+      <PublicCertifications />
     </main>
   );
 }

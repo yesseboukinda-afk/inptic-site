@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   History,
+  Image as ImageIcon,
   Mail,
   Megaphone,
   Plus,
@@ -80,6 +81,13 @@ const managementAreas = [
     description: 'Consulter le catalogue et accéder aux outils de gestion des formations.',
     href: '/formations',
     icon: BookOpen,
+    color: 'emerald',
+  },
+  {
+    title: 'Contenus du site',
+    description: 'Remplacer les photos et gérer les filières, leurs débouchés et les certifications.',
+    href: '/admin/contenus',
+    icon: ImageIcon,
     color: 'emerald',
   },
   {

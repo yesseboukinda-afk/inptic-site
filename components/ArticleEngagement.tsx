@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Facebook, Heart, Linkedin, Mail, MessageCircle, Share2 } from 'lucide-react';
+import { Copy, Eye, Facebook, Heart, Linkedin, Mail, MessageCircle, Share2 } from 'lucide-react';
 
 type ArticleEngagementProps = {
   articleSlug: string;
   title: string;
   sharePath: string;
+  showViews?: boolean;
 };
 
-export default function ArticleEngagement({ articleSlug, title, sharePath }: ArticleEngagementProps) {
-  const [counts, setCounts] = useState({ likes: 0, shares: 0 });
+export default function ArticleEngagement({ articleSlug, title, sharePath, showViews = false }: ArticleEngagementProps) {
+  const [counts, setCounts] = useState({ views: 0, likes: 0, shares: 0 });
   const [liked, setLiked] = useState(false);
   const [pending, setPending] = useState(false);
   const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
@@ -27,10 +28,14 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
         const response = await fetch(`/api/news/engagement?articleSlug=${encodeURIComponent(articleSlug)}`, { cache: 'no-store' });
         if (!response.ok) return;
         const payload = await response.json().catch(() => null);
-        const data = payload?.data as { likes?: number; shares?: number; liked?: boolean } | undefined;
+        const data = payload?.data as { views?: number; likes?: number; shares?: number; liked?: boolean } | undefined;
         if (!data || typeof data.liked !== 'boolean') return;
         if (active) {
-          setCounts({ likes: Number(data.likes) || 0, shares: Number(data.shares) || 0 });
+          setCounts({
+            views: Number(data.views) || 0,
+            likes: Number(data.likes) || 0,
+            shares: Number(data.shares) || 0,
+          });
           setLiked(data.liked);
         }
       } catch {
@@ -44,7 +49,20 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
       if (document.visibilityState === 'visible') void refreshStats();
     };
 
-    void refreshStats();
+    const recordView = async () => {
+      if (!showViews) {
+        await refreshStats();
+        return;
+      }
+      try {
+        await track('view');
+      } catch {
+        setShareNotice('Le nombre de vues est temporairement indisponible.');
+      }
+      await refreshStats();
+    };
+
+    void recordView();
     const interval = window.setInterval(() => void refreshStats(), 5000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -53,13 +71,13 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [articleSlug]);
+  }, [articleSlug, showViews]);
 
   function getShareUrl() {
     return `${window.location.origin}${sharePath}`;
   }
 
-  async function track(action: 'like' | 'share', network?: string) {
+  async function track(action: 'view' | 'like' | 'share', network?: string) {
     const response = await fetch('/api/news/engagement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -68,12 +86,16 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
     if (!response.ok) return false;
 
     const payload = await response.json().catch(() => null);
-    const data = payload?.data as { likes?: number; shares?: number; liked?: boolean } | undefined;
+    const data = payload?.data as { views?: number; likes?: number; shares?: number; liked?: boolean } | undefined;
     if (!data || typeof data.liked !== 'boolean' || !Number.isFinite(Number(data.likes)) || !Number.isFinite(Number(data.shares))) {
       return false;
     }
 
-    setCounts({ likes: Number(data.likes) || 0, shares: Number(data.shares) || 0 });
+    setCounts({
+      views: Number(data.views) || 0,
+      likes: Number(data.likes) || 0,
+      shares: Number(data.shares) || 0,
+    });
     setLiked(data.liked);
     window.dispatchEvent(new CustomEvent('inptic:article-engagement-updated', { detail: { articleSlug, data } }));
     return true;
@@ -89,6 +111,15 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
       setShareNotice('Le like n’a pas pu être enregistré; le compteur reste inchangé.');
     } finally {
       setPending(false);
+    }
+  }
+
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      setShareNotice('Lien copié.');
+    } catch {
+      setShareNotice('La copie du lien n’est pas disponible dans ce navigateur.');
     }
   }
 
@@ -128,16 +159,21 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
   const stopCountingFallbackShare = () => setShareOptionsOpen(false);
 
   return (
-    <section aria-label="Statistiques et partage de l’article" className="mt-4 border border-slate-200 bg-slate-50/70 p-3">
-      <p className="mb-2 text-[9px] font-bold uppercase text-slate-400">Statistiques</p>
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+    <section aria-label="Statistiques et partage de l’article" className="mt-3 border-t border-slate-200 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px] text-blue-900 sm:gap-x-4">
+        {showViews && (
+          <span className="inline-flex items-center gap-1.5" aria-label={`${counts.views} vues`}>
+            <Eye size={15} aria-hidden="true" />
+            {counts.views} vues
+          </span>
+        )}
         <button
           type="button"
           onClick={() => void handleLike()}
           disabled={pending}
           aria-pressed={liked}
           aria-label={`${liked ? 'Retirer le like' : 'Aimer'} : ${counts.likes} likes`}
-          className={`inline-flex min-h-8 items-center gap-1.5 transition hover:text-rose-700 disabled:opacity-50 ${liked ? 'font-semibold text-rose-700' : ''}`}
+          className={`inline-flex min-h-8 items-center gap-1.5 border-l border-slate-200 pl-3 transition hover:text-rose-700 disabled:opacity-50 sm:pl-4 ${liked ? 'font-semibold text-rose-700' : ''}`}
         >
           <img
             src="/partages/like.svg"
@@ -145,7 +181,7 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
             className="h-4 w-4"
             style={liked ? { filter: 'invert(24%) sepia(90%) saturate(1800%) hue-rotate(315deg)' } : undefined}
           />
-          {counts.likes}
+          J’aime ({counts.likes})
         </button>
 
         <div className="relative ml-auto w-full sm:w-auto">
@@ -154,10 +190,10 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
             onClick={() => setShareOptionsOpen((open) => !open)}
             aria-expanded={shareOptionsOpen}
             aria-controls={`share-options-${articleSlug}`}
-            className="inline-flex min-h-8 items-center gap-1.5 border border-slate-200 bg-white px-2.5 text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800"
+            className="inline-flex min-h-8 items-center gap-1.5 border-l border-slate-200 pl-3 text-blue-900 transition hover:text-blue-700 sm:pl-4"
           >
             <Share2 size={14} aria-hidden="true" />
-            <span className="text-xs font-semibold">Partager</span>
+            <span className="font-semibold">Partager</span>
             <span className="text-[10px] text-slate-500">{counts.shares}</span>
           </button>
         {shareOptionsOpen && (
@@ -190,6 +226,14 @@ export default function ArticleEngagement({ articleSlug, title, sharePath }: Art
           </div>
         )}
         </div>
+        <button
+          type="button"
+          onClick={() => void handleCopyLink()}
+          className="inline-flex min-h-8 items-center gap-1.5 border-l border-slate-200 pl-3 text-blue-900 transition hover:text-blue-700 sm:pl-4"
+        >
+          <Copy size={14} aria-hidden="true" />
+          Copier le lien
+        </button>
       </div>
       {shareNotice && <p role="status" className="mt-2 text-[10px] leading-4 text-slate-500">{shareNotice}</p>}
     </section>

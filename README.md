@@ -148,6 +148,9 @@ importée.
 Pour une base existante, exécuter `scripts/14_migrate_rh_direction_service.sql`
 avant de déployer la nouvelle version RH. Ce script sépare les anciennes
 affectations en direction et service sans supprimer la valeur historique.
+Pour retirer les anciennes publications d'exemple et rétablir les droits de
+gestion du catalogue sur une base LWS déjà installée, exécuter
+`scripts/21_clean_placeholder_publications.sql` après le déploiement.
 
 Pour créer automatiquement la base puis son schéma, le script
 `scripts/create-lws-database.sh` requiert `psql` et un compte PostgreSQL ayant le
@@ -193,7 +196,20 @@ positionnement) avant de publier ou modifier la fiche.
 Pour rendre le message du Directeur éditable, exécuter aussi
 `scripts/16_create_homepage_director_message.sql` dans PostgreSQL.
 
+Si la Scolarité voit un candidat mais ne peut pas charger son dossier ou ses
+pièces jointes, exécuter `scripts/22_grant_candidate_profile_storage.sql` sur
+la base PostgreSQL LWS. Cette migration accorde au compte applicatif les seuls
+droits nécessaires sur les profils candidats et les métadonnées des fichiers privés.
+
 Les fichiers publics sont servis par `/api/storage/...`.
+
+Pour activer la gestion des filières, formations, certifications et photos du site, exécuter
+`scripts/24_create_site_content_management.sql` sur PostgreSQL. La page
+`/admin/contenus` et ses opérations d'écriture sont réservées aux superadministrateurs.
+Les filières, formations qualifiantes et diplômantes, et certifications initiales
+sont insérées sans doublons. Les photos remplacées sont
+enregistrées dans `PRIVATE_STORAGE_DIR` et servies via le stockage applicatif ;
+aucun fichier n’est conservé uniquement dans le navigateur.
 
 Configurer les variables serveur et démarrer l'application. Les profils, pièces jointes,
 actualités et autres tables applicatives commenceront vides et seront alimentés
@@ -250,13 +266,16 @@ Pour activer les inscriptions et envois de newsletter :
    par région sont présentés avec résumés, liens sources et images disponibles.
    La sélection dépend de l’historique encore présent dans chaque flux RSS.
 5. Pour activer l’envoi planifié, définir `NEWSLETTER_CRON_SECRET` dans
-   l’environnement Node.js LWS et comme secret GitHub Actions du même nom.
+   l’environnement Node.js LWS et comme secret GitHub Actions du même nom
+   (GitHub ne peut pas lire directement les variables configurées sur LWS).
    Ajouter la variable de dépôt `NEWSLETTER_DIGEST_URL` contenant l’URL complète
    `https://votre-domaine.tld/api/newsletter/weekly-digest`. Le workflow
-   `.github/workflows/weekly-tech-digest.yml` appelle cette route le vendredi à
-   16 h UTC (17 h au Gabon). Depuis l’onglet Actions, un lancement manuel utilise
-   le même envoi hebdomadaire et n’est accepté que le vendredi. Les envois sont
-   dédoublonnés pour chaque abonné et chaque semaine.
+   `.github/workflows/weekly-tech-digest.yml` appelle cette route avec le secret
+   Bearer le vendredi à 16 h UTC (17 h au Gabon). L’envoi utilise la configuration
+   SMTP et la base PostgreSQL du serveur, comme les autres newsletters. Depuis
+   l’onglet Actions, un lancement manuel utilise le même envoi hebdomadaire et
+   n’est accepté que le vendredi. Les envois sont dédoublonnés pour chaque
+   abonné et chaque semaine.
    Pour simplement prévisualiser la revue dans un navigateur, ouvrir
    `https://votre-domaine.tld/api/newsletter/weekly-digest/preview` ; cet aperçu
    récupère les articles de la dernière semaine complète et n’envoie aucun e-mail.

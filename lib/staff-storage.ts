@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canAccessStaffService, type StaffService } from '@/lib/roles';
+import { canAccessStaffService, isSuperAdminRole, type StaffService } from '@/lib/roles';
 import { deleteStoredFile, getPublicStorageUrl, saveStoredFile } from '@/lib/localStorage';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 
@@ -22,6 +22,22 @@ export async function authorizeStaffRequest(
   }
 
   if (!canAccessStaffService(user.role, service, user.user_metadata.service ?? user.user_metadata.department)) {
+    return { error: NextResponse.json({ error: forbiddenMessage }, { status: 403 }) };
+  }
+
+  return { user };
+}
+
+export async function authorizeSuperAdminRequest(
+  request: NextRequest,
+  forbiddenMessage = 'Accès réservé au superadministrateur.',
+) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return { error: NextResponse.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
+  }
+
+  if (!isSuperAdminRole(user.role)) {
     return { error: NextResponse.json({ error: forbiddenMessage }, { status: 403 }) };
   }
 
