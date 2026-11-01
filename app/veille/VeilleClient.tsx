@@ -54,7 +54,7 @@ export default function VeilleClient() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="grid items-start gap-8">
+        <div className="grid items-start gap-8 xl:grid-cols-2">
           <TechVeilleFeed accessToken={accessToken} />
           {canViewReputation && <EReputationDashboard accessToken={accessToken} />}
         </div>
