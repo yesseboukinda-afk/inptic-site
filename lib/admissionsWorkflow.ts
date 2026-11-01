@@ -25,6 +25,7 @@ type AdmissionConcours = {
   sessionYear: number;
   createdAt?: string;
   calendar?: {
+    registrationOpen?: boolean;
     registrationStart?: string | null;
     registrationEnd?: string | null;
   };
@@ -34,6 +35,10 @@ export function isAdmissionRegistrationOpen(
   concours: Pick<AdmissionConcours, 'status' | 'calendar'>,
   now = Date.now(),
 ) {
+  if (concours.status === 'termine') return false;
+  if (typeof concours.calendar?.registrationOpen === 'boolean') {
+    return concours.calendar.registrationOpen;
+  }
   if (concours.status !== 'en_cours') return false;
   const startValue = concours.calendar?.registrationStart;
   const endValue = concours.calendar?.registrationEnd;

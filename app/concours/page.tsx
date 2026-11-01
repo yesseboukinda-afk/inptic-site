@@ -65,6 +65,8 @@ export default function ConcoursPage() {
   const [showPreRegistrations, setShowPreRegistrations] = useState(false);
   const [preRegistrations, setPreRegistrations] = useState<Array<{ id: string; full_name: string; email: string; phone: string; concours_slug: string; created_at: string }>>([]);
   const [preRegistrationsLoading, setPreRegistrationsLoading] = useState(false);
+  const [updatingRegistrationSlug, setUpdatingRegistrationSlug] = useState<string | null>(null);
+  const [sessionToggleError, setSessionToggleError] = useState('');
 
   // Authentification & Rôles
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -243,6 +245,30 @@ export default function ConcoursPage() {
       setPreRegistrationError(error instanceof Error ? error.message : 'Chargement impossible.');
     } finally {
       setPreRegistrationsLoading(false);
+    }
+  };
+
+  const handleToggleRegistrationSession = async (item: ConcoursItem) => {
+    if (!token || updatingRegistrationSlug) return;
+    const open = !getCurrentAdmissionConcours([item]);
+    setUpdatingRegistrationSlug(item.slug);
+    setSessionToggleError('');
+    try {
+      const response = await fetch('/api/concours/preinscriptions/session', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ concours: item.slug, open }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Modification de la session impossible.');
+      await fetchConcours();
+    } catch (error) {
+      setSessionToggleError(error instanceof Error ? error.message : 'Modification de la session impossible.');
+    } finally {
+      setUpdatingRegistrationSlug(null);
     }
   };
 
@@ -451,6 +477,9 @@ export default function ConcoursPage() {
         .filter(Boolean),
       attachments: formAttachments,
       calendar: {
+        ...(typeof editingItem?.calendar?.registrationOpen === 'boolean'
+          ? { registrationOpen: editingItem.calendar.registrationOpen }
+          : {}),
         registrationStart: formRegStart ? `${formRegStart}T00:00:00.000Z` : null,
         registrationEnd: formRegEnd ? `${formRegEnd}T23:59:59.000Z` : null,
         examDate: formExamDate ? `${formExamDate}T08:00:00.000Z` : null,
@@ -599,6 +628,7 @@ export default function ConcoursPage() {
 
       {!loading && (
         <section id="inscription" className="container-x px-4 pt-6 md:px-0">
+          {sessionToggleError && <p role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{sessionToggleError}</p>}
           <div className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Inscription au concours</p>
@@ -962,6 +992,28 @@ export default function ConcoursPage() {
                         </button>
                         <DeleteButton onDelete={() => handleDeleteConcours(item.id)} label="Supprimer" />
                       </div>
+                    )}
+                    {canManagePreinscriptions &&
+                      activeTab === 'concours' &&
+                      !item.id.startsWith('seed-concours-') &&
+                      !item.id.startsWith('annonce-migrated-') && (
+                      <button
+                        type="button"
+                        disabled={!token || updatingRegistrationSlug !== null}
+                        onClick={() => void handleToggleRegistrationSession(item)}
+                        className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                          getCurrentAdmissionConcours([item])
+                            ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        }`}
+                      >
+                        {updatingRegistrationSlug === item.slug
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : getCurrentAdmissionConcours([item])
+                            ? <Lock size={14} />
+                            : <CheckCircle2 size={14} />}
+                        {getCurrentAdmissionConcours([item]) ? 'Fermer la session' : 'Ouvrir la session de préinscription'}
+                      </button>
                     )}
                   </div>
                 </div>

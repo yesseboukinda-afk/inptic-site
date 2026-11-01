@@ -18,6 +18,7 @@ export type ConcoursItem = {
   description: string;
   conditions: string[];
   calendar: {
+    registrationOpen?: boolean;
     registrationStart?: string | null;
     registrationEnd?: string | null;
     examDate?: string | null;
