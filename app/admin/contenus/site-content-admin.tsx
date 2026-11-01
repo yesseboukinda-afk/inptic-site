@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ImageUp, LoaderCircle, Pencil, Save, Trash2, X } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
@@ -54,6 +54,12 @@ export default function SiteContentAdmin() {
   const [imagePreview, setImagePreview] = useState('');
   const [imageVersion, setImageVersion] = useState(0);
   const [imageInputVersion, setImageInputVersion] = useState(0);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
+  const [cropReady, setCropReady] = useState(false);
+  const [cropLoadError, setCropLoadError] = useState(false);
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const selectedImage = useMemo(
     () => SITE_IMAGE_SLOTS.find((slot) => slot.path === imageSlot) ?? SITE_IMAGE_SLOTS[0],
@@ -88,12 +94,74 @@ export default function SiteContentAdmin() {
   useEffect(() => {
     if (!imageFile) {
       setImagePreview('');
+      setCropReady(false);
+      setCropLoadError(false);
+      setCropZoom(1);
+      setCropX(50);
+      setCropY(50);
       return;
     }
     const url = URL.createObjectURL(imageFile);
     setImagePreview(url);
+    setCropReady(false);
+    setCropLoadError(false);
+    setCropZoom(1);
+    setCropX(50);
+    setCropY(50);
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
+
+  useEffect(() => {
+    if (!imagePreview) return;
+
+    let active = true;
+    const source = new window.Image();
+    source.onload = () => {
+      if (!active) return;
+      const canvas = cropCanvasRef.current;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context) {
+        setCropLoadError(true);
+        return;
+      }
+
+      const targetRatio = canvas.width / canvas.height;
+      const sourceRatio = source.naturalWidth / source.naturalHeight;
+      const baseWidth = sourceRatio > targetRatio ? source.naturalHeight * targetRatio : source.naturalWidth;
+      const baseHeight = sourceRatio > targetRatio ? source.naturalHeight : source.naturalWidth / targetRatio;
+      const cropWidth = baseWidth / cropZoom;
+      const cropHeight = baseHeight / cropZoom;
+      const maxX = source.naturalWidth - cropWidth;
+      const maxY = source.naturalHeight - cropHeight;
+      const sourceX = maxX * cropX / 100;
+      const sourceY = maxY * cropY / 100;
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(
+        source,
+        sourceX,
+        sourceY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+      setCropReady(true);
+      setCropLoadError(false);
+    };
+    source.onerror = () => {
+      if (active) setCropLoadError(true);
+    };
+    source.src = imagePreview;
+
+    return () => {
+      active = false;
+      source.onload = null;
+      source.onerror = null;
+    };
+  }, [cropZoom, cropX, cropY, imagePreview]);
 
   useEffect(() => {
     if (access !== 'allowed') return;
@@ -215,7 +283,8 @@ export default function SiteContentAdmin() {
 
   async function saveImage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!imageFile) {
+    const canvas = cropCanvasRef.current;
+    if (!imageFile || !canvas || !cropReady) {
       setError('Sélectionnez une image et vérifiez son aperçu avant de l’enregistrer.');
       return;
     }
@@ -225,7 +294,21 @@ export default function SiteContentAdmin() {
     try {
       const form = new FormData();
       form.set('slot', imageSlot);
-      form.set('file', imageFile);
+      const croppedBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => blob ? resolve(blob) : reject(new Error('La photo recadrée ne peut pas être générée.')),
+          imageFile.type,
+          imageFile.type === 'image/jpeg' ? 0.92 : undefined,
+        );
+      });
+      if (croppedBlob.size > 10 * 1024 * 1024) {
+        throw new Error('La photo recadrée dépasse la taille maximale de 10 Mo.');
+      }
+      const croppedFile = new File([croppedBlob], imageFile.name, {
+        type: croppedBlob.type,
+        lastModified: Date.now(),
+      });
+      form.set('file', croppedFile);
       const response = await fetch('/api/site-content/media', {
         method: 'POST',
         credentials: 'same-origin',
@@ -307,10 +390,10 @@ export default function SiteContentAdmin() {
                   className="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700"
                 />
               </label>
-              <p className="text-xs text-slate-500">Le fichier est enregistré dans le stockage persistant du site et remplace cette image sur les pages publiques.</p>
+              <p className="text-xs text-slate-500">Ajustez le cadrage dans l’aperçu. Seule la photo recadrée sera enregistrée sur le site.</p>
               <button
                 type="submit"
-                disabled={!imageFile || saving}
+                disabled={!imageFile || !cropReady || saving}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? <LoaderCircle size={17} className="animate-spin" /> : <ImageUp size={17} />}
@@ -320,13 +403,77 @@ export default function SiteContentAdmin() {
             <div className="min-w-0">
               <p className="mb-2 text-sm font-semibold text-slate-800">Aperçu avant enregistrement</p>
               <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                <img
-                  src={imagePreview || `/${imageSlot}?version=${imageVersion}`}
-                  alt={`Aperçu : ${selectedImage.label}`}
-                  className="h-full w-full object-cover"
-                />
-                {imagePreview && <span className="absolute bottom-2 left-2 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-bold text-white">Nouvelle photo</span>}
+                {imagePreview ? (
+                  <>
+                    <canvas
+                      ref={cropCanvasRef}
+                      width={1600}
+                      height={900}
+                      role="img"
+                      aria-label={`Aperçu recadré de ${selectedImage.label}`}
+                      className="h-full w-full object-cover"
+                    />
+                    {cropLoadError && (
+                      <p role="alert" className="absolute inset-0 grid place-items-center bg-white/90 p-4 text-center text-sm font-semibold text-red-700">
+                        Impossible de préparer l’aperçu de cette photo.
+                      </p>
+                    )}
+                    <span className="absolute bottom-2 left-2 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-bold text-white">Aperçu recadré</span>
+                  </>
+                ) : (
+                  <img
+                    src={`/${imageSlot}?version=${imageVersion}`}
+                    alt={`Aperçu : ${selectedImage.label}`}
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </div>
+              {imagePreview && (
+                <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs leading-5 text-slate-600">Le cadre montre exactement la zone qui sera conservée. Ajustez le zoom et la position avant l’enregistrement.</p>
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Zoom
+                    <input
+                      type="range"
+                      min="1"
+                      max="3"
+                      step="0.01"
+                      value={cropZoom}
+                      onChange={(event) => setCropZoom(Number(event.target.value))}
+                      className="mt-1 block w-full accent-blue-700"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Position horizontale
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={cropX}
+                      onChange={(event) => setCropX(Number(event.target.value))}
+                      className="mt-1 block w-full accent-blue-700"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Position verticale
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={cropY}
+                      onChange={(event) => setCropY(Number(event.target.value))}
+                      className="mt-1 block w-full accent-blue-700"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setCropZoom(1); setCropX(50); setCropY(50); }}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Réinitialiser le cadrage
+                  </button>
+                </div>
+              )}
             </div>
           </form>
         </section>
