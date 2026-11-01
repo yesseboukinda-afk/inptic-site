@@ -1,0 +1,277 @@
+-- Application data schema for a standalone LWS PostgreSQL database.
+-- Run after scripts/12_lws_auth_storage_foundation.sql.
+-- This creates schema only; it does not copy Supabase rows or stored files.
+
+CREATE TABLE IF NOT EXISTS public.site_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID REFERENCES public.app_users(id) ON DELETE SET NULL,
+  actor_email TEXT,
+  actor_name TEXT NOT NULL,
+  actor_role TEXT NOT NULL,
+  service TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  action TEXT NOT NULL,
+  http_method TEXT NOT NULL,
+  route TEXT NOT NULL,
+  outcome TEXT NOT NULL DEFAULT 'en_cours'
+    CHECK (outcome IN ('en_cours', 'succes', 'echec')),
+  response_status INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS site_audit_logs_created_at_idx
+  ON public.site_audit_logs(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS site_audit_logs_actor_id_idx
+  ON public.site_audit_logs(actor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS site_audit_logs_service_idx
+  ON public.site_audit_logs(service, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.homepage_agenda (
+  id TEXT PRIMARY KEY CHECK (id = 'homepage'),
+  events JSONB NOT NULL CHECK (jsonb_typeof(events) = 'array' AND jsonb_array_length(events) = 3),
+  updated_by UUID REFERENCES public.app_users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+GRANT SELECT ON TABLE public.homepage_agenda TO PUBLIC;
+
+CREATE TABLE IF NOT EXISTS public.homepage_director_message (
+  id TEXT PRIMARY KEY CHECK (id = 'homepage'),
+  content JSONB NOT NULL CHECK (jsonb_typeof(content) = 'object'),
+  updated_by UUID REFERENCES public.app_users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+GRANT SELECT ON TABLE public.homepage_director_message TO PUBLIC;
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  full_name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  niveau TEXT NOT NULL DEFAULT '',
+  parcours TEXT NOT NULL DEFAULT '',
+  promotion TEXT NOT NULL DEFAULT '',
+  etablissement TEXT NOT NULL DEFAULT '',
+  annee TEXT NOT NULL DEFAULT '',
+  specialite TEXT NOT NULL DEFAULT '',
+  bio TEXT NOT NULL DEFAULT '',
+  diplome TEXT NOT NULL DEFAULT '',
+  photo TEXT NOT NULL DEFAULT '',
+  departement TEXT NOT NULL DEFAULT '',
+  documents JSONB NOT NULL DEFAULT '[]'::jsonb,
+  admission_workflow JSONB NOT NULL DEFAULT '{}'::jsonb,
+  candidature_data JSONB,
+  role TEXT NOT NULL DEFAULT 'etudiant',
+  dossier_status TEXT NOT NULL DEFAULT 'en_attente',
+  dossier_numero TEXT,
+  dossier_valide BOOLEAN NOT NULL DEFAULT FALSE,
+  emploi_du_temps JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.concours (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  department TEXT NOT NULL DEFAULT 'Général',
+  session_year INTEGER NOT NULL DEFAULT 2026,
+  status TEXT NOT NULL DEFAULT 'en_cours'
+    CHECK (status IN ('a_venir', 'en_cours', 'termine')),
+  description TEXT NOT NULL DEFAULT '',
+  conditions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  calendar JSONB NOT NULL DEFAULT '{}'::jsonb,
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
+  results JSONB NOT NULL DEFAULT '{"published":false,"admittedList":[],"waitingList":[]}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lws_concours_status_year_idx
+  ON public.concours(status, session_year DESC, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.concours_preinscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE,
+  concours_slug TEXT REFERENCES public.concours(slug) ON DELETE SET NULL,
+  full_name TEXT,
+  email TEXT NOT NULL,
+  phone TEXT,
+  consented_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'nouvelle'
+    CHECK (status IN ('nouvelle', 'contactee', 'convertie', 'annulee')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lws_concours_preinscriptions_created_idx
+  ON public.concours_preinscriptions(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.publications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  authors JSONB NOT NULL DEFAULT '[]'::jsonb,
+  publication_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  year INTEGER NOT NULL DEFAULT 2026,
+  domain TEXT NOT NULL DEFAULT 'Informatique & Télécoms',
+  abstract TEXT NOT NULL DEFAULT '',
+  keywords JSONB NOT NULL DEFAULT '[]'::jsonb,
+  journal_or_conference TEXT,
+  doi_or_url TEXT,
+  pdf_url TEXT,
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lws_publications_domain_year_idx
+  ON public.publications(domain, year DESC);
+
+CREATE TABLE IF NOT EXISTS public.actualites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  excerpt TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'Annonce',
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
+  social_links JSONB NOT NULL DEFAULT '[]'::jsonb,
+  target_pages TEXT[] NOT NULL DEFAULT ARRAY['actualites', 'annonces']::TEXT[],
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'published')),
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lws_actualites_status_date_idx
+  ON public.actualites(status, published_at DESC);
+CREATE INDEX IF NOT EXISTS lws_actualites_target_pages_idx
+  ON public.actualites USING GIN(target_pages);
+
+CREATE TABLE IF NOT EXISTS public.actualites_engagement_counters (
+  article_slug TEXT PRIMARY KEY,
+  views_count BIGINT NOT NULL DEFAULT 0,
+  likes_count BIGINT NOT NULL DEFAULT 0,
+  shares_count BIGINT NOT NULL DEFAULT 0,
+  shares_whatsapp BIGINT NOT NULL DEFAULT 0,
+  shares_facebook BIGINT NOT NULL DEFAULT 0,
+  shares_linkedin BIGINT NOT NULL DEFAULT 0,
+  shares_youtube BIGINT NOT NULL DEFAULT 0,
+  shares_mail BIGINT NOT NULL DEFAULT 0,
+  shares_tiktok BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS public.actualites_engagement_visitors (
+  article_slug TEXT NOT NULL,
+  visitor_id UUID NOT NULL,
+  liked BOOLEAN NOT NULL DEFAULT FALSE,
+  shared BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_whatsapp BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_facebook BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_linkedin BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_youtube BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_mail BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_tiktok BOOLEAN NOT NULL DEFAULT FALSE,
+  last_viewed_on DATE,
+  PRIMARY KEY (article_slug, visitor_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.alumni (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  prenom TEXT NOT NULL,
+  filiere TEXT NOT NULL DEFAULT '',
+  poste TEXT NOT NULL DEFAULT '',
+  entreprise TEXT NOT NULL DEFAULT '',
+  promotion INTEGER NOT NULL DEFAULT 2026,
+  commentaire TEXT NOT NULL DEFAULT '',
+  photo_url TEXT,
+  owner_user_id UUID REFERENCES public.app_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.alumni
+  ADD COLUMN IF NOT EXISTS owner_user_id UUID
+  REFERENCES public.app_users(id) ON DELETE SET NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS alumni_owner_user_id_unique_idx
+  ON public.alumni(owner_user_id) WHERE owner_user_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.rh_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  matricule TEXT NOT NULL UNIQUE,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  gender TEXT NOT NULL DEFAULT 'M' CHECK (gender IN ('M', 'F')),
+  birth_date DATE NOT NULL,
+  birth_place TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  photo_url TEXT NOT NULL DEFAULT '',
+  department TEXT NOT NULL,
+  position TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'contractuel'
+    CHECK (status IN ('titulaire', 'contractuel', 'stagiaire', 'detache', 'vacataire')),
+  contract_type TEXT NOT NULL DEFAULT 'CDI',
+  hire_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  job_description TEXT NOT NULL DEFAULT '',
+  is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+  archived_at TIMESTAMPTZ,
+  archive_reason TEXT,
+  qr_token TEXT NOT NULL UNIQUE,
+  qr_status TEXT NOT NULL DEFAULT 'actif'
+    CHECK (qr_status IN ('actif', 'revoque', 'inactif')),
+  qr_generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  qr_revoked_at TIMESTAMPTZ,
+  public_whitelist JSONB NOT NULL DEFAULT '{}'::jsonb,
+  history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.rh_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id TEXT NOT NULL,
+  user_email TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target_id TEXT,
+  target_name TEXT,
+  details TEXT,
+  ip_address TEXT
+);
+
+CREATE INDEX IF NOT EXISTS lws_rh_audit_timestamp_idx
+  ON public.rh_audit_logs(timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS public.training_catalog (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('pdf', 'video')),
+  resource_url TEXT NOT NULL,
+  storage_path TEXT,
+  status TEXT NOT NULL DEFAULT 'published'
+    CHECK (status IN ('published', 'draft')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.subscribers (
+  email TEXT PRIMARY KEY,
+  subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  unsubscribe_token UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  confirmation_sent_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS public.newsletter_deliveries (
+  publication_id TEXT NOT NULL,
+  subscriber_email TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('sending', 'sent', 'failed')),
+  resend_email_id TEXT,
+  error_code TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (publication_id, subscriber_email)
+);
