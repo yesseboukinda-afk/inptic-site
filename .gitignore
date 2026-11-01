@@ -1,0 +1,12 @@
+.next
+node_modules
+data/
+strapi/.tmp/
+out
+npm-debug.log*
+.env*
+!.env.example
+.npmrc
+.yarnrc
+.yarnrc.yml
+.DS_Store
