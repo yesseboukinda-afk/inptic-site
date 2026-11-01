@@ -3,17 +3,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Megaphone, ChevronRight, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { ChevronRight, Megaphone, X } from 'lucide-react';
 
 type CarouselAnnouncement = {
   id: string;
-  tag: string;
   title: string;
-  description: string;
   images: string[];
   link: string;
-  cta: string;
 };
 
 function getCoverImage(value: unknown): string | undefined {
@@ -58,7 +54,6 @@ function getAnnouncementImages(description: string, attachments: unknown[], cove
 }
 
 export default function AnnouncementsCarousel() {
-  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
@@ -95,18 +90,11 @@ export default function AnnouncementsCarousel() {
             attributes.cover_image,
           );
           const slug = typeof attributes.slug === 'string' && attributes.slug ? attributes.slug : id;
-          const cleanDescription = description
-            .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-            .replace(/(?:^|\n)\s*Image de couverture\s*:\s*\S+/i, '')
-            .trim();
           return [{
             id: `published-${id}`,
-            tag: typeof attributes.category === 'string' ? attributes.category : t('announcements.tagEvent', 'Annonce'),
             title,
-            description: cleanDescription,
             images,
             link: `/annonces#${encodeURIComponent(slug)}`,
-            cta: t('announcements.ctaPublished', 'Lire l’annonce'),
           }];
         });
 
@@ -130,7 +118,7 @@ export default function AnnouncementsCarousel() {
       active = false;
       clearInterval(refreshInterval);
     };
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     // Vérifier si l'annonce a été fermée il y a moins de 3 minutes
@@ -165,39 +153,40 @@ export default function AnnouncementsCarousel() {
   const current = announcements[currentIndex];
   if (!current) {
     return (
-      <div className="container-x relative z-10 my-3 min-h-[84px] px-4 md:px-0" aria-hidden="true">
-        <div className="flex min-h-[60px] items-center gap-3 rounded-full bg-[#073b8c] px-3 py-2 shadow-[0_8px_24px_rgba(7,59,140,0.18)] sm:gap-4 sm:px-4" />
+      <div className="container-x relative z-10 my-3 min-h-[88px] px-4 md:px-0" aria-hidden="true">
+        <div className="mx-auto flex min-h-[68px] max-w-3xl items-center rounded-full border border-blue-100 bg-white px-4 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:px-6" />
       </div>
     );
   }
 
   return (
-    <div className="container-x relative z-10 my-3 min-h-[84px] px-4 md:px-0">
-      <div className="flex min-h-[60px] items-center gap-3 rounded-full bg-[#073b8c] px-3 py-2 text-white shadow-[0_8px_24px_rgba(7,59,140,0.18)] sm:gap-4 sm:px-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-blue-950 sm:h-11 sm:w-11">
-          <Megaphone size={19} aria-hidden="true" />
+    <div className="container-x relative z-10 my-3 min-h-[88px] px-4 md:px-0">
+      <div className="relative mx-auto flex min-h-[68px] max-w-3xl items-center gap-2 overflow-hidden rounded-full border border-blue-100 bg-gradient-to-r from-white via-white to-blue-50 px-3 py-2 text-blue-950 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:gap-3 sm:px-5">
+        <span className="pointer-events-none absolute -left-3 -top-5 h-16 w-12 rotate-12 rounded-full bg-blue-600" aria-hidden="true" />
+        <span className="pointer-events-none absolute -bottom-6 right-0 h-12 w-10 -rotate-12 rounded-full bg-amber-300" aria-hidden="true" />
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 sm:h-11 sm:w-11">
+          <Megaphone size={20} aria-hidden="true" />
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-amber-400" aria-hidden="true" />
         </div>
 
-        <div className="h-9 w-px shrink-0 bg-white/30" aria-hidden="true" />
+        <div className="h-9 w-px shrink-0 bg-blue-200" aria-hidden="true" />
 
         <Link
           href={current.link}
-          className="min-w-0 flex-1 text-left text-xs leading-5 text-blue-50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 sm:text-sm"
-          aria-label={`${current.tag} : ${current.title}. ${current.cta}`}
+          className="relative min-w-0 flex-1 text-left text-xs leading-5 text-blue-950 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 sm:text-sm"
+          aria-label={`Communiqué officiel : ${current.title}`}
         >
-          <span className="font-bold">{current.title}</span>
-          {current.description && (
-            <span className="hidden sm:inline"> : {current.description}</span>
-          )}
+          <span className="block truncate text-[10px] font-bold text-blue-700 sm:text-xs">Communiqué officiel</span>
+          <span className="block line-clamp-2 font-bold leading-4 sm:line-clamp-1 sm:leading-5">{current.title}</span>
         </Link>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        <div className="relative flex shrink-0 items-center gap-1 sm:gap-1.5">
           {current.images.slice(0, 4).map((image, index) => (
             <Link
               key={`${image}-${index}`}
               href={current.link}
               aria-label={`Ouvrir l’annonce « ${current.title} », photo ${index + 1}`}
-              className={`inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-white/80 transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 sm:h-11 sm:w-11 ${
+              className={`inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-white shadow-[0_2px_8px_rgba(15,23,42,0.2)] transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:h-11 sm:w-11 ${
                 index >= 2 ? 'hidden sm:flex' : ''
               }`}
             >
@@ -218,7 +207,7 @@ export default function AnnouncementsCarousel() {
           {current.images.length > 2 && (
             <Link
               href={current.link}
-              className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white/80 px-1 text-[10px] font-bold text-white sm:hidden"
+              className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-blue-700 px-1 text-[10px] font-bold text-white sm:hidden"
               aria-label={`Ouvrir l’annonce et voir ${current.images.length - 2} autres photos`}
             >
               +{current.images.length - 2}
@@ -227,7 +216,7 @@ export default function AnnouncementsCarousel() {
           {current.images.length > 4 && (
             <Link
               href={current.link}
-              className="hidden h-11 min-w-11 items-center justify-center rounded-full border-2 border-white/80 px-2 text-xs font-bold text-white sm:flex"
+              className="hidden h-11 min-w-11 items-center justify-center rounded-full border-2 border-white bg-blue-700 px-2 text-xs font-bold text-white sm:flex"
               aria-label={`Ouvrir l’annonce et voir ${current.images.length - 4} autres photos`}
             >
               +{current.images.length - 4}
@@ -238,7 +227,7 @@ export default function AnnouncementsCarousel() {
         <button
           type="button"
           onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
-          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-800 text-white transition hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           aria-label="Annonce suivante"
         >
           <ChevronRight size={23} aria-hidden="true" />
@@ -247,7 +236,7 @@ export default function AnnouncementsCarousel() {
         <button
           type="button"
           onClick={handleClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           aria-label="Fermer les annonces"
           title="Masquer (réapparaîtra dans 3 minutes)"
         >

@@ -60,6 +60,9 @@ export default function SiteContentAdmin() {
   const [cropReady, setCropReady] = useState(false);
   const [cropLoadError, setCropLoadError] = useState(false);
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const cropImageRef = useRef<HTMLImageElement | null>(null);
+  const cropBoundsRef = useRef({ cropWidth: 0, cropHeight: 0, maxX: 0, maxY: 0 });
+  const cropPointerRef = useRef<{ pointerId: number; x: number; y: number; cropX: number; cropY: number } | null>(null);
 
   const selectedImage = useMemo(
     () => SITE_IMAGE_SLOTS.find((slot) => slot.path === imageSlot) ?? SITE_IMAGE_SLOTS[0],
@@ -96,6 +99,8 @@ export default function SiteContentAdmin() {
       setImagePreview('');
       setCropReady(false);
       setCropLoadError(false);
+      cropImageRef.current = null;
+      cropBoundsRef.current = { cropWidth: 0, cropHeight: 0, maxX: 0, maxY: 0 };
       setCropZoom(1);
       setCropX(50);
       setCropY(50);
@@ -105,6 +110,8 @@ export default function SiteContentAdmin() {
     setImagePreview(url);
     setCropReady(false);
     setCropLoadError(false);
+    cropImageRef.current = null;
+    cropBoundsRef.current = { cropWidth: 0, cropHeight: 0, maxX: 0, maxY: 0 };
     setCropZoom(1);
     setCropX(50);
     setCropY(50);
@@ -118,36 +125,7 @@ export default function SiteContentAdmin() {
     const source = new window.Image();
     source.onload = () => {
       if (!active) return;
-      const canvas = cropCanvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) {
-        setCropLoadError(true);
-        return;
-      }
-
-      const targetRatio = canvas.width / canvas.height;
-      const sourceRatio = source.naturalWidth / source.naturalHeight;
-      const baseWidth = sourceRatio > targetRatio ? source.naturalHeight * targetRatio : source.naturalWidth;
-      const baseHeight = sourceRatio > targetRatio ? source.naturalHeight : source.naturalWidth / targetRatio;
-      const cropWidth = baseWidth / cropZoom;
-      const cropHeight = baseHeight / cropZoom;
-      const maxX = source.naturalWidth - cropWidth;
-      const maxY = source.naturalHeight - cropHeight;
-      const sourceX = maxX * cropX / 100;
-      const sourceY = maxY * cropY / 100;
-
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(
-        source,
-        sourceX,
-        sourceY,
-        cropWidth,
-        cropHeight,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
+      cropImageRef.current = source;
       setCropReady(true);
       setCropLoadError(false);
     };
@@ -160,8 +138,48 @@ export default function SiteContentAdmin() {
       active = false;
       source.onload = null;
       source.onerror = null;
+      cropImageRef.current = null;
     };
-  }, [cropZoom, cropX, cropY, imagePreview]);
+  }, [imagePreview]);
+
+  useEffect(() => {
+    const source = cropImageRef.current;
+    const canvas = cropCanvasRef.current;
+    if (!source || !canvas) return;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setCropLoadError(true);
+      return;
+    }
+
+    const targetRatio = canvas.width / canvas.height;
+    const sourceRatio = source.naturalWidth / source.naturalHeight;
+    const baseWidth = sourceRatio > targetRatio ? source.naturalHeight * targetRatio : source.naturalWidth;
+    const baseHeight = sourceRatio > targetRatio ? source.naturalHeight : source.naturalWidth / targetRatio;
+    const cropWidth = baseWidth / cropZoom;
+    const cropHeight = baseHeight / cropZoom;
+    const maxX = source.naturalWidth - cropWidth;
+    const maxY = source.naturalHeight - cropHeight;
+    cropBoundsRef.current = { cropWidth, cropHeight, maxX, maxY };
+    const sourceX = maxX * cropX / 100;
+    const sourceY = maxY * cropY / 100;
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      source,
+      sourceX,
+      sourceY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+    setCropReady(true);
+    setCropLoadError(false);
+  }, [cropZoom, cropX, cropY, cropReady, imagePreview]);
 
   useEffect(() => {
     if (access !== 'allowed') return;
@@ -281,6 +299,37 @@ export default function SiteContentAdmin() {
     }
   }
 
+  function startCropDrag(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!cropReady) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropPointerRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      cropX,
+      cropY,
+    };
+  }
+
+  function moveCrop(event: React.PointerEvent<HTMLCanvasElement>) {
+    const pointer = cropPointerRef.current;
+    const canvas = cropCanvasRef.current;
+    if (!pointer || pointer.pointerId !== event.pointerId || !canvas) return;
+
+    const { cropWidth, cropHeight, maxX, maxY } = cropBoundsRef.current;
+    const bounds = canvas.getBoundingClientRect();
+    const xChange = maxX > 0 ? (event.clientX - pointer.x) * cropWidth / bounds.width / maxX * 100 : 0;
+    const yChange = maxY > 0 ? (event.clientY - pointer.y) * cropHeight / bounds.height / maxY * 100 : 0;
+    setCropX(Math.max(0, Math.min(100, pointer.cropX - xChange)));
+    setCropY(Math.max(0, Math.min(100, pointer.cropY - yChange)));
+  }
+
+  function stopCropDrag(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (cropPointerRef.current?.pointerId === event.pointerId) {
+      cropPointerRef.current = null;
+    }
+  }
+
   async function saveImage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const canvas = cropCanvasRef.current;
@@ -288,6 +337,7 @@ export default function SiteContentAdmin() {
       setError('Sélectionnez une image et vérifiez son aperçu avant de l’enregistrer.');
       return;
     }
+
     setSaving(true);
     setError('');
     setMessage('');
@@ -410,9 +460,24 @@ export default function SiteContentAdmin() {
                       width={1600}
                       height={900}
                       role="img"
-                      aria-label={`Aperçu recadré de ${selectedImage.label}`}
-                      className="h-full w-full object-cover"
+                      aria-label={`Photo recadrable : faites-la glisser pour choisir le cadrage de ${selectedImage.label}`}
+                      onPointerDown={startCropDrag}
+                      onPointerMove={moveCrop}
+                      onPointerUp={stopCropDrag}
+                      onPointerCancel={stopCropDrag}
+                      className="h-full w-full touch-none cursor-grab object-cover active:cursor-grabbing"
                     />
+                    <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3" aria-hidden="true">
+                      <span className="border-b border-r border-white/60" />
+                      <span className="border-b border-r border-white/60" />
+                      <span className="border-b border-white/60" />
+                      <span className="border-b border-r border-white/60" />
+                      <span className="border-b border-r border-white/60" />
+                      <span className="border-b border-white/60" />
+                      <span className="border-r border-white/60" />
+                      <span className="border-r border-white/60" />
+                      <span />
+                    </div>
                     {cropLoadError && (
                       <p role="alert" className="absolute inset-0 grid place-items-center bg-white/90 p-4 text-center text-sm font-semibold text-red-700">
                         Impossible de préparer l’aperçu de cette photo.
@@ -429,49 +494,36 @@ export default function SiteContentAdmin() {
                 )}
               </div>
               {imagePreview && (
-                <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs leading-5 text-slate-600">Le cadre montre exactement la zone qui sera conservée. Ajustez le zoom et la position avant l’enregistrement.</p>
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Zoom
-                    <input
-                      type="range"
-                      min="1"
-                      max="3"
-                      step="0.01"
-                      value={cropZoom}
-                      onChange={(event) => setCropZoom(Number(event.target.value))}
-                      className="mt-1 block w-full accent-blue-700"
-                    />
-                  </label>
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Position horizontale
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={cropX}
-                      onChange={(event) => setCropX(Number(event.target.value))}
-                      className="mt-1 block w-full accent-blue-700"
-                    />
-                  </label>
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Position verticale
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={cropY}
-                      onChange={(event) => setCropY(Number(event.target.value))}
-                      className="mt-1 block w-full accent-blue-700"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => { setCropZoom(1); setCropX(50); setCropY(50); }}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                  >
-                    Réinitialiser le cadrage
-                  </button>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="min-w-0 flex-1 text-xs leading-5 text-slate-600">Faites glisser la photo dans le cadre. Le quadrillage vous aide à ajuster sa composition.</p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCropZoom((zoom) => Math.max(1, Number((zoom - 0.1).toFixed(2))))}
+                      disabled={cropZoom <= 1}
+                      aria-label="Dézoomer"
+                      className="grid h-10 w-10 place-items-center rounded-lg border border-slate-300 bg-white text-xl font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-14 text-center text-xs font-bold text-slate-700">{Math.round(cropZoom * 100)}%</span>
+                    <button
+                      type="button"
+                      onClick={() => setCropZoom((zoom) => Math.min(3, Number((zoom + 0.1).toFixed(2))))}
+                      disabled={cropZoom >= 3}
+                      aria-label="Zoomer"
+                      className="grid h-10 w-10 place-items-center rounded-lg border border-slate-300 bg-white text-xl font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCropZoom(1); setCropX(50); setCropY(50); }}
+                      className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Réinitialiser
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
