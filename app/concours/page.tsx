@@ -789,6 +789,11 @@ export default function ConcoursPage() {
             <p className="mt-1 text-sm text-slate-500">
               Aucun concours ne correspond à vos critères de recherche actuels.
             </p>
+            {canManagePreinscriptions && concours.length === 0 && (
+              <p className="mx-auto mt-3 max-w-xl rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                Aucun concours n’est actuellement enregistré. Le bouton d’ouverture de session apparaîtra sur la fiche du concours après sa publication.
+              </p>
+            )}
             <button
               onClick={() => {
                 setSearchQuery('');

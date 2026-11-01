@@ -14,7 +14,10 @@ import {
   Globe2,
   BriefcaseBusiness,
 } from "lucide-react";
-export default function Home() {
+import { connection } from "next/server";
+
+export default async function Home() {
+  await connection();
   const { t } = useTranslation();
   const formations = [
     {

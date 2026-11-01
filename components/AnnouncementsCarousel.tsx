@@ -155,7 +155,7 @@ export default function AnnouncementsCarousel() {
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-3 z-30 px-4">
-      <div className="pointer-events-auto relative mx-auto flex min-h-[68px] max-w-3xl items-center gap-2 overflow-hidden rounded-[50px] border border-blue-100 bg-gradient-to-r from-white via-white to-blue-50 px-3 py-2 text-blue-950 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:gap-3 sm:px-5">
+      <div className="home-announcements-pill pointer-events-auto relative mx-auto flex min-h-[68px] max-w-3xl items-center gap-2 overflow-hidden border border-blue-100 bg-gradient-to-r from-white via-white to-blue-50 px-3 py-2 text-blue-950 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:gap-3 sm:px-5">
         <span className="pointer-events-none absolute -left-3 -top-5 h-16 w-12 rotate-12 rounded-full bg-blue-600" aria-hidden="true" />
         <span className="pointer-events-none absolute -bottom-6 right-0 h-12 w-10 -rotate-12 rounded-full bg-amber-300" aria-hidden="true" />
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 sm:h-11 sm:w-11">
@@ -166,21 +166,25 @@ export default function AnnouncementsCarousel() {
         <div className="h-9 w-px shrink-0 bg-blue-200" aria-hidden="true" />
 
         <Link
+          key={`${current.id}:${current.title}`}
           href={current.link}
-          className="relative min-w-0 flex-1 text-left text-xs leading-5 text-blue-950 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 sm:text-sm"
+          className="home-announcement-transition relative min-w-0 flex-1 text-left text-xs leading-5 text-blue-950 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 sm:text-sm"
           aria-label={`Communiqué officiel : ${current.title}`}
         >
           <span className="block truncate text-[10px] font-bold text-blue-700 sm:text-xs">Communiqué officiel</span>
           <span className="block line-clamp-2 font-bold leading-4 sm:line-clamp-1 sm:leading-5">{current.title}</span>
         </Link>
 
-        <div className="relative flex shrink-0 items-center gap-1 sm:gap-1.5">
+        <div
+          key={`${current.id}:${current.images.join('|')}`}
+          className="home-announcement-transition relative flex shrink-0 items-center gap-1 sm:gap-1.5"
+        >
           {current.images.slice(0, 4).map((image, index) => (
             <Link
               key={`${image}-${index}`}
               href={current.link}
               aria-label={`Ouvrir l’annonce « ${current.title} », photo ${index + 1}`}
-              className={`inline-flex h-8 w-8 overflow-hidden rounded-full border-2 border-white shadow-[0_2px_8px_rgba(15,23,42,0.2)] transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:h-11 sm:w-11 ${
+              className={`home-announcements-thumbnail inline-flex h-8 w-8 overflow-hidden border-2 border-white shadow-[0_2px_8px_rgba(15,23,42,0.2)] transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:h-11 sm:w-11 ${
                 index >= 2 ? 'hidden sm:flex' : ''
               }`}
             >
@@ -201,7 +205,7 @@ export default function AnnouncementsCarousel() {
           {current.images.length > 2 && (
             <Link
               href={current.link}
-              className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-blue-700 px-1 text-[10px] font-bold text-white sm:hidden"
+              className="home-announcements-thumbnail flex h-8 min-w-8 items-center justify-center border-2 border-white bg-blue-700 px-1 text-[10px] font-bold text-white sm:hidden"
               aria-label={`Ouvrir l’annonce et voir ${current.images.length - 2} autres photos`}
             >
               +{current.images.length - 2}
@@ -210,7 +214,7 @@ export default function AnnouncementsCarousel() {
           {current.images.length > 4 && (
             <Link
               href={current.link}
-              className="hidden h-11 min-w-11 items-center justify-center rounded-full border-2 border-white bg-blue-700 px-2 text-xs font-bold text-white sm:flex"
+              className="home-announcements-thumbnail hidden h-11 min-w-11 items-center justify-center border-2 border-white bg-blue-700 px-2 text-xs font-bold text-white sm:flex"
               aria-label={`Ouvrir l’annonce et voir ${current.images.length - 4} autres photos`}
             >
               +{current.images.length - 4}

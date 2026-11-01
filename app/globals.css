@@ -13,6 +13,35 @@
   border-radius: 0 !important;
 }
 
+.home-announcements-pill {
+  border-radius: 50px !important;
+}
+
+.home-announcements-thumbnail {
+  border-radius: 50% !important;
+}
+
+@keyframes home-announcement-enter {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.home-announcement-transition {
+  animation: home-announcement-enter 360ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-announcement-transition {
+    animation: none;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
