@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import ChatBot from "@/components/ChatBot";
+import ChatBotLoader from "@/components/ChatBotLoader";
 import BackToTop from "@/components/BackToTop";
 import ScrollReveal from "@/components/ScrollReveal";
 import I18nProvider from "@/components/I18nProvider";
@@ -69,7 +69,7 @@ export default function RootLayout({
 
             <BackToTop />
 
-            <ChatBot />
+            <ChatBotLoader />
 
             <ScrollReveal />
 

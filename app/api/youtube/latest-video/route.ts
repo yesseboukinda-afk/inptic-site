@@ -1,7 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { NextResponse } from 'next/server';
-
-const DEFAULT_CHANNEL_ID = 'UCaqL7XVo8wV0f9aCu-eXjgA';
+import { DEFAULT_YOUTUBE_CHANNEL_ID } from '@/lib/youtube';
 const feedParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
@@ -23,7 +22,7 @@ function textValue(value: unknown): string {
 }
 
 export async function GET() {
-  const channelId = process.env.YOUTUBE_CHANNEL_ID || DEFAULT_CHANNEL_ID;
+  const channelId = process.env.YOUTUBE_CHANNEL_ID || DEFAULT_YOUTUBE_CHANNEL_ID;
   const feedUrl = new URL('https://www.youtube.com/feeds/videos.xml');
   feedUrl.searchParams.set('channel_id', channelId);
 

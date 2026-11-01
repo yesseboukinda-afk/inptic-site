@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Github } from "lucide-react";
 import InstallPWA from "@/components/InstallPWA";
 import { COOKIE_PREFERENCES_EVENT } from "@/lib/cookie-consent";
 
@@ -426,21 +427,17 @@ export default function Footer() {
             {/* Développeur */}
             <div className="flex items-center justify-center gap-4 text-xs text-slate-400 md:justify-end md:text-sm">
              <div className="flex items-center gap-2">
-                <span>by :</span>
+
 
                 <a
                   href="https://github.com/yesseboukinda-afk/"
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Voir le dépôt GitHub INPTIC"
-                  title="GitHub INPTIC"
+                  title="GitHub develloper"
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-200 transition-colors duration-200 hover:border-[#D4AF37] hover:text-[#D4AF37]"
                 >
-                  <img
-                    src="/connexion/github.png"
-                    alt="GitHub"
-                    className="h-5 w-5"
-                  />
+                  <Github size={20} aria-hidden="true" />
                 </a>
               </div>
             </div>

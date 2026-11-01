@@ -5,11 +5,19 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "browserslist": [
+    "chrome 64",
+    "edge 79",
+    "firefox 67",
+    "opera 51",
+    "safari 12",
+    "ios_saf 12"
+  ],
   "scripts": {
     "dev": "next dev",
     "dev:strapi": "npm --prefix strapi run develop",
     "build": "npm run build:next && npm run build:strapi",
-    "build:next": "next typegen && npm run lint && next build --webpack",
+    "build:next": "next typegen && npm run lint && next build",
     "build:strapi": "npm --prefix strapi install && npm --prefix strapi run build",
     "start": "next start",
     "start:strapi": "npm --prefix strapi run start",
@@ -30,7 +38,7 @@
     "i18next": "^26.4.2",
     "lottie-react": "^3.1.2",
     "lucide-react": "^0.468.0",
-    "next": "16.3.4",
+    "next": "^15.5.28",
     "nodemailer": "^10.1.0",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4",
@@ -41,14 +49,15 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.186.0",
+    "autoprefixer": "^10.4.27",
     "concurrently": "^10.0.5",
-    "tailwindcss": "^4.1.0",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5.7.0"
   }
 }

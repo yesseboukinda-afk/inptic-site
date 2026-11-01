@@ -1,5 +1,5 @@
 import 'server-only';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getPostgresPool } from '@/lib/postgres';
 
@@ -75,6 +75,13 @@ export async function deleteStoredFile(bucket: string, relativePath: string) {
 }
 
 export async function readStoredFile(bucket: string, relativePath: string) {
+  const file = await getPublicStoredFileInfo(bucket, relativePath);
+  if (!file) return null;
+  const contents = await readFile(file.fullPath);
+  return { metadata: file.metadata, contents };
+}
+
+export async function getPublicStoredFileInfo(bucket: string, relativePath: string) {
   const fullPath = resolveStoredFilePath(bucket, relativePath);
   const { rows } = await getPostgresPool().query(
     `SELECT mime_type, original_filename, byte_size
@@ -84,8 +91,8 @@ export async function readStoredFile(bucket: string, relativePath: string) {
   );
   const metadata = rows[0];
   if (!metadata) return null;
-  const contents = await readFile(fullPath);
-  return { metadata, contents };
+  const fileStats = await stat(fullPath);
+  return { metadata, fullPath, size: fileStats.size };
 }
 
 export async function readStoredPrivateFile(bucket: string, relativePath: string) {

@@ -5,6 +5,7 @@ import { usePWAInstall } from "@/components/PWAInstallProvider";
 
 type Device =
   | "android"
+  | "harmony"
   | "iphone"
   | "ipad"
   | "windows"
@@ -12,15 +13,38 @@ type Device =
   | "linux"
   | "other";
 
-function detectDevice(): Device {
-  const ua = navigator.userAgent.toLowerCase();
+type Browser =
+  | "chrome"
+  | "edge"
+  | "safari"
+  | "samsung"
+  | "huawei"
+  | "firefox"
+  | "other";
 
+function detectDevice(): { device: Device; browser: Browser } {
+  const ua = navigator.userAgent.toLowerCase();
+  const browser: Browser = /edg\//.test(ua)
+    ? "edge"
+    : /samsungbrowser/.test(ua)
+      ? "samsung"
+      : /huawei.?browser/.test(ua)
+        ? "huawei"
+        : /firefox|fxios/.test(ua)
+          ? "firefox"
+          : /crios|chrome/.test(ua)
+            ? "chrome"
+            : /safari/.test(ua)
+              ? "safari"
+              : "other";
+
+  if (/harmonyos/.test(ua)) return { device: "harmony", browser };
   if (/android/.test(ua)) {
-    return "android";
+    return { device: "android", browser };
   }
 
   if (/iphone/.test(ua)) {
-    return "iphone";
+    return { device: "iphone", browser };
   }
 
   if (
@@ -28,42 +52,55 @@ function detectDevice(): Device {
     (/macintosh/.test(ua) &&
       navigator.maxTouchPoints > 1)
   ) {
-    return "ipad";
+    return { device: "ipad", browser };
   }
 
   if (/windows/.test(ua)) {
-    return "windows";
+    return { device: "windows", browser };
   }
 
   if (/macintosh|mac os x/.test(ua)) {
-    return "mac";
+    return { device: "mac", browser };
   }
 
   if (/linux/.test(ua)) {
-    return "linux";
+    return { device: "linux", browser };
   }
 
-  return "other";
+  return { device: "other", browser };
 }
 
-function getInstructions(device: Device) {
+function getInstructions(device: Device, browser: Browser) {
   switch (device) {
     case "android":
+      if (browser === "samsung") {
+        return (
+          <>
+            <p>Ouvrez le menu de Samsung Internet.</p>
+            <p>
+              Choisissez <strong>« Ajouter la page à »</strong>, puis{" "}
+              <strong>« Écran d’accueil »</strong>.
+            </p>
+          </>
+        );
+      }
       return (
         <>
+          <p>Ouvrez le menu ⋮ de votre navigateur.</p>
           <p>
-            Ouvrez le menu de votre navigateur.
+            Touchez <strong>« Installer l’application »</strong> ou{" "}
+            <strong>« Ajouter à l’écran d’accueil »</strong>, puis confirmez.
           </p>
+        </>
+      );
+
+    case "harmony":
+      return (
+        <>
+          <p>Ouvrez le menu de votre navigateur Huawei.</p>
           <p>
-            Choisissez{" "}
-            <strong>
-              « Installer l’application »
-            </strong>{" "}
-            ou{" "}
-            <strong>
-              « Ajouter à l’écran d’accueil »
-            </strong>
-            .
+            Choisissez <strong>« Ajouter à l’écran d’accueil »</strong> ou{" "}
+            <strong>« Ajouter un raccourci »</strong>, puis confirmez.
           </p>
         </>
       );
@@ -73,61 +110,51 @@ function getInstructions(device: Device) {
       return (
         <>
           <p>
-            Appuyez sur le bouton{" "}
-            <strong>Partager</strong>.
+            Dans Safari, appuyez sur <strong>Partager</strong> (le carré avec
+            la flèche vers le haut).
           </p>
           <p>
-            Choisissez ensuite{" "}
-            <strong>
-              « Sur l’écran d’accueil »
-            </strong>
-            .
+            Faites défiler le menu, choisissez{" "}
+            <strong>« Sur l’écran d’accueil »</strong>, puis <strong>Ajouter</strong>.
           </p>
         </>
       );
 
     case "windows":
-      return (
-        <>
-          <p>
-            Utilisez l'option d'installation de votre
-            navigateur pour ajouter INPTIC comme
-            application.
-          </p>
-          <p>
-            Une fois installée, INPTIC pourra être
-            lancée depuis votre ordinateur.
-          </p>
-        </>
-      );
-
     case "mac":
-      return (
-        <>
-          <p>
-            Utilisez l'option d'installation de votre
-            navigateur pour ajouter INPTIC comme
-            application.
-          </p>
-          <p>
-            INPTIC pourra ensuite être lancée comme
-            une application.
-          </p>
-        </>
-      );
-
     case "linux":
+      if (browser === "chrome" || browser === "edge") {
+        return (
+          <>
+            <p>
+              Cliquez sur l’icône <strong>Installer</strong> dans la barre
+              d’adresse, si elle apparaît.
+            </p>
+            <p>
+              Sinon, ouvrez le menu ⋮ et choisissez{" "}
+              <strong>« Installer INPTIC »</strong> ou{" "}
+              <strong>« Installer cette application »</strong>, puis confirmez.
+            </p>
+          </>
+        );
+      }
+      if (device === "mac" && browser === "safari") {
+        return (
+          <>
+            <p>Dans Safari, ouvrez le menu <strong>Fichier</strong>.</p>
+            <p>
+              Choisissez <strong>« Ajouter au Dock »</strong> pour créer
+              l’application INPTIC.
+            </p>
+          </>
+        );
+      }
       return (
         <>
           <p>
-            Utilisez l'option d'installation de votre
-            navigateur pour ajouter INPTIC comme
-            application.
-          </p>
-          <p>
-            Une fois installée, INPTIC apparaîtra
-            comme une application web sur votre
-            système.
+            L’installation d’une application web dépend du navigateur. Ouvrez
+            INPTIC dans <strong>Chrome ou Edge</strong> et utilisez son menu ⋮
+            pour choisir l’option d’installation.
           </p>
         </>
       );
@@ -135,9 +162,10 @@ function getInstructions(device: Device) {
     default:
       return (
         <p>
-          Utilisez l'option d'installation proposée
-          par votre navigateur pour ajouter INPTIC
-          comme application.
+          Ouvrez le menu de votre navigateur et recherchez{" "}
+          <strong>« Installer l’application »</strong> ou{" "}
+          <strong>« Ajouter à l’écran d’accueil »</strong>. Si l’option
+          n’existe pas, essayez Chrome ou Edge.
         </p>
       );
   }
@@ -154,11 +182,13 @@ export default function InstallPWA() {
   const [instructions, setInstructions] =
     useState(false);
 
-  const [device, setDevice] =
-    useState<Device>("other");
+  const [platform, setPlatform] = useState<{
+    device: Device;
+    browser: Browser;
+  }>({ device: "other", browser: "other" });
 
   useEffect(() => {
-    setDevice(detectDevice());
+    setPlatform(detectDevice());
   }, []);
 
   if (isInstalled) {
@@ -326,15 +356,15 @@ export default function InstallPWA() {
                     </h3>
 
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Votre navigateur ne permet pas de
-                      lancer automatiquement l'installation
-                      depuis cette page.
+                      Si l’installation directe n’est pas proposée par ce
+                      navigateur, suivez ces étapes pour ajouter INPTIC à votre
+                      appareil.
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-slate-50 p-5 text-sm leading-6 text-slate-700">
                     <div className="space-y-3">
-                      {getInstructions(device)}
+                      {getInstructions(platform.device, platform.browser)}
                     </div>
                   </div>
 

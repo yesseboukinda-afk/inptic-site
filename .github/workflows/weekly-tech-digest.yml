@@ -1,5 +1,8 @@
 name: Envoi de la revue IT hebdomadaire
 
+env:
+  NEWSLETTER_DIGEST_URL: https://inptic-ga.org/api/newsletter/weekly-digest
+
 on:
   schedule:
     - cron: '0 16 * * 5'
@@ -12,7 +15,7 @@ jobs:
     steps:
       - name: Vérifier la configuration
         env:
-          DIGEST_URL: ${{ vars.NEWSLETTER_DIGEST_URL }}
+          DIGEST_URL: ${{ env.NEWSLETTER_DIGEST_URL }}
           CRON_SECRET: ${{ secrets.NEWSLETTER_CRON_SECRET }}
         run: |
           if [ -z "$DIGEST_URL" ] || [ -z "$CRON_SECRET" ]; then
@@ -22,7 +25,7 @@ jobs:
 
       - name: Envoyer la revue par e-mail
         env:
-          DIGEST_URL: ${{ vars.NEWSLETTER_DIGEST_URL }}
+          DIGEST_URL: ${{ env.NEWSLETTER_DIGEST_URL }}
           CRON_SECRET: ${{ secrets.NEWSLETTER_CRON_SECRET }}
         run: |
           curl --fail-with-body --silent --show-error \

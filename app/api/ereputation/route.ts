@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
             });
             const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?${channelParams}`, {
               next: { revalidate: 3600 },
+              signal: AbortSignal.timeout(10_000),
             });
             if (!channelRes.ok) throw new Error(`Résolution de la chaîne YouTube refusée (HTTP ${channelRes.status}).`);
             const channelJson = await channelRes.json();
@@ -152,6 +153,7 @@ export async function GET(request: NextRequest) {
           });
           const youtubeRes = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${youtubeParams}`, {
             ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+            signal: AbortSignal.timeout(10_000),
           });
 
           if (youtubeRes.ok) {
@@ -183,52 +185,50 @@ export async function GET(request: NextRequest) {
         }
       }
     })(),
+    (async () => {
+      const rssUrl = 'https://news.google.com/rss/search?q=INPTIC+Gabon+OR+%22Inptic-Gabon%22&hl=fr&gl=GA&ceid=GA:fr';
+      try {
+        const res = await fetch(rssUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+          ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 300 } }),
+          signal: AbortSignal.timeout(10_000),
+        });
+
+        if (!res.ok) return;
+        pressSource = 'available';
+        const xmlText = await res.text();
+        const itemMatches = xmlText.match(/<item>([\s\S]*?)<\/item>/g) || [];
+
+        itemMatches.slice(0, 8).forEach((itemXml, index) => {
+          const titleMatch = itemXml.match(/<title>([\s\S]*?)<\/title>/);
+          const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/);
+          const pubDateMatch = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+          const sourceMatch = itemXml.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+
+          const title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'Mention INPTIC';
+          const url = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'https://google.com';
+          const source = sourceMatch ? sourceMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'Presse en ligne / Web';
+          const pubDate = pubDateMatch ? new Date(pubDateMatch[1]).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Récemment';
+
+          mentions.push({
+            id: `live-rss-${index}`,
+            source,
+            author: source,
+            content: title,
+            sentiment: classifySentiment(title),
+            date: pubDate,
+            url,
+            platform: 'Presse en ligne',
+          });
+        });
+      } catch (error) {
+        console.error('E-reputation fetch error:', error);
+      }
+    })(),
   ]);
   mentions.push(...facebookMentions, ...youtubeMentions);
-
-  // 3. Interroger les flux RSS de presse et du web pour INPTIC Gabon
-  try {
-    const rssUrl = 'https://news.google.com/rss/search?q=INPTIC+Gabon+OR+%22Inptic-Gabon%22&hl=fr&gl=GA&ceid=GA:fr';
-    const res = await fetch(rssUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-      ...(forceRefresh ? { cache: 'no-store' as const } : { next: { revalidate: 300 } }),
-    });
-
-    if (res.ok) {
-      pressSource = 'available';
-      const xmlText = await res.text();
-      const itemMatches = xmlText.match(/<item>([\s\S]*?)<\/item>/g) || [];
-
-      itemMatches.slice(0, 8).forEach((itemXml, index) => {
-        const titleMatch = itemXml.match(/<title>([\s\S]*?)<\/title>/);
-        const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/);
-        const pubDateMatch = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
-        const sourceMatch = itemXml.match(/<source[^>]*>([\s\S]*?)<\/source>/);
-
-        const title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'Mention INPTIC';
-        const url = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'https://google.com';
-        const source = sourceMatch ? sourceMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : 'Presse en ligne / Web';
-        const pubDate = pubDateMatch ? new Date(pubDateMatch[1]).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Récemment';
-
-        const sentiment = classifySentiment(title);
-
-        mentions.push({
-          id: `live-rss-${index}`,
-          source,
-          author: source,
-          content: title,
-          sentiment,
-          date: pubDate,
-          url,
-          platform: 'Presse en ligne',
-        });
-      });
-    }
-  } catch (error) {
-    console.error('E-reputation fetch error:', error);
-  }
 
   const platformComments = mentions.filter(
     (mention) => mention.platform === 'Facebook' || mention.platform === 'YouTube',

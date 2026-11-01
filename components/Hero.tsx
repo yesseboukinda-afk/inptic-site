@@ -648,7 +648,8 @@ export default function Hero() {
                   src={image}
                   alt=""
                   fill
-                  preload={index === 0}
+                  priority={index === 0}
+                  fetchPriority={index === 0 ? 'high' : undefined}
                   loading={
                     index === 0 ? undefined : 'lazy'
                   }

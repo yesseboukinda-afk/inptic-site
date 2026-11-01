@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Moon, Sun, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { Search, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
@@ -83,7 +83,6 @@ export default function Header() {
   const [isStudent, setIsStudent] = useState(false);
   const [accountRole, setAccountRole] = useState('');
   const [assignedService, setAssignedService] = useState<StaffServiceAssignment | ''>('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -165,19 +164,6 @@ export default function Header() {
 
   useEffect(() => {
     syncAuthState();
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const applyTheme = (dark: boolean) => {
-      document.documentElement.classList.toggle('dark', dark);
-      setIsDarkMode(dark);
-    };
-
-    applyTheme(mediaQuery.matches);
-
-    const handleSystemThemeChange = (event: MediaQueryListEvent) => {
-      applyTheme(event.matches);
-    };
-
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
     const handleStorage = () => syncAuthState();
     const handleAuthChange = () => syncAuthState();
 
@@ -206,9 +192,22 @@ export default function Header() {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('auth-state-changed', handleAuthChange);
-      mediaQuery.removeEventListener('change', handleSystemThemeChange);
     };
   }, [pathname]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = (dark: boolean) => {
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    const handleSystemThemeChange = (event: MediaQueryListEvent) => {
+      applyTheme(event.matches);
+    };
+
+    applyTheme(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+  }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -229,13 +228,6 @@ export default function Header() {
     desktopViewport.addEventListener('change', closeMobileMenu);
     return () => desktopViewport.removeEventListener('change', closeMobileMenu);
   }, []);
-
-  const toggleDarkMode = () => {
-    const nextDarkMode = !isDarkMode;
-    document.documentElement.classList.toggle('dark', nextDarkMode);
-    localStorage.setItem('inptic-theme', nextDarkMode ? 'dark' : 'light');
-    setIsDarkMode(nextDarkMode);
-  };
 
   const handleLogout = async () => {
     const { error } = await authClient.auth.signOut();
@@ -480,10 +472,6 @@ export default function Header() {
               </button>
               {renderSearchSuggestions('header-search-suggestions-desktop')}
             </form>
-
-            <button onClick={toggleDarkMode} aria-label="Basculer le mode sombre" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" title={isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'}>
-              {isDarkMode ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
-            </button>
 
             {accountEmail && (
               <button

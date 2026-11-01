@@ -56,6 +56,7 @@ export default function TrainingCatalog() {
   const [kind, setKind] = useState<'pdf' | 'video'>('pdf');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [updatingResourceId, setUpdatingResourceId] = useState<string | null>(null);
   const [updatingAction, setUpdatingAction] = useState<'delete' | 'toggle' | null>(null);
@@ -279,10 +280,23 @@ export default function TrainingCatalog() {
                 const embedUrl = getVideoEmbedUrl(featuredVideo.url);
                 const isVideoFile = /\.(mp4|webm)(\?|$)/i.test(featuredVideo.url);
                 if (isVideoFile) {
-                  return <video controls preload="metadata" className="absolute inset-0 h-full w-full bg-slate-950 object-contain" src={featuredVideo.url} />;
+                  return <video controls preload="none" playsInline className="absolute inset-0 h-full w-full bg-slate-950 object-contain" src={featuredVideo.url} />;
                 }
                 if (embedUrl) {
-                  return <iframe title={featuredVideo.title} src={embedUrl} className="absolute inset-0 h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />;
+                  if (activeVideoUrl === featuredVideo.url) {
+                    return <iframe title={featuredVideo.title} src={embedUrl} loading="lazy" className="absolute inset-0 h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />;
+                  }
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setActiveVideoUrl(featuredVideo.url)}
+                      aria-label={`Lire la vidéo : ${featuredVideo.title}`}
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 p-6 text-center text-white transition hover:from-slate-800 hover:to-teal-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white"
+                    >
+                      <PlayCircle size={52} aria-hidden="true" />
+                      <span className="font-semibold">Lire la vidéo de présentation</span>
+                    </button>
+                  );
                 }
                 return (
                   <a href={featuredVideo.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 flex items-center justify-center gap-3 p-5 text-white transition hover:bg-slate-900">

@@ -39,11 +39,11 @@ function renderMessage(text: string) {
   });
 }
 
-export default function ChatBot() {
+export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boolean }) {
   const { t } = useTranslation();
   const suggestions = t('chat.suggestions', { returnObjects: true }) as string[];
-  const [isOpen, setIsOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
+  const [isMounted, setIsMounted] = useState(initiallyOpen);
   const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [chatId, setChatId] = useState<string | null>(null);

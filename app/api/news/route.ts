@@ -160,7 +160,10 @@ export async function GET(request: NextRequest) {
 
     try {
       const { rows } = await getPostgresPool().query(
-        'SELECT * FROM public.actualites ORDER BY created_at DESC',
+        `SELECT id, title, slug, excerpt, category, attachments, social_links,
+                target_pages, published_at, created_at
+         FROM public.actualites
+         ORDER BY created_at DESC`,
       );
       const entries = rows.map((item) => ({
         id: String(item.id),
@@ -200,11 +203,22 @@ export async function GET(request: NextRequest) {
 
   if (process.env.DATABASE_URL) {
     try {
-      const { rows } = await getPostgresPool().query(
-        `SELECT * FROM public.actualites
-         WHERE status = 'published'
-         ORDER BY published_at DESC NULLS LAST`,
-      );
+      const { rows } = targetPage
+        ? await getPostgresPool().query(
+            `SELECT id, title, slug, excerpt, category, attachments, social_links,
+                    target_pages, published_at, created_at
+             FROM public.actualites
+             WHERE status = 'published' AND target_pages @> ARRAY[$1]::TEXT[]
+             ORDER BY published_at DESC NULLS LAST`,
+            [targetPage],
+          )
+        : await getPostgresPool().query(
+            `SELECT id, title, slug, excerpt, category, attachments, social_links,
+                    target_pages, published_at, created_at
+             FROM public.actualites
+             WHERE status = 'published'
+             ORDER BY published_at DESC NULLS LAST`,
+          );
       const entries = rows.map((item) => ({
             id: String(item.id),
             title: item.title,

@@ -14,7 +14,7 @@ import {
   Globe2,
   BriefcaseBusiness,
 } from "lucide-react";
-export default function HomePageClient() {
+export default function HomePageClient({ youtubeChannelId }: { youtubeChannelId: string }) {
   const { t } = useTranslation();
   const formations = [
     {
@@ -90,7 +90,7 @@ export default function HomePageClient() {
             </a>
           </div>
           <div className="grid md:grid-cols-3 gap-5 mt-6">
-            <LatestYoutubeVideo />
+            <LatestYoutubeVideo channelId={youtubeChannelId} />
             <div className="space-y-4">
               <Link
                 href="/alumni"
@@ -158,7 +158,8 @@ export default function HomePageClient() {
                     alt={title}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 25vw"
+                    sizes="(max-width: 640px) calc(100vw - 56px), (max-width: 768px) calc(100vw - 72px), 25vw"
+                    quality={65}
                   />
                 </div>
                 <h3 className="font-bold text-lg">{title}</h3>
