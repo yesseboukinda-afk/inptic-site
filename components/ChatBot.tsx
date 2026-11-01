@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
-import inpticLogo from '@/logoinptic.png';
 import { Bot, History, Loader, Menu, Plus, Send, X, Mic, MicOff, Volume2 } from 'lucide-react';
 import { speakFrenchText } from '@/lib/chatbot-speech';
 import { useTranslation } from 'react-i18next';
@@ -300,7 +298,7 @@ export default function ChatBot() {
             <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-white">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-20 items-center justify-center overflow-hidden rounded-lg bg-white px-1">
-                  <Image src={inpticLogo} alt="INPTIC" width={86} height={48} className="h-auto w-full object-contain" priority />
+                  <img src="/logoinptic.ico" alt="INPTIC" className="h-auto w-full object-contain" />
                 </div>
                 <div>
                   <h2 id="chat-header" className="font-bold">INPTIC Assistant</h2>
@@ -352,7 +350,7 @@ export default function ChatBot() {
                 {messages.length === 1 && (
                   <div className="mx-auto mt-12 w-full max-w-2xl text-center sm:mt-20">
                     <div className="mx-auto mb-5 flex h-16 w-28 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200">
-                      <Image src={inpticLogo} alt="INPTIC" width={112} height={64} className="h-auto w-full object-contain" />
+                      <img src="/logoinptic.ico" alt="INPTIC" className="h-auto w-full object-contain" />
                     </div>
                     <h3 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Comment puis-je vous aider ?</h3>
                     <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-500">Formations, admissions, vie étudiante et informations sur l’INPTIC. Posez votre question naturellement.</p>

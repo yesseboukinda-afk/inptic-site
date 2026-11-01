@@ -242,7 +242,7 @@ export default function InstallPWA() {
 
               <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-white p-2 shadow-xl">
                 <img
-                  src="/logoinptic.png"
+                  src="/logoinptic.ico"
                   alt="INPTIC"
                   className="max-h-full max-w-full object-contain"
                 />

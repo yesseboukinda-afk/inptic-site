@@ -188,7 +188,7 @@ function formatDigestItems(
     }
   }
 
-  const logoUrl = previewOnly ? '/logoinptic.png' : `${siteUrl}/logoinptic.png`;
+  const logoUrl = previewOnly ? '/logoinptic.ico' : `${siteUrl}/logoinptic.ico`;
   const unsubscribeUrl = unsubscribeToken
     ? `${siteUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`
     : null;
@@ -519,7 +519,7 @@ async function dispatchPublicationNewsletter(
     'https://inptic-site.vercel.app'
   ).replace(/\/+$/, '');
   const articleUrl = `${siteUrl}/annonces#${encodeURIComponent(publication.slug)}`;
-  const logoUrl = `${siteUrl}/logoinptic.png`;
+  const logoUrl = `${siteUrl}/logoinptic.ico`;
   const articleImageUrl = getPublicationImage(publication, siteUrl);
   const safeTitle = escapeHtml(publication.title);
   const safeSummary = escapeHtml(getNewsletterSummary(publication.excerpt));
@@ -668,7 +668,7 @@ async function dispatchContestNewsletter(contest: NewsletterContest): Promise<Ne
         html: `
           <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
             <div style="margin:0 0 24px;text-align:center">
-              <img src="${escapeHtml(`${siteUrl}/logoinptic.png`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
+              <img src="${escapeHtml(`${siteUrl}/logoinptic.ico`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
             </div>
             <p style="font-size:12px;font-weight:bold;letter-spacing:.12em;color:#1d4ed8">NOUVEAU CONCOURS INPTIC</p>
             <h1 style="font-size:24px;line-height:1.3">${safeTitle}</h1>

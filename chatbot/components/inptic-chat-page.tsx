@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import {
   Bot,
@@ -14,7 +13,6 @@ import {
   ArrowLeft,
   Loader,
 } from 'lucide-react';
-import inpticLogo from '@/logoinptic.png';
 import { speakFrenchText } from '@/lib/chatbot-speech';
 
 type Message = {
@@ -193,7 +191,7 @@ export default function INPTICChatPage() {
             </Link>
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5">
-                <Image src={inpticLogo} alt="INPTIC" width={60} height={30} className="h-auto w-full object-contain" />
+                <img src="/logoinptic.ico" alt="INPTIC" className="h-auto w-full object-contain" />
               </div>
               <span className="font-black text-sm tracking-wide text-white">Assistant IA Avancé</span>
             </div>

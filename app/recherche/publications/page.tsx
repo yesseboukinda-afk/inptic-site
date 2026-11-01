@@ -350,7 +350,7 @@ export default function PublicationsPage() {
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
           <div className="flex items-center justify-between gap-6">
             <div className="max-w-3xl">
-              <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+              <img src="/logoinptic.ico" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
               <h1 className="text-4xl font-black md:text-6xl">{t('publicationsPage.title', 'Publications des Chercheurs de l’INPTIC')}</h1>
               <p className="mt-5 max-w-3xl text-lg text-slate-200">
                 {t('publicationsPage.intro', 'Explorez les travaux de recherche, articles de revues et actes de conférences publiés par le corps professoral et les laboratoires de l’Institut.')}

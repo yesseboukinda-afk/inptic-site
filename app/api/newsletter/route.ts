@@ -110,7 +110,7 @@ async function siteAuditedPOST(req: NextRequest) {
       html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#0f172a">
             <div style="margin:0 0 24px;text-align:center">
-              <img src="${escapeHtml(`${siteUrl}/logoinptic.png`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
+              <img src="${escapeHtml(`${siteUrl}/logoinptic.ico`)}" alt="INPTIC Gabon" width="180" style="display:inline-block;width:180px;max-width:100%;height:auto">
             </div>
             <p style="font-size:12px;font-weight:bold;letter-spacing:.12em;color:#1d4ed8">NEWSLETTER INPTIC GABON</p>
             <h1 style="font-size:24px;line-height:1.3">Inscription confirmée</h1>

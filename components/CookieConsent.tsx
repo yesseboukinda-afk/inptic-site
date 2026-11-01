@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Analytics, type BeforeSendEvent } from '@vercel/analytics/next';
-import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
 import {
   COOKIE_PREFERENCES_EVENT,
@@ -74,7 +73,7 @@ export default function CookieConsent() {
           <div className="cookie-consent-content">
             <div>
               <div className="cookie-consent-heading">
-                <Image src="/logoinptic.png" alt="INPTIC" width={44} height={25} sizes="40px" className="h-10 w-10 object-contain" />
+                <img src="/logoinptic.ico" alt="INPTIC" className="h-10 w-10 object-contain" />
                 <div>
                   <h2>{copy.title}</h2>
                   <p>{copy.description}</p>

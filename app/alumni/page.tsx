@@ -395,7 +395,7 @@ export default function Alumni() {
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-20 md:px-8">
 
           <img
-            src="/logoinptic.png"
+            src="/logoinptic.ico"
             alt="Logo INPTIC"
             className="h-9 w-auto object-contain object-left"
           />

@@ -220,12 +220,9 @@ export default async function AgentPublicPage({ params }: AgentPageProps) {
 
       <article className="relative w-full max-w-md overflow-hidden border-[6px] border-[#104e58] bg-[#e5f3eb] shadow-[0_28px_80px_rgba(0,0,0,0.4)]">
         <div className="flex items-center justify-between gap-4 border-b-[5px] border-[#104e58] bg-[#d5ebdf] px-4 py-4 sm:px-6">
-          <Image
-            src="/logoinptic.png"
+          <img
+            src="/logoinptic.ico"
             alt="Logo de l’Institut INPTIC"
-            width={320}
-            height={100}
-            priority
             className="h-10 w-auto max-w-[68%] object-contain object-left"
           />
           <Image

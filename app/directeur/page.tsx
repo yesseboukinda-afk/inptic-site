@@ -144,7 +144,7 @@ export default function DirecteurDashboard() {
         <div className="relative z-20 mx-auto max-w-6xl px-4 py-16 md:px-8">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
-              <img src="/logoinptic.png" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
+              <img src="/logoinptic.ico" alt="Logo INPTIC" className="mb-4 h-9 w-auto object-contain object-left" />
               <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-300">
                 <ShieldCheck size={14} className="text-[#D4AF37]" />
                 Direction Générale • INPTIC Gabon

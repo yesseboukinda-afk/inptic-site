@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Image from "next/image";
 import InstallPWA from "@/components/InstallPWA";
 import { COOKIE_PREFERENCES_EVENT } from "@/lib/cookie-consent";
 
@@ -79,11 +78,9 @@ export default function Footer() {
           {/* Présentation */}
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center gap-3">
-              <Image
-                src="/logoinptic.png"
+              <img
+                src="/logoinptic.ico"
                 alt="Logo INPTIC"
-                width={170}
-                height={96}
                 className="h-10 w-auto"
               />
             </div>

@@ -235,7 +235,7 @@ const getPrintableCardMarkup = (profile: RHProfile, origin: string) => {
         <i aria-hidden="true"></i>
       </div>
       <div class="brand-row">
-        <img src="${origin}/logoinptic.png" class="company-logo" alt="Logo INPTIC" />
+        <img src="${origin}/logoinptic.ico" class="company-logo" alt="Logo INPTIC" />
         <img src="${origin}/rh/gabon-emblem.png" class="state-emblem" alt="Emblème de la République gabonaise" />
       </div>
       <h1>CARTE PROFESSIONNELLE</h1>
@@ -2147,11 +2147,9 @@ export default function AdminRHPage() {
                             <span className="absolute -right-1 top-0 h-full w-[30%] bg-[#383e9e]" style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }} />
                           </div>
                           <div className="flex h-[11%] items-center justify-between px-[5%]">
-                            <Image
-                              src="/logoinptic.png"
+                            <img
+                              src="/logoinptic.ico"
                               alt="Logo INPTIC"
-                              width={1698}
-                              height={962}
                               className="h-[80%] w-[58%] object-contain object-left"
                             />
                             <img src="/rh/gabon-emblem.png" alt="Emblème gabonais" className="h-[76%] w-[28%] bg-white object-contain" />
