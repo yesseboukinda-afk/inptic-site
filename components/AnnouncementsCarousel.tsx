@@ -151,17 +151,11 @@ export default function AnnouncementsCarousel() {
   if (!isVisible || (!isLoadingAnnouncements && announcements.length === 0)) return null;
 
   const current = announcements[currentIndex];
-  if (!current) {
-    return (
-      <div className="container-x relative z-10 my-3 min-h-[88px] px-4 md:px-0" aria-hidden="true">
-        <div className="mx-auto flex min-h-[68px] max-w-3xl items-center rounded-full border border-blue-100 bg-white px-4 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:px-6" />
-      </div>
-    );
-  }
+  if (!current) return null;
 
   return (
-    <div className="container-x relative z-10 my-3 min-h-[88px] px-4 md:px-0">
-      <div className="relative mx-auto flex min-h-[68px] max-w-3xl items-center gap-2 overflow-hidden rounded-full border border-blue-100 bg-gradient-to-r from-white via-white to-blue-50 px-3 py-2 text-blue-950 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:gap-3 sm:px-5">
+    <div className="pointer-events-none absolute inset-x-0 top-3 z-30 px-4">
+      <div className="pointer-events-auto relative mx-auto flex min-h-[68px] max-w-3xl items-center gap-2 overflow-hidden rounded-[50px] border border-blue-100 bg-gradient-to-r from-white via-white to-blue-50 px-3 py-2 text-blue-950 shadow-[0_12px_36px_rgba(37,99,235,0.14)] sm:gap-3 sm:px-5">
         <span className="pointer-events-none absolute -left-3 -top-5 h-16 w-12 rotate-12 rounded-full bg-blue-600" aria-hidden="true" />
         <span className="pointer-events-none absolute -bottom-6 right-0 h-12 w-10 -rotate-12 rounded-full bg-amber-300" aria-hidden="true" />
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 sm:h-11 sm:w-11">
