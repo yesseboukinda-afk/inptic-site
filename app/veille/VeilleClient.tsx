@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, LoaderCircle, RadioTower } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { canAccessStaffService } from '@/lib/roles';
 import TechVeilleFeed from '@/components/TechVeilleFeed';
@@ -53,25 +52,9 @@ export default function VeilleClient() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-slate-950 px-5 py-6 text-white shadow-lg sm:px-8">
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-400 text-slate-950">
-              <RadioTower size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-300">INPTIC · Espace professionnel</p>
-              <h1 className="text-2xl font-black sm:text-3xl">Veille</h1>
-              <p className="mt-1 text-sm text-slate-300">Veille technologique et suivi de l’e-réputation.</p>
-            </div>
-          </div>
-          <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10">
-            <ArrowLeft size={16} aria-hidden="true" /> Accueil
-          </Link>
-        </header>
-
-        <div className="grid items-start gap-8 xl:grid-cols-2">
+        <div className="grid items-start gap-8">
           <TechVeilleFeed accessToken={accessToken} />
           {canViewReputation && <EReputationDashboard accessToken={accessToken} />}
         </div>

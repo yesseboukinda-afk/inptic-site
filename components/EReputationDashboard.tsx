@@ -425,7 +425,12 @@ export default function EReputationDashboard({ accessToken }: { accessToken: str
               : `Aucun commentaire récent sur ${commentPlatformFilter}.`}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div
+            className="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto overscroll-contain"
+            role="region"
+            aria-label="Liste défilable des commentaires récents"
+            tabIndex={0}
+          >
             {filteredComments.map((comment) => (
               <article key={comment.id} className="space-y-1.5 px-3 py-2.5 transition hover:bg-slate-50">
                 <div className="flex flex-wrap items-center justify-between gap-2">
