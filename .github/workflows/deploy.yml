@@ -142,12 +142,10 @@ jobs:
                       else:
                           clear_directory()
                           ftp.cwd("..")
-                          ftp.rmd(name)
 
               clear_directory()
               ftp.cwd("..")
-              ftp.rmd(cache_path[-1])
-              print("Cleared the persisted Next.js route cache.")
+              print("Cleared files from the persisted Next.js route cache.")
 
           ftp.cwd("/")
           ftp.cwd("inptic-site")
