@@ -29,6 +29,18 @@ type AuthUser = {
 
 type PhotoDimensions = { width: number; height: number };
 
+type CropGesture = {
+  pointers: Map<number, { x: number; y: number }>;
+  drag: { pointerId: number; x: number; y: number; cropX: number; cropY: number } | null;
+  pinch: {
+    pointerIds: [number, number];
+    distance: number;
+    zoom: number;
+    anchorX: number;
+    anchorY: number;
+  } | null;
+};
+
 const EMPTY_FORM = {
   nom: '',
   prenom: '',
@@ -59,7 +71,11 @@ export default function Alumni() {
   const [cropZoom, setCropZoom] = useState(1);
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
-  const cropPointerRef = useRef<{ pointerId: number; x: number; y: number; cropX: number; cropY: number } | null>(null);
+  const cropGestureRef = useRef<CropGesture>({
+    pointers: new Map(),
+    drag: null,
+    pinch: null,
+  });
   const [submitted, setSubmitted] = useState(false);
   const [directoryQuery, setDirectoryQuery] = useState('');
   const [directorySearchBy, setDirectorySearchBy] = useState('all');
@@ -258,7 +274,37 @@ export default function Alumni() {
   const startCropDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (!cropDimensions) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    cropPointerRef.current = {
+    const gesture = cropGestureRef.current;
+    gesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (gesture.pointers.size >= 2) {
+      const pointerIds = Array.from(gesture.pointers.keys()).slice(0, 2) as [number, number];
+      const first = gesture.pointers.get(pointerIds[0]);
+      const second = gesture.pointers.get(pointerIds[1]);
+      if (!first || !second) return;
+
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const side = Math.min(cropDimensions.width, cropDimensions.height);
+      const renderedWidth = bounds.width * cropDimensions.width / side * cropZoom;
+      const renderedHeight = bounds.height * cropDimensions.height / side * cropZoom;
+      const midpointX = (first.x + second.x) / 2 - bounds.left;
+      const midpointY = (first.y + second.y) / 2 - bounds.top;
+      const imageLeft = (bounds.width - renderedWidth) * cropX / 100;
+      const imageTop = (bounds.height - renderedHeight) * cropY / 100;
+
+      gesture.drag = null;
+      gesture.pinch = {
+        pointerIds,
+        distance: Math.hypot(second.x - first.x, second.y - first.y),
+        zoom: cropZoom,
+        anchorX: (midpointX - imageLeft) / renderedWidth,
+        anchorY: (midpointY - imageTop) / renderedHeight,
+      };
+      return;
+    }
+
+    gesture.pinch = null;
+    gesture.drag = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
@@ -268,22 +314,62 @@ export default function Alumni() {
   };
 
   const moveCrop = (event: PointerEvent<HTMLDivElement>) => {
-    const pointer = cropPointerRef.current;
-    if (!pointer || pointer.pointerId !== event.pointerId || !cropDimensions) return;
+    const gesture = cropGestureRef.current;
+    if (!cropDimensions || !gesture.pointers.has(event.pointerId)) return;
+    gesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const pinch = gesture.pinch;
+    if (pinch) {
+      const first = gesture.pointers.get(pinch.pointerIds[0]);
+      const second = gesture.pointers.get(pinch.pointerIds[1]);
+      if (!first || !second) return;
+
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const distance = Math.hypot(second.x - first.x, second.y - first.y);
+      const zoom = Math.max(1, Math.min(3, pinch.zoom * distance / Math.max(pinch.distance, 1)));
+      const side = Math.min(cropDimensions.width, cropDimensions.height);
+      const renderedWidth = bounds.width * cropDimensions.width / side * zoom;
+      const renderedHeight = bounds.height * cropDimensions.height / side * zoom;
+      const midpointX = (first.x + second.x) / 2 - bounds.left;
+      const midpointY = (first.y + second.y) / 2 - bounds.top;
+      const imageLeft = Math.max(bounds.width - renderedWidth, Math.min(0, midpointX - pinch.anchorX * renderedWidth));
+      const imageTop = Math.max(bounds.height - renderedHeight, Math.min(0, midpointY - pinch.anchorY * renderedHeight));
+
+      setCropZoom(zoom);
+      setCropX(renderedWidth === bounds.width ? 50 : imageLeft / (bounds.width - renderedWidth) * 100);
+      setCropY(renderedHeight === bounds.height ? 50 : imageTop / (bounds.height - renderedHeight) * 100);
+      return;
+    }
+
+    const drag = gesture.drag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
     const side = Math.min(cropDimensions.width, cropDimensions.height);
-    const overflowX = 256 * (cropDimensions.width / side * cropZoom - 1);
-    const overflowY = 256 * (cropDimensions.height / side * cropZoom - 1);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const overflowX = bounds.width * (cropDimensions.width / side * cropZoom - 1);
+    const overflowY = bounds.height * (cropDimensions.height / side * cropZoom - 1);
     if (overflowX > 0) {
-      setCropX(Math.max(0, Math.min(100, pointer.cropX - (event.clientX - pointer.x) / overflowX * 100)));
+      setCropX(Math.max(0, Math.min(100, drag.cropX - (event.clientX - drag.x) / overflowX * 100)));
     }
     if (overflowY > 0) {
-      setCropY(Math.max(0, Math.min(100, pointer.cropY - (event.clientY - pointer.y) / overflowY * 100)));
+      setCropY(Math.max(0, Math.min(100, drag.cropY - (event.clientY - drag.y) / overflowY * 100)));
     }
   };
 
   const stopCropDrag = (event: PointerEvent<HTMLDivElement>) => {
-    if (cropPointerRef.current?.pointerId === event.pointerId) {
-      cropPointerRef.current = null;
+    const gesture = cropGestureRef.current;
+    gesture.pointers.delete(event.pointerId);
+    if (gesture.pinch) {
+      gesture.pinch = null;
+      const remaining = gesture.pointers.entries().next().value as [number, { x: number; y: number }] | undefined;
+      gesture.drag = remaining ? {
+        pointerId: remaining[0],
+        x: remaining[1].x,
+        y: remaining[1].y,
+        cropX,
+        cropY,
+      } : null;
+    } else if (gesture.drag?.pointerId === event.pointerId) {
+      gesture.drag = null;
     }
   };
 
@@ -924,14 +1010,14 @@ export default function Alumni() {
                   {photoToCrop && (
                     <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
                       <p className="mb-3 text-sm font-semibold text-slate-800">Recadrez votre photo</p>
-                      <p className="mb-3 text-center text-xs text-slate-600">Faites glisser l’image pour la positionner. Utilisez les curseurs pour affiner le cadrage.</p>
+                      <p className="mb-3 text-center text-xs text-slate-600">Pincez à deux doigts pour zoomer, puis déplacez la photo dans le cadre.</p>
                       <div
                         onPointerDown={startCropDrag}
                         onPointerMove={moveCrop}
                         onPointerUp={stopCropDrag}
                         onPointerCancel={stopCropDrag}
-                        className="relative mx-auto h-64 w-64 touch-none cursor-grab overflow-hidden rounded-full bg-slate-200 ring-4 ring-white shadow active:cursor-grabbing"
-                        aria-label="Zone de recadrage : faites glisser la photo pour la positionner"
+                        className="relative mx-auto h-64 w-64 touch-none cursor-grab overflow-hidden rounded-lg bg-slate-950 shadow-lg ring-4 ring-white ring-offset-2 ring-offset-blue-700 active:cursor-grabbing"
+                        aria-label="Cadre carré de recadrage : faites glisser la photo pour choisir la zone à conserver"
                       >
                         <img
                           src={photoToCrop}
@@ -956,44 +1042,6 @@ export default function Alumni() {
                           }}
                         />
                       </div>
-                      {cropDimensions && (
-                        <div className="mx-auto mt-5 grid max-w-xl gap-4 sm:grid-cols-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Zoom : {cropZoom.toFixed(1)}×
-                            <input
-                              type="range"
-                              min="1"
-                              max="3"
-                              step="0.1"
-                              value={cropZoom}
-                              onChange={(event) => setCropZoom(Number(event.target.value))}
-                              className="mt-2 block w-full accent-blue-700"
-                            />
-                          </label>
-                          <label className="text-sm font-medium text-slate-700">
-                            Position horizontale
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={cropX}
-                              onChange={(event) => setCropX(Number(event.target.value))}
-                              className="mt-2 block w-full accent-blue-700"
-                            />
-                          </label>
-                          <label className="text-sm font-medium text-slate-700 sm:col-span-2">
-                            Position verticale
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={cropY}
-                              onChange={(event) => setCropY(Number(event.target.value))}
-                              className="mt-2 block w-full accent-blue-700"
-                            />
-                          </label>
-                        </div>
-                      )}
                       <div className="mt-4 flex flex-wrap justify-center gap-3">
                         <button
                           type="button"
