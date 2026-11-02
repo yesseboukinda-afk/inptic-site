@@ -1,6 +1,6 @@
 name: Deploiement automatique LWS
 
-on:
+'on':
   push:
     branches:
       - master
