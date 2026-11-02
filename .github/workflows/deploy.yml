@@ -115,6 +115,49 @@ jobs:
           ftp.connect(server, 21)
           ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
           ftp.cwd("/")
+
+          cache_path = ("inptic-site", ".next", "standalone", ".next", "cache")
+          for directory in cache_path[:-1]:
+              ftp.cwd(directory)
+
+          try:
+              ftp.cwd(cache_path[-1])
+          except error_perm:
+              cache_name = cache_path[-1]
+              entries = {entry.rsplit("/", 1)[-1] for entry in ftp.nlst()}
+              if cache_name in entries:
+                  raise
+              print("No persisted Next.js runtime cache to clear.")
+          else:
+              def clear_directory(path):
+                  ftp.cwd("/")
+                  for directory in path:
+                      ftp.cwd(directory)
+
+                  for entry in ftp.nlst():
+                      name = entry.rsplit("/", 1)[-1]
+                      if name in (".", ".."):
+                          continue
+
+                      try:
+                          ftp.cwd(name)
+                      except error_perm:
+                          ftp.delete(name)
+                      else:
+                          clear_directory((*path, name))
+                          ftp.cwd("/")
+                          for directory in path:
+                              ftp.cwd(directory)
+                          ftp.rmd(name)
+
+              clear_directory(cache_path)
+              ftp.cwd("/")
+              for directory in cache_path[:-1]:
+                  ftp.cwd(directory)
+              ftp.rmd(cache_path[-1])
+              print("Cleared the persisted Next.js runtime cache.")
+
+          ftp.cwd("/")
           ftp.cwd("inptic-site")
 
           try:
