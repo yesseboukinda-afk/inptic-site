@@ -116,7 +116,7 @@ jobs:
           ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
           ftp.cwd("/")
 
-          cache_path = ("inptic-site", ".next", "standalone", ".next", "cache")
+          cache_path = ("inptic-site", ".next", "standalone", ".next", "server", "route-cache")
           for directory in cache_path[:-1]:
               ftp.cwd(directory)
 
@@ -127,13 +127,9 @@ jobs:
               entries = {entry.rsplit("/", 1)[-1] for entry in ftp.nlst()}
               if cache_name in entries:
                   raise
-              print("No persisted Next.js runtime cache to clear.")
+              print("No persisted Next.js route cache to clear.")
           else:
-              def clear_directory(path):
-                  ftp.cwd("/")
-                  for directory in path:
-                      ftp.cwd(directory)
-
+              def clear_directory():
                   for entry in ftp.nlst():
                       name = entry.rsplit("/", 1)[-1]
                       if name in (".", ".."):
@@ -144,18 +140,14 @@ jobs:
                       except error_perm:
                           ftp.delete(name)
                       else:
-                          clear_directory((*path, name))
-                          ftp.cwd("/")
-                          for directory in path:
-                              ftp.cwd(directory)
+                          clear_directory()
+                          ftp.cwd("..")
                           ftp.rmd(name)
 
-              clear_directory(cache_path)
-              ftp.cwd("/")
-              for directory in cache_path[:-1]:
-                  ftp.cwd(directory)
+              clear_directory()
+              ftp.cwd("..")
               ftp.rmd(cache_path[-1])
-              print("Cleared the persisted Next.js runtime cache.")
+              print("Cleared the persisted Next.js route cache.")
 
           ftp.cwd("/")
           ftp.cwd("inptic-site")
