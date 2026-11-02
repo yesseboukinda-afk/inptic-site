@@ -1,0 +1,51 @@
+name: Deploiement automatique LWS
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  web-deploy:
+    name: Construire et synchroniser le site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Configurer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dependances
+        run: npm ci
+
+      - name: Construire l'application Next.js
+        run: npm run build:next
+
+      - name: Synchroniser vers LWS via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 21
+          protocol: ftps
+          local-dir: ./
+          server-dir: /inptic-site/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .next/cache/**
+            **/.env*
+            **/.npmrc
+            **/.yarnrc*
+            **/*.pem
+            **/*.key
+            **/playwright.config.*
+            **/drizzle.config.*
+            chatbot/vercel*.json
+            chatbot/components.json
