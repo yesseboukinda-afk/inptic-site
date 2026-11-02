@@ -808,6 +808,71 @@ a, button, input, select {
 
 
 
+@keyframes heroSlideLoop {
+  0%,
+  8.89% {
+    transform: translateX(0);
+  }
+
+  11.11%,
+  20% {
+    transform: translateX(-100vw);
+  }
+
+  22.22%,
+  31.11% {
+    transform: translateX(-200vw);
+  }
+
+  33.33%,
+  42.22% {
+    transform: translateX(-300vw);
+  }
+
+  44.44%,
+  53.33% {
+    transform: translateX(-400vw);
+  }
+
+  55.56%,
+  64.44% {
+    transform: translateX(-500vw);
+  }
+
+  66.67%,
+  75.56% {
+    transform: translateX(-600vw);
+  }
+
+  77.78%,
+  86.67% {
+    transform: translateX(-700vw);
+  }
+
+  88.89%,
+  97.78% {
+    transform: translateX(-800vw);
+  }
+
+  100% {
+    transform: translateX(-900vw);
+  }
+}
+
+.hero-slider-track {
+  animation: heroSlideLoop 54s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.hero-slider-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slider-track {
+    animation: none;
+  }
+}
+
 @keyframes bounce-in {
   0% {
     opacity: 0;
