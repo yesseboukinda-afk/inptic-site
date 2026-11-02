@@ -28,6 +28,8 @@ type AuthUser = {
 };
 
 type PhotoDimensions = { width: number; height: number };
+const CROP_VIEW_SIZE = 256;
+const CROP_FRAME_RATIO = 0.8;
 
 type CropGesture = {
   pointers: Map<number, { x: number; y: number }>;
@@ -250,9 +252,18 @@ export default function Alumni() {
     if (!photoToCrop || !cropDimensions) return;
     const image = new Image();
     image.onload = () => {
-      const side = Math.min(cropDimensions.width, cropDimensions.height) / cropZoom;
-      const sourceX = (cropDimensions.width - side) * cropX / 100;
-      const sourceY = (cropDimensions.height - side) * cropY / 100;
+      const side = Math.min(cropDimensions.width, cropDimensions.height) *
+        CROP_FRAME_RATIO / cropZoom;
+      const renderedWidth = CROP_VIEW_SIZE *
+        cropDimensions.width / Math.min(cropDimensions.width, cropDimensions.height) * cropZoom;
+      const renderedHeight = CROP_VIEW_SIZE *
+        cropDimensions.height / Math.min(cropDimensions.width, cropDimensions.height) * cropZoom;
+      const imageLeft = (CROP_VIEW_SIZE - renderedWidth) * cropX / 100;
+      const imageTop = (CROP_VIEW_SIZE - renderedHeight) * cropY / 100;
+      const sourceX = (CROP_VIEW_SIZE * (1 - CROP_FRAME_RATIO) / 2 - imageLeft) *
+        cropDimensions.width / renderedWidth;
+      const sourceY = (CROP_VIEW_SIZE * (1 - CROP_FRAME_RATIO) / 2 - imageTop) *
+        cropDimensions.height / renderedHeight;
       const canvas = document.createElement('canvas');
       canvas.width = 512;
       canvas.height = 512;
@@ -1041,6 +1052,23 @@ export default function Alumni() {
                             objectFit: 'cover',
                           }}
                         />
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute"
+                          style={{
+                            left: `${(1 - CROP_FRAME_RATIO) * 50}%`,
+                            top: `${(1 - CROP_FRAME_RATIO) * 50}%`,
+                            width: `${CROP_FRAME_RATIO * 100}%`,
+                            height: `${CROP_FRAME_RATIO * 100}%`,
+                            boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.58)',
+                            border: '2px solid white',
+                          }}
+                        >
+                          <span className="absolute inset-y-0 left-1/3 border-l border-white/50" />
+                          <span className="absolute inset-y-0 left-2/3 border-l border-white/50" />
+                          <span className="absolute inset-x-0 top-1/3 border-t border-white/50" />
+                          <span className="absolute inset-x-0 top-2/3 border-t border-white/50" />
+                        </div>
                       </div>
                       <div className="mt-4 flex flex-wrap justify-center gap-3">
                         <button
