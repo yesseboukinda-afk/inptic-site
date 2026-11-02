@@ -82,6 +82,8 @@ export default function Footer() {
               <img
                 src="/logoinptic.ico"
                 alt="Logo INPTIC"
+                width={71}
+                height={40}
                 className="h-10 w-auto"
               />
             </div>
@@ -376,8 +378,11 @@ export default function Footer() {
               >
                 <img
                   src="/connexion/facebook_icon.svg"
-                  alt="Facebook"
+                  alt=""
+                  width={16}
+                  height={16}
                   className="h-4 w-4"
+                  aria-hidden="true"
                 />
               </a>
 
@@ -390,8 +395,11 @@ export default function Footer() {
               >
                 <img
                   src="/connexion/whatsapp.svg"
-                  alt="WhatsApp"
+                  alt=""
+                  width={16}
+                  height={16}
                   className="h-4 w-4"
+                  aria-hidden="true"
                 />
               </a>
 
@@ -404,8 +412,11 @@ export default function Footer() {
               >
                 <img
                   src="/connexion/youtube.svg"
-                  alt="YouTube"
+                  alt=""
+                  width={16}
+                  height={16}
                   className="h-4 w-4"
+                  aria-hidden="true"
                 />
               </a>
 
@@ -418,8 +429,11 @@ export default function Footer() {
               >
                 <img
                   src="/connexion/tiktok-icon.svg"
-                  alt="TikTok"
+                  alt=""
+                  width={16}
+                  height={16}
                   className="h-4 w-4"
+                  aria-hidden="true"
                 />
               </a>
             </div>

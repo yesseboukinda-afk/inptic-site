@@ -156,8 +156,9 @@ export default function HomePageClient({ youtubeChannelId }: { youtubeChannelId:
                   <Image
                     src={image}
                     alt={title}
-                    fill
-                    className="object-cover"
+                    width={640}
+                    height={112}
+                    className="h-full w-full object-cover"
                     sizes="(max-width: 640px) calc(100vw - 56px), (max-width: 768px) calc(100vw - 72px), 25vw"
                     quality={65}
                   />

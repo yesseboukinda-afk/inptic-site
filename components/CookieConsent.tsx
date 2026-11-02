@@ -73,7 +73,7 @@ export default function CookieConsent() {
           <div className="cookie-consent-content">
             <div>
               <div className="cookie-consent-heading">
-                <img src="/logoinptic.ico" alt="INPTIC" className="h-10 w-10 object-contain" />
+                <img src="/logoinptic.ico" alt="INPTIC" width={40} height={40} className="h-10 w-10 object-contain" />
                 <div>
                   <h2>{copy.title}</h2>
                   <p>{copy.description}</p>

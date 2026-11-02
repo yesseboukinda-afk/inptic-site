@@ -16,13 +16,13 @@ export default function LatestYoutubeVideo({ channelId }: LatestYoutubeVideoProp
             src={`https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(uploadsPlaylistId)}&autoplay=1&mute=1&playsinline=1&rel=0`}
             title="Dernières vidéos de la chaîne YouTube de l’INPTIC"
             loading="eager"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
           />
         </div>
         <div className="p-5 sm:px-7">
-          <h4 className="font-bold">Dernières vidéos de la chaîne YouTube de l’INPTIC</h4>
+          <h3 className="font-bold">Dernières vidéos de la chaîne YouTube de l’INPTIC</h3>
         </div>
       </article>
     </>

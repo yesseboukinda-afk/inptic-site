@@ -391,7 +391,7 @@ export default function Header() {
         <header className="sticky top-0 z-50 flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18" role="banner">
           <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
             <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
-              <img src="/logoinptic.ico" alt="Logo INPTIC" className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
+              <img src="/logoinptic.ico" alt="Logo INPTIC" width={71} height={40} className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
             </Link>
 
             <div className="ml-auto hidden items-center gap-3 lg:flex">
@@ -446,7 +446,7 @@ export default function Header() {
       <header className="sticky top-0 z-[70] flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18 lg:z-50" role="banner">
         <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
           <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
-            <img src="/logoinptic.ico" alt="Logo INPTIC" className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
+            <img src="/logoinptic.ico" alt="Logo INPTIC" width={71} height={40} className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
           </Link>
 
           <div className="site-header-desktop-actions ml-auto hidden items-center gap-3 lg:flex">

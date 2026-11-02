@@ -21,7 +21,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -80,12 +80,6 @@ const galleryImages = [
   '/formations/multimedia-internet.webp',
   '/institut/5.webp',
 ];
-
-/**
- * Duplication des images pour créer
- * une animation de slider continue.
- */
-const sliderImages = [...galleryImages, ...galleryImages];
 
 /**
  * =========================================================
@@ -602,6 +596,8 @@ function findFormationMatches(
 
 export default function Hero() {
   const { t } = useTranslation();
+  const [background, setBackground] = useState({ current: 0, previous: 0 });
+  const [isBackgroundPaused, setIsBackgroundPaused] = useState(false);
 
   const [selectedAction, setSelectedAction] =
     useState('visit3d');
@@ -623,6 +619,24 @@ export default function Hero() {
   const [showFormationResults, setShowFormationResults] =
     useState(false);
 
+  useEffect(() => {
+    if (
+      isBackgroundPaused ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setBackground(({ current }) => {
+        const next = (current + 1) % galleryImages.length;
+        return { current: next, previous: current };
+      });
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [isBackgroundPaused]);
+
   /**
    * =======================================================
    * RENDER
@@ -630,43 +644,43 @@ export default function Hero() {
    */
 
   return (
-    <section className="relative min-h-[560px] overflow-hidden bg-slate-900 pb-20 sm:min-h-[600px] md:min-h-[510px] md:pb-12 xl:pb-0">
+    <section
+      className="relative min-h-[560px] overflow-hidden bg-slate-900 pb-20 sm:min-h-[600px] md:min-h-[510px] md:pb-12 xl:pb-0"
+      onMouseEnter={() => setIsBackgroundPaused(true)}
+      onMouseLeave={() => setIsBackgroundPaused(false)}
+    >
 
       {/* =====================================================
           HERO BACKGROUND
           ===================================================== */}
 
       <div className="absolute inset-0 overflow-hidden">
-        <div className="hero-slider-track flex h-full w-max">
+        {[...new Set([background.previous, background.current])].map((index) => (
+          <div
+            key={index}
+            className={`absolute inset-0 bg-slate-950 transition-opacity duration-1000 motion-reduce:transition-none ${
+              index === background.current ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <Image
+              src={galleryImages[index]}
+              alt=""
+              width={1920}
+              height={1080}
+              fetchPriority={index === 0 ? 'high' : undefined}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              sizes="100vw"
+              quality={65}
+              className="absolute inset-0 h-full w-full object-cover object-center saturate-105 contrast-[1.02]"
+              aria-hidden="true"
+            />
 
-          {sliderImages.map((image, index) => (
-              <div
-                key={`${image}-${index}`}
-                className="relative h-full w-screen shrink-0 bg-slate-950"
-              >
-                <Image
-                  src={image}
-                  alt=""
-                  fill
-                  priority={index === 0}
-                  fetchPriority={index === 0 ? 'high' : undefined}
-                  loading={
-                    index === 0 ? undefined : 'lazy'
-                  }
-                  sizes="100vw"
-                  quality={65}
-                  className="object-cover object-center saturate-105 contrast-[1.02]"
-                  aria-hidden="true"
-                />
-
-                <div
-                  className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-slate-950/45 to-slate-950/55"
-                  aria-hidden="true"
-                />
-              </div>
-          ))}
-
-        </div>
+            <div
+              className="absolute inset-0 bg-gradient-to-br from-slate-950/55 via-slate-950/45 to-slate-950/55"
+              aria-hidden="true"
+            />
+          </div>
+        ))}
       </div>
 
       {/* =====================================================
@@ -1022,13 +1036,14 @@ export default function Hero() {
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center">
                   {actionKey === 'andcg' ? (
                     <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-md bg-white p-0.5 shadow-sm">
-                      <Image
+                      <img
                         src="/backlinks/ANDCG.svg"
-                        alt="Logo ANDCG"
+                        alt=""
                         width={32}
                         height={32}
                         className="h-full w-full object-cover"
                         loading="lazy"
+                        aria-hidden="true"
                       />
                     </div>
                   ) : (
@@ -1191,13 +1206,14 @@ export default function Hero() {
                 >
 
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white p-0.5 shadow-sm">
-                    <Image
+                    <img
                       src="/backlinks/ANDCG.svg"
-                      alt="Logo ANDCG"
+                      alt=""
                       width={32}
                       height={32}
                       className="h-full w-full object-cover"
                       loading="lazy"
+                      aria-hidden="true"
                     />
                   </span>
 
