@@ -26,6 +26,12 @@ jobs:
       - name: Construire l'application Next.js
         run: npm run build:next
 
+      - name: Preparer le runtime Passenger autonome
+        run: |
+          cp -a public .next/standalone/
+          mkdir -p .next/standalone/.next
+          cp -a .next/static .next/standalone/.next/
+
       - name: Synchroniser vers LWS via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -39,7 +45,7 @@ jobs:
           exclude: |
             **/.git*
             **/.git*/**
-            **/node_modules/**
+            node_modules/**
             .next/cache/**
             **/.env*
             **/.npmrc

@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   async rewrites() {
     const managedImages = [
       '/banniere/1.webp',
