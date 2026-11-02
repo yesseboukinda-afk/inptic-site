@@ -2,6 +2,7 @@ import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
+import { isSuperAdminRole } from '@/lib/roles';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -227,5 +228,51 @@ async function siteAuditedPUT(request: NextRequest) {
   }
 }
 
+async function siteAuditedDELETE(request: NextRequest) {
+  if (!process.env.DATABASE_URL) {
+    return unavailable('Base PostgreSQL indisponible.');
+  }
+
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return unavailable('Session requise.', 401);
+  }
+  if (!isSuperAdminRole(user.role)) {
+    return unavailable('La suppression des profils Alumni est réservée au superadmin.', 403);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return unavailable('Requête de suppression invalide.', 400);
+  }
+
+  const id = body && typeof body === 'object' && 'id' in body && typeof body.id === 'string'
+    ? body.id
+    : '';
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return unavailable('Identifiant Alumni invalide.', 400);
+  }
+
+  try {
+    const result = await getPostgresPool().query(
+      'DELETE FROM public.alumni WHERE id = $1 RETURNING id',
+      [id],
+    );
+    if (!result.rowCount) {
+      return unavailable('Profil Alumni introuvable.', 404);
+    }
+    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    const code = logPostgresError('DELETE', error);
+    if (code === '42P01' || code === '42703') {
+      return unavailable(`Le schéma Alumni doit être mis à jour (PostgreSQL ${code}). Exécutez scripts/16_alumni_verified_ownership.sql.`);
+    }
+    return unavailable('Impossible de supprimer ce profil Alumni.');
+  }
+}
+
 export const POST = withSiteAudit("Création de profil Alumni", siteAuditedPOST);
 export const PUT = withSiteAudit("Modification de profil Alumni", siteAuditedPUT);
+export const DELETE = withSiteAudit("Suppression de profil Alumni", siteAuditedDELETE);

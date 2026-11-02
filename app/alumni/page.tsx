@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw, Search } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
@@ -59,6 +59,7 @@ export default function Alumni() {
   const [cropZoom, setCropZoom] = useState(1);
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
+  const cropPointerRef = useRef<{ pointerId: number; x: number; y: number; cropX: number; cropY: number } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [directoryQuery, setDirectoryQuery] = useState('');
   const [directorySearchBy, setDirectorySearchBy] = useState('all');
@@ -254,6 +255,38 @@ export default function Alumni() {
     image.src = photoToCrop;
   };
 
+  const startCropDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (!cropDimensions) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropPointerRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      cropX,
+      cropY,
+    };
+  };
+
+  const moveCrop = (event: PointerEvent<HTMLDivElement>) => {
+    const pointer = cropPointerRef.current;
+    if (!pointer || pointer.pointerId !== event.pointerId || !cropDimensions) return;
+    const side = Math.min(cropDimensions.width, cropDimensions.height);
+    const overflowX = 256 * (cropDimensions.width / side * cropZoom - 1);
+    const overflowY = 256 * (cropDimensions.height / side * cropZoom - 1);
+    if (overflowX > 0) {
+      setCropX(Math.max(0, Math.min(100, pointer.cropX - (event.clientX - pointer.x) / overflowX * 100)));
+    }
+    if (overflowY > 0) {
+      setCropY(Math.max(0, Math.min(100, pointer.cropY - (event.clientY - pointer.y) / overflowY * 100)));
+    }
+  };
+
+  const stopCropDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (cropPointerRef.current?.pointerId === event.pointerId) {
+      cropPointerRef.current = null;
+    }
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (photoToCrop) {
@@ -350,7 +383,9 @@ export default function Alumni() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: person.id }),
       });
-      const payload = await response.json() as { error?: string };
+      const payload = await response.json().catch(() => ({
+        error: `Réponse invalide du serveur (HTTP ${response.status}).`,
+      })) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Impossible de supprimer ce profil Alumni.');
       setAlumni((previous) => previous.filter((entry) => entry.id !== person.id));
       if (editingProfileId === person.id) {
@@ -889,7 +924,15 @@ export default function Alumni() {
                   {photoToCrop && (
                     <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
                       <p className="mb-3 text-sm font-semibold text-slate-800">Recadrez votre photo</p>
-                      <div className="relative mx-auto h-64 w-64 overflow-hidden rounded-full bg-slate-200 ring-4 ring-white shadow">
+                      <p className="mb-3 text-center text-xs text-slate-600">Faites glisser l’image pour la positionner. Utilisez les curseurs pour affiner le cadrage.</p>
+                      <div
+                        onPointerDown={startCropDrag}
+                        onPointerMove={moveCrop}
+                        onPointerUp={stopCropDrag}
+                        onPointerCancel={stopCropDrag}
+                        className="relative mx-auto h-64 w-64 touch-none cursor-grab overflow-hidden rounded-full bg-slate-200 ring-4 ring-white shadow active:cursor-grabbing"
+                        aria-label="Zone de recadrage : faites glisser la photo pour la positionner"
+                      >
                         <img
                           src={photoToCrop}
                           alt="Aperçu du recadrage de votre photo"
