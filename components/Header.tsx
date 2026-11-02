@@ -461,6 +461,7 @@ export default function Header() {
                 onKeyDown={handleSearchKeyDown}
                 placeholder={t('common.search')}
                 aria-label={t('common.search')}
+                role="combobox"
                 aria-autocomplete="list"
                 aria-controls="header-search-suggestions-desktop"
                 aria-activedescendant={selectedSuggestion >= 0 ? `header-search-suggestions-desktop-option-${selectedSuggestion}` : undefined}
@@ -631,41 +632,41 @@ export default function Header() {
 
       <nav className="site-primary-nav main-nav sticky top-[4.5rem] z-30 hidden shadow-md transition-colors duration-300 lg:block" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu principal">
         <div className="container-x flex flex-wrap gap-2 md:gap-6 items-center min-h-12 text-sm px-4 md:px-0">
-          <Link href="/" className="nav-link transition-all duration-200 py-3 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/" className="nav-link transition-all duration-200 py-3 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             {t('common.home')}
           </Link>
 
-          <Link href="/actualites" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/actualites" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             {t('common.news')}
           </Link>
 
-          <Link href="/concours" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/concours" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             {t('common.concours', 'Concours')}
           </Link>
 
-          <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             {t('common.publications', 'Publications')}
           </Link>
-          <Link href="/clubs" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/clubs" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             Clubs
           </Link>
 
           {menuItems.map((item) => (
-            <div key={item.id} className="relative group" role="none" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
-              <Link href={item.href} className="nav-link flex items-center gap-1 transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] group-hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem" aria-haspopup={item.submenu ? 'menu' : undefined} aria-expanded={openMenuId === item.id}>
+            <div key={item.id} className="relative group" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
+              <Link href={item.href} className="nav-link flex items-center gap-1 transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] group-hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" aria-expanded={item.submenu ? openMenuId === item.id : undefined}>
                 {item.label}
                 {item.submenu && <ChevronDown size={14} aria-hidden="true" className="transition-transform duration-200 group-hover:rotate-180" />}
               </Link>
 
               {item.submenu && openMenuId === item.id && (
-                <div className="absolute top-full left-0 mt-0 bg-white text-gray-900 rounded-b-lg shadow-2xl border border-gray-200 py-6 px-6 w-96 animate-in fade-in slide-in-from-top-2 duration-200 z-50" role="menu">
+                <div className="absolute top-full left-0 mt-0 bg-white text-gray-900 rounded-b-lg shadow-2xl border border-gray-200 py-6 px-6 w-96 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
                   <div className="mb-4 pb-4 border-b border-gray-200">
                     <h3 className="text-lg font-bold text-gray-900">{item.label}</h3>
                     <p className="text-xs text-gray-500 mt-1">{item.description}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     {item.submenu.map((subitem) => (
-                      <Link key={subitem.id} href={subitem.href} className="block group/item p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400" role="menuitem">
+                      <Link key={subitem.id} href={subitem.href} className="block group/item p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400">
                         <div className="flex items-start space-x-3">
                           <div className="flex-shrink-0 mt-1">
                             <div className="flex items-center justify-center h-5 w-5 rounded-md bg-blue-100 group-hover/item:bg-blue-500 transition-all duration-200">
@@ -686,15 +687,14 @@ export default function Header() {
             </div>
           ))}
 
-          <Link href="/entreprises" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/entreprises" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             {t('common.companies')}
           </Link>
-          <Link href="/contact" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" role="menuitem">
+          <Link href="/contact" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
             {t('common.contact')}
           </Link>
           <Link href="/annonces"
             className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-            role="menuitem"
           >
             {t('common.annonces')}
           </Link>
@@ -703,7 +703,6 @@ export default function Header() {
             <Link
               href="/directeur"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-              role="menuitem"
             >
               {t('common.espaceDg', 'Espace DG')}
             </Link>
@@ -713,7 +712,6 @@ export default function Header() {
             <Link
               href="/veille"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-              role="menuitem"
             >
               {t('common.gestionAnnonces', 'Veille')}
             </Link>
@@ -723,7 +721,6 @@ export default function Header() {
             <Link
               href="/admin"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-violet-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-              role="menuitem"
             >
               Super admin
             </Link>
@@ -733,7 +730,6 @@ export default function Header() {
             <Link
               href="/scolarite"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-              role="menuitem"
             >
               {t('common.scolarite', 'Scolarité')}
             </Link>
@@ -743,7 +739,6 @@ export default function Header() {
             <Link
               href="/admin/rh"
               className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-              role="menuitem"
             >
               {t('common.gestionRh', 'Gestion RH')}
             </Link>
@@ -765,6 +760,7 @@ export default function Header() {
                 onKeyDown={handleSearchKeyDown}
                 placeholder={t('common.search')}
                 aria-label={t('common.search')}
+                role="combobox"
                 aria-autocomplete="list"
                 aria-controls="header-search-suggestions-mobile"
                 aria-activedescendant={selectedSuggestion >= 0 ? `header-search-suggestions-mobile-option-${selectedSuggestion}` : undefined}
@@ -798,7 +794,7 @@ export default function Header() {
 
             {menuItems.map((item) => (
               <div key={item.id}>
-                <button onClick={() => toggleMobileSubmenu(item.id)} className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900 flex items-center justify-between" aria-expanded={expandedMobileMenu === item.id} aria-haspopup={item.submenu ? 'menu' : undefined}>
+                <button onClick={() => toggleMobileSubmenu(item.id)} className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900 flex items-center justify-between" aria-expanded={expandedMobileMenu === item.id}>
                   {item.label}
                   {item.submenu && <ChevronDown size={18} className={`transition-transform duration-300 ${expandedMobileMenu === item.id ? 'rotate-180' : ''}`} aria-hidden="true" />}
                 </button>
