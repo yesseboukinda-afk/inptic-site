@@ -1,0 +1,5 @@
+# Prevent execution in images directory
+Options -Indexes -ExecCGI
+AddType text/plain .php .php3 .php4 .phtml
+RemoveHandler .php .phtml .php3 .php4
+php_flag engine off

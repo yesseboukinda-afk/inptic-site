@@ -25,6 +25,11 @@ if [[ ! -f "$schema_file" ]]; then
   printf 'Erreur : schéma introuvable : %s\n' "$schema_file" >&2
   exit 1
 fi
+library_schema_file="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/25_create_library.sql"
+if [[ ! -f "$library_schema_file" ]]; then
+  printf 'Erreur : schéma de bibliothèque introuvable : %s\n' "$library_schema_file" >&2
+  exit 1
+fi
 
 database_exists="$(
   psql "$LWS_ADMIN_DATABASE_URL" \
@@ -68,5 +73,9 @@ psql "$LWS_DATABASE_URL" \
   --no-psqlrc \
   --set=ON_ERROR_STOP=1 \
   --file="$schema_file"
+psql "$LWS_DATABASE_URL" \
+  --no-psqlrc \
+  --set=ON_ERROR_STOP=1 \
+  --file="$library_schema_file"
 
-printf 'Schéma complet appliqué à la base : %s\n' "$LWS_DATABASE_NAME"
+printf 'Schéma complet et bibliothèque appliqués à la base : %s\n' "$LWS_DATABASE_NAME"

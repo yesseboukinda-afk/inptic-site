@@ -40,6 +40,16 @@ export default function Header() {
 
   const menuItems: MenuItem[] = [
     {
+      id: 'bibliotheque',
+      label: 'Bibliothèque',
+      href: '/bibliotheque',
+      description: 'Explorez le catalogue de livres et retrouvez vos ouvrages.',
+      submenu: [
+        { id: 'library-catalog', label: 'Explorer le catalogue', href: '/bibliotheque', description: '' },
+        { id: 'library-personal', label: 'Mon espace bibliothèque', href: '/bibliotheque/mon-espace', description: '' },
+      ],
+    },
+    {
       id: 'institut',
       label: 'INPTIC',
       href: '/institut',

@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS public.ai_provider_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+GRANT SELECT, INSERT, UPDATE
+ON TABLE public.ai_provider_settings
+TO "c1668531c_inptic-site";
+
 CREATE UNIQUE INDEX IF NOT EXISTS ai_provider_settings_one_active_idx
   ON public.ai_provider_settings(is_active)
   WHERE is_active = TRUE;

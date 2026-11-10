@@ -23,7 +23,7 @@ export const AI_PROVIDER_DEFAULTS: Record<AIProvider, { label: string; model: st
   deepseek: { label: 'DeepSeek', model: 'deepseek-chat', keyRequired: true },
   openai: { label: 'OpenAI', model: 'gpt-4o-mini', keyRequired: true },
   openrouter: { label: 'OpenRouter', model: 'openai/gpt-4o-mini', keyRequired: true },
-  ollama: { label: 'Ollama local', model: 'mistral', keyRequired: false },
+  ollama: { label: 'Ollama sur le serveur', model: 'llama3.2', keyRequired: false },
 };
 
 export type AIProviderSettings = {
@@ -153,6 +153,110 @@ export function decodeApiKey(apiKey: string | null) {
   return apiKey ? decryptApiKey(apiKey) : '';
 }
 
+export async function listAIProviderModels(provider: AIProvider, apiKey: string) {
+  const headers: Record<string, string> = {};
+  let endpoint: string;
+
+  switch (provider) {
+    case 'qwen':
+      endpoint = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models';
+      break;
+    case 'groq':
+      endpoint = 'https://api.groq.com/openai/v1/models';
+      break;
+    case 'claude':
+      endpoint = 'https://api.anthropic.com/v1/models?limit=100';
+      headers['anthropic-version'] = '2023-06-01';
+      break;
+    case 'gemini':
+      endpoint = 'https://generativelanguage.googleapis.com/v1beta/models';
+      headers['x-goog-api-key'] = apiKey;
+      break;
+    case 'deepseek':
+      endpoint = 'https://api.deepseek.com/models';
+      break;
+    case 'openai':
+      endpoint = 'https://api.openai.com/v1/models';
+      break;
+    case 'openrouter':
+      endpoint = 'https://openrouter.ai/api/v1/models';
+      headers['HTTP-Referer'] = 'https://inptic-ga.org';
+      headers['X-Title'] = 'INPTIC Assistant';
+      break;
+    case 'ollama':
+      endpoint = `${ollamaUrl()}/api/tags`;
+      break;
+  }
+
+  if (provider !== 'ollama') {
+    if (!apiKey) throw new Error(`Saisissez une clé API pour ${AI_PROVIDER_DEFAULTS[provider].label} afin de charger ses modèles.`);
+    if (provider === 'claude') headers['x-api-key'] = apiKey;
+    else if (provider !== 'gemini') headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { headers, signal: controller.signal, cache: 'no-store' });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Le chargement des modèles ${AI_PROVIDER_DEFAULTS[provider].label} a expiré.`);
+    }
+    throw new Error(`Impossible de charger les modèles ${AI_PROVIDER_DEFAULTS[provider].label}.`);
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Le fournisseur ${AI_PROVIDER_DEFAULTS[provider].label} a refusé la liste des modèles (HTTP ${response.status}).`);
+  }
+
+  const data: unknown = await response.json();
+  if (!data || typeof data !== 'object') {
+    throw new Error(`Réponse de liste de modèles invalide pour ${AI_PROVIDER_DEFAULTS[provider].label}.`);
+  }
+
+  const payload = data as {
+    data?: unknown;
+    models?: unknown;
+  };
+  const values = provider === 'ollama'
+    ? payload.models
+    : provider === 'gemini'
+      ? payload.models
+      : payload.data;
+  if (!Array.isArray(values)) {
+    throw new Error(`Le fournisseur ${AI_PROVIDER_DEFAULTS[provider].label} n’a pas renvoyé de liste de modèles.`);
+  }
+
+  const models = values.flatMap((item: unknown) => {
+    if (!item || typeof item !== 'object') return [];
+    const model = item as {
+      id?: unknown;
+      name?: unknown;
+      supportedGenerationMethods?: unknown;
+    };
+    if (
+      provider === 'gemini'
+      && Array.isArray(model.supportedGenerationMethods)
+      && !model.supportedGenerationMethods.includes('generateContent')
+    ) return [];
+    const id = typeof model.id === 'string'
+      ? model.id
+      : typeof model.name === 'string'
+        ? model.name.replace(/^models\//, '')
+        : '';
+    return id ? [id] : [];
+  });
+  const uniqueModels = [...new Set(models)].sort((a, b) => a.localeCompare(b));
+  const preferredModel = AI_PROVIDER_DEFAULTS[provider].model;
+  return [
+    ...(uniqueModels.includes(preferredModel) ? [preferredModel] : []),
+    ...uniqueModels.filter((model) => model !== preferredModel),
+  ].slice(0, 300);
+}
+
 function ollamaUrl() {
   const value = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
   const url = new URL(value);
@@ -271,6 +375,12 @@ export async function testAIProviderConnection(settings: AIProviderSettings) {
     [{ role: 'user', content: 'Test de connexion.' }],
   );
   if (!response.ok) {
+    if (response.status === 404) {
+      return {
+        online: false,
+        message: `Le modèle « ${settings.model} » est introuvable chez ${AI_PROVIDER_DEFAULTS[settings.provider].label} (HTTP 404). Actualisez la liste des modèles et choisissez-en un disponible.`,
+      };
+    }
     return { online: false, message: `Le fournisseur a refusé le test (HTTP ${response.status}). Vérifie le modèle et les identifiants.` };
   }
   return { online: true, message: `Connexion réussie avec ${AI_PROVIDER_DEFAULTS[settings.provider].label}.` };

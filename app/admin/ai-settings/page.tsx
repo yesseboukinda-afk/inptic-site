@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Bot, CheckCircle2, Eye, EyeOff, LoaderCircle, LockKeyhole, Save, ShieldCheck, Wifi } from 'lucide-react';
+import { ArrowLeft, Bot, CheckCircle2, Eye, EyeOff, LoaderCircle, LockKeyhole, RefreshCw, Save, ShieldCheck, Wifi } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { isSuperAdminRole } from '@/lib/roles';
 
@@ -25,7 +25,7 @@ const providerInfo: Record<ProviderId, { model: string; keyRequired: boolean; hi
   deepseek: { model: 'deepseek-chat', keyRequired: true, hint: 'DeepSeek' },
   openai: { model: 'gpt-4o-mini', keyRequired: true, hint: 'OpenAI' },
   openrouter: { model: 'openai/gpt-4o-mini', keyRequired: true, hint: 'OpenRouter' },
-  ollama: { model: 'mistral', keyRequired: false, hint: 'Ollama local' },
+  ollama: { model: 'llama3.2', keyRequired: false, hint: 'Ollama sur le serveur' },
 };
 
 const providerOptions: { id: ProviderId; label: string }[] = [
@@ -36,7 +36,7 @@ const providerOptions: { id: ProviderId; label: string }[] = [
   { id: 'deepseek', label: 'DeepSeek' },
   { id: 'openai', label: 'OpenAI' },
   { id: 'openrouter', label: 'OpenRouter' },
-  { id: 'ollama', label: 'Ollama local' },
+  { id: 'ollama', label: 'Ollama sur le serveur' },
 ];
 
 export default function AISettingsPage() {
@@ -44,14 +44,51 @@ export default function AISettingsPage() {
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [providers, setProviders] = useState<ProviderSetting[]>([]);
-  const [provider, setProvider] = useState<ProviderId>('gemini');
-  const [model, setModel] = useState(providerInfo.gemini.model);
+  const [provider, setProvider] = useState<ProviderId>('ollama');
+  const [model, setModel] = useState(providerInfo.ollama.model);
   const [apiKey, setApiKey] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelLoadError, setModelLoadError] = useState('');
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const modelRequestId = useRef(0);
+
+  const loadModels = useCallback(async (targetProvider: ProviderId, preferredModel: string, providedApiKey = '') => {
+    const requestId = ++modelRequestId.current;
+    setModelsLoading(true);
+    setModelLoadError('');
+    try {
+      const response = await fetch('/api/admin/ai-settings/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: targetProvider, apiKey: providedApiKey || undefined }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Impossible de charger la liste des modèles.');
+      if (requestId !== modelRequestId.current) return;
+
+      const models: string[] = Array.isArray(result.models)
+        ? result.models.filter((item: unknown): item is string => typeof item === 'string')
+        : [];
+      setAvailableModels(models);
+      if (models.length) {
+        setModel(
+          models.find((item) => item === preferredModel)
+          || models.find((item) => item === providerInfo[targetProvider].model)
+          || models[0],
+        );
+      }
+    } catch (loadError) {
+      if (requestId !== modelRequestId.current) return;
+      setModelLoadError(loadError instanceof Error ? loadError.message : 'Impossible de charger la liste des modèles.');
+    } finally {
+      if (requestId === modelRequestId.current) setModelsLoading(false);
+    }
+  }, []);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -67,13 +104,16 @@ export default function AISettingsPage() {
         setProvider(active.provider);
         setModel(active.model);
         setThinkingEnabled(active.thinkingEnabled);
+        void loadModels(active.provider, active.model);
+      } else {
+        void loadModels('ollama', providerInfo.ollama.model);
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Impossible de charger la configuration IA.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadModels]);
 
   useEffect(() => {
     let active = true;
@@ -97,12 +137,16 @@ export default function AISettingsPage() {
   const changeProvider = (nextProvider: ProviderId) => {
     const saved = providers.find((item) => item.provider === nextProvider);
     setProvider(nextProvider);
-    setModel(saved?.model || providerInfo[nextProvider].model);
+    const preferredModel = saved?.model || providerInfo[nextProvider].model;
+    setModel(preferredModel);
+    setAvailableModels([]);
+    void loadModels(nextProvider, preferredModel);
     setThinkingEnabled(saved?.thinkingEnabled || false);
     setApiKey('');
     setShowApiKey(false);
     setError('');
     setMessage('');
+    setModelLoadError('');
   };
 
   const saveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -192,9 +236,22 @@ export default function AISettingsPage() {
           </label>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <label className="block text-sm font-semibold text-slate-800">
-              Modèle
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="ai-model" className="block text-sm font-semibold text-slate-800">Modèle</label>
+                <button
+                  type="button"
+                  onClick={() => void loadModels(provider, model, apiKey.trim())}
+                  disabled={busy || loading || modelsLoading}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 hover:text-violet-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw size={13} className={modelsLoading ? 'animate-spin' : ''} aria-hidden="true" />
+                  {modelsLoading ? 'Chargement…' : 'Actualiser les modèles'}
+                </button>
+              </div>
               <input
+                id="ai-model"
+                list="ai-provider-models"
                 value={model}
                 onChange={(event) => setModel(event.target.value)}
                 maxLength={120}
@@ -203,7 +260,14 @@ export default function AISettingsPage() {
                 className="mt-2 block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 placeholder={providerInfo[provider].model}
               />
-            </label>
+              <datalist id="ai-provider-models">
+                {availableModels.map((availableModel) => <option key={availableModel} value={availableModel} />)}
+              </datalist>
+              {modelLoadError && <p role="status" className="mt-2 text-xs text-amber-700">{modelLoadError}</p>}
+              {!modelLoadError && availableModels.length > 0 && (
+                <p className="mt-2 text-xs text-slate-500">Modèles récupérés depuis {providerInfo[provider].hint}.</p>
+              )}
+            </div>
 
             <div>
               <label htmlFor="ai-api-key" className="block text-sm font-semibold text-slate-800">
@@ -255,7 +319,7 @@ export default function AISettingsPage() {
 
           {provider === 'ollama' && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Ollama doit être installé et accessible depuis le serveur. L’adresse est définie côté serveur avec <code>OLLAMA_BASE_URL</code>, elle n’est pas modifiable depuis le navigateur.
+              Ollama doit être installé sur le serveur avec le modèle <code>llama3.2</code> téléchargé. L’adresse est définie côté serveur avec <code>OLLAMA_BASE_URL</code> (par défaut <code>http://127.0.0.1:11434</code>) et n’est pas modifiable depuis le navigateur.
             </p>
           )}
 

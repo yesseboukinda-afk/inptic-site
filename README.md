@@ -6,44 +6,42 @@
 3. Copier `.env.example` vers `.env.local` et renseigner les services.
 4. `npm run dev`
 
-## Chatbot INPTIC
+## Assistante Sohane
 
-Le bouton Assistant et la page `/chatbot` utilisent `/api/chat`, qui appelle
-Google Gemini côté serveur. Configurez `GEMINI_API_KEY` dans `.env.local` pour
-le développement et dans les variables d'environnement du déploiement. La clé
-ne doit jamais être préfixée par `NEXT_PUBLIC_`. Le modèle par défaut est
-`gemini-3.1-pro-preview`; `GEMINI_MODEL` permet de le remplacer. La recherche Google
-groundée et l'exécution Python sont activées pour aider aux recherches récentes
-et aux calculs. Les sources Web renvoyées par Google sont affichées dans les
-réponses. Le modèle Pro et ces outils peuvent répondre plus lentement et entraîner
-des coûts supérieurs à Gemini Flash.
+Le bouton Assistant et la page `/chatbot` ouvrent Sohane via `/api/chat`. Elle
+répond aux questions générales et sur l'INPTIC, peut être utilisée à la voix,
+ouvrir des recherches Web et conserver des souvenirs dans le navigateur de
+l'utilisateur. Les souvenirs ne sont pas synchronisés avec le serveur. Les
+commandes « souviens-toi que… », « montre ma mémoire » et « oublie tout »
+permettent de les gérer. « Cherche sur internet… » ouvre une recherche Google
+dans un nouvel onglet. L'ouverture de Chrome et de VS Code est adaptée au Web :
+le navigateur ne peut pas lancer des applications installées sur l'appareil.
 
-Pour le déploiement LWS, renseigner `GEMINI_API_KEY` dans les variables
-d'environnement du serveur Node.js, avec `GEMINI_MODEL=gemini-3.1-pro-preview` et
-`GEMINI_TTS_MODEL=gemini-3.8-flash-tts` si ces modèles sont disponibles pour la
-clé et le projet Google utilisés. La même clé sert aux réponses textuelles et
-à la génération vocale. Ne jamais copier la clé dans Git, une variable
-`NEXT_PUBLIC_*` ou un message.
+Le superadmin choisit le fournisseur et le modèle actifs depuis
+`/admin/ai-settings`. Pour Sohane avec Ollama, installer Ollama sur le serveur,
+télécharger le modèle `llama3.2`, puis sélectionner « Ollama sur le serveur »
+et tester/enregistrer la configuration. Le modèle proposé par défaut est
+`llama3.2`. `OLLAMA_BASE_URL` est défini uniquement côté serveur (par défaut
+`http://127.0.0.1:11434`) ; l'interface refuse une URL HTTP non locale. Ne rendez
+pas l'API Ollama publiquement accessible. La disponibilité d'Ollama et les
+ressources nécessaires doivent être vérifiées sur l'hébergement avant activation.
 
-La lecture vocale est générée côté serveur par Gemini TTS (`GEMINI_TTS_MODEL`,
-par défaut `gemini-3.8-flash-tts`) avec la voix Achernar et un style français
-féminin, doux, humain et posé. Elle utilise la même clé serveur `GEMINI_API_KEY` et le
-quota Gemini. Si le serveur ne peut pas joindre Google, l'interface essaie une
-voix française féminine installée dans le navigateur et signale ce mode de secours.
+La reconnaissance vocale utilise les capacités du navigateur. La lecture vocale
+utilise Gemini TTS si `GEMINI_API_KEY` est configurée (`GEMINI_TTS_MODEL` vaut
+par défaut `gemini-3.8-flash-tts`) ; sinon, l'interface utilise une voix française
+disponible dans le navigateur. Les clés restent côté serveur et ne doivent jamais
+être préfixées par `NEXT_PUBLIC_`.
 
-En l'absence de clé Gemini, les anciens fournisseurs restent disponibles en
-repli avec `OPENAI_API_KEY` ou `OPENROUTER_API_KEY`.
-
-Le superadmin peut choisir le fournisseur et le modèle actifs depuis
-`/admin/ai-settings`. La table se crée avec `scripts/00_lws_complete_schema.sql`
-ou `scripts/13_lws_application_schema.sql` ; sur une base déjà installée, exécuter
-`scripts/19_create_ai_provider_settings.sql`. Configurez aussi
-`AI_SETTINGS_ENCRYPTION_KEY` avec une clé aléatoire de 32 octets hexadécimaux
-(par exemple `openssl rand -hex 32`) dans l'environnement serveur avant d'enregistrer
-des identifiants. Conservez cette clé durablement : la changer rend les clés stockées
-illisibles. Les fournisseurs pris en charge sont Qwen, Groq, Claude, Gemini,
-DeepSeek, OpenAI, OpenRouter et Ollama local. Les clés ne sont jamais renvoyées au
-navigateur ; chaque nouvelle configuration est testée avant son activation.
+La configuration des fournisseurs est stockée dans PostgreSQL. La table se crée
+avec `scripts/00_lws_complete_schema.sql` ou `scripts/13_lws_application_schema.sql` ;
+sur une base déjà installée, exécuter `scripts/19_create_ai_provider_settings.sql`.
+Configurez aussi `AI_SETTINGS_ENCRYPTION_KEY` avec une clé aléatoire de 32 octets
+hexadécimaux (par exemple `openssl rand -hex 32`) dans l'environnement serveur
+avant d'enregistrer des identifiants. Conservez cette clé durablement : la changer
+rend les clés stockées illisibles. Les fournisseurs pris en charge sont Qwen,
+Groq, Claude, Gemini, DeepSeek, OpenAI, OpenRouter et Ollama. Les clés ne sont
+jamais renvoyées au navigateur ; chaque nouvelle configuration est testée avant
+son activation.
 
 Après la création du schéma applicatif sur une nouvelle base, ou pour mettre à jour
 une base existante, exécutez `scripts/20_create_clubs.sql`. Les responsables sont créés depuis
@@ -202,6 +200,71 @@ la base PostgreSQL LWS. Cette migration accorde au compte applicatif les seuls
 droits nécessaires sur les profils candidats et les métadonnées des fichiers privés.
 
 Les fichiers publics sont servis par `/api/storage/...`.
+
+## Bibliothèque numérique intégrée
+
+L'ancienne application PHP autonome est remplacée côté site par les pages
+Next.js/React `/bibliotheque`, `/bibliotheque/lecture?id=...`,
+`/bibliotheque/mon-espace` et `/bibliotheque/admin`. Le menu principal comprend
+un accès à la bibliothèque. Le catalogue propose une navigation alphabétique
+par titre, la lecture PDF avec prise en charge des requêtes par plage, le
+téléchargement, les favoris, les mentions J’aime, les collections personnelles,
+la progression de lecture, les profils de bibliothèque et la gestion
+administrateur. Les comptes et connexions sont ceux du site INPTIC ; il n'y a
+pas de second mot de passe ni de connexion Apple de simulation.
+
+Après `scripts/00_lws_complete_schema.sql`, exécuter
+`scripts/25_create_library.sql` sur la base PostgreSQL. Le script
+`scripts/create-lws-database.sh` installe désormais aussi ce schéma. Les pages
+d'administration sont réservées aux comptes ayant un rôle administrateur du
+site et les opérations sensibles sont revérifiées côté serveur.
+
+Les PDF disponibles pour React sont présents dans `app/bibliotheque/livres`.
+Les couvertures peuvent être placées dans `app/bibliotheque/couvertures` ou
+stockées ailleurs en définissant `LIBRARY_COVERS_DIR`. Le lecteur React sert les PDF via une route contrôlée,
+plutôt que de les exposer comme des fichiers statiques. En production, vérifier
+que ces fichiers sont présents sur le serveur Node après déploiement ; pour les
+hébergeurs qui séparent le code construit des médias, définir `LIBRARY_BOOKS_DIR`
+et `LIBRARY_COVERS_DIR` avec les chemins absolus vers leurs emplacements
+persistants. Les valeurs par défaut sont `app/bibliotheque/livres` et
+`app/bibliotheque/couvertures`. Le stockage privé utilisé pour les nouveaux
+uploads nécessite aussi `PRIVATE_STORAGE_DIR`.
+
+Le script `scripts/import_legacy_library.mjs` importe les métadonnées des
+ouvrages et, si les CSV sont fournis, les profils de bibliothèque, favoris,
+mentions J’aime, collections et positions de lecture. Exporter uniquement les
+colonnes non secrètes, notamment `utilisateurs.id` et `utilisateurs.email` :
+ne pas exporter de mots de passe. Les associations d'un ancien compte sont
+reliées à un compte INPTIC existant par adresse e-mail normalisée ; le script
+n'invente pas de comptes et indique combien n'ont pas de compte correspondant.
+Exemple PowerShell (adapter les chemins, sans mettre les fichiers CSV dans Git) :
+
+```powershell
+$env:DATABASE_URL = "URL_DE_CONNEXION_POSTGRESQL"
+node scripts\import_legacy_library.mjs --books .\migration\livres.csv --users .\migration\utilisateurs.csv --favorites .\migration\favoris.csv --likes .\migration\likes.csv --collection .\migration\user_livres.csv --progress .\migration\progression_lecture.csv
+```
+
+Les fichiers optionnels `--users`, `--favorites`, `--likes`, `--collection` et
+`--progress` peuvent être omis. Il faut créer ou associer les comptes du site
+avant l'import pour conserver les données personnelles liées aux utilisateurs.
+Les anciens mots de passe, profils de connexion Google/Apple et fichiers ne
+sont pas importés par ce script. L'application PHP historique n'est pas
+nécessaire au fonctionnement de la bibliothèque React.
+
+Les principales fonctions de l'ancienne API mobile sont disponibles sous
+`/api/library/mobile/books` (`type=recent|popular`), `/api/library/mobile/search`
+(`q`, `categorie`, `langue`) et `/api/library/mobile/stats`. Ces routes renvoient
+les champs de catalogue historiques en JSON, mais les PDF et couvertures passent
+par les routes contrôlées du site. Les suggestions de recherche sont fournies par
+`/api/library/suggestions`. Les clients authentifiés doivent utiliser les comptes
+et sessions INPTIC (`/api/auth/login` et `/api/auth/session`) ; l'ancienne API
+PHP d'inscription/connexion n'est pas reprise, car elle utilisait une base
+d'utilisateurs distincte et ne créait pas de session INPTIC.
+
+L'administration React inclut aussi la pagination et la suppression groupée
+(100 ouvrages maximum par opération). Les paramètres du compte et les changements
+de mot de passe restent gérés par l'authentification centrale du site. Les mentions
+légales de la bibliothèque sont intégrées à `/bibliotheque/mentions-legales`.
 
 Pour activer la gestion des filières, formations, certifications et photos du site, exécuter
 `scripts/24_create_site_content_management.sql` sur PostgreSQL. La page

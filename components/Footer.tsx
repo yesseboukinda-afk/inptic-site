@@ -348,6 +348,13 @@ export default function Footer() {
               </a>
 
               <a
+                href="/bibliotheque/mentions-legales"
+                className="transition-colors duration-200 hover:text-[#D4AF37]"
+              >
+                Mentions légales de la bibliothèque
+              </a>
+
+              <a
                 href="/textes-et-lois"
                 className="transition-colors duration-200 hover:text-[#D4AF37]"
               >

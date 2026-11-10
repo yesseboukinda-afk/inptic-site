@@ -17,12 +17,74 @@ type Conversation = {
   updatedAt: string;
 };
 
+const memoryStorageKey = 'sohane-memory';
+
+function normalizeCommand(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’']/g, "'")
+    .trim();
+}
+
+function getWebAction(text: string): { url: string; message: string } | null {
+  const command = normalizeCommand(text);
+  const searchPrefix = command.match(/^(?:recherche sur (?:internet|le web)|cherche(?: sur (?:internet|le web))?)\s*(.*)$/);
+  if (searchPrefix) {
+    const query = searchPrefix[1].trim();
+    if (!query) {
+      return null;
+    }
+    return {
+      url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+      message: `J’ouvre les résultats de recherche pour « ${query} » dans un nouvel onglet.`,
+    };
+  }
+
+  if (/\b(?:ouvre|ouvrir|lance|lancer) (?:google chrome|chrome)\b/.test(command)) {
+    return {
+      url: 'https://www.google.com/chrome/',
+      message: 'Je ne peux pas lancer une application sur votre appareil, mais voici le site de Google Chrome.',
+    };
+  }
+  if (/\b(?:ouvre|ouvrir|lance|lancer) (?:youtube|you tube)\b/.test(command)) {
+    return { url: 'https://www.youtube.com/', message: 'J’ouvre YouTube dans un nouvel onglet.' };
+  }
+  if (/\b(?:ouvre|ouvrir|lance|lancer) google\b/.test(command)) {
+    return { url: 'https://www.google.com/', message: 'J’ouvre Google dans un nouvel onglet.' };
+  }
+  if (/\b(?:ouvre|ouvrir|lance|lancer) (?:vscode|vs code|visual studio code)\b/.test(command)) {
+    return { url: 'https://vscode.dev/', message: 'J’ouvre Visual Studio Code pour le Web dans un nouvel onglet.' };
+  }
+
+  const siteCommand = text.trim().match(/^(?:ouvre|ouvrir|lance|lancer)\s+(?:le site\s+)?(.+)$/i);
+  if (!siteCommand) return null;
+
+  const destination = siteCommand[1].trim().replace(/[.,!?]+$/, '');
+  try {
+    const url = new URL(destination.includes('://') ? destination : `https://${destination}`);
+    if (
+      !['https:', 'http:'].includes(url.protocol) ||
+      !url.hostname.includes('.') ||
+      url.username ||
+      url.password ||
+      url.hostname === 'localhost'
+    ) {
+      return null;
+    }
+    return { url: url.href, message: `J’ouvre ${url.hostname} dans un nouvel onglet.` };
+  } catch {
+    return null;
+  }
+}
+
 function renderMessage(text: string) {
   const cleanText = text.replace(/^#{1,3}\s+/gm, '');
-  const parts = cleanText.split(/(\[[^\]]+\]\((?:\/[^\s)]+|https:\/\/[^\s)]+)\))/g);
+  const parts = cleanText.split(/(\[[^\]]+\]\((?:\/[^\s)]+|https?:\/\/[^\s)]+)\))/g);
 
   return parts.map((part, index) => {
-    const link = part.match(/^\[([^\]]+)\]\(((?:\/[^\s)]+|https:\/\/[^\s)]+))\)$/);
+    const link = part.match(/^\[([^\]]+)\]\(((?:\/[^\s)]+|https?:\/\/[^\s)]+))\)$/);
 
     if (!link) return <span key={`${part}-${index}`}>{part}</span>;
 
@@ -30,7 +92,7 @@ function renderMessage(text: string) {
       <a
         key={`${link[2]}-${index}`}
         href={link[2]}
-        {...(link[2].startsWith('https://') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        {...(link[2].startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900"
       >
         {link[1]}
@@ -53,6 +115,8 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [speechError, setSpeechError] = useState('');
   const [speechNotice, setSpeechNotice] = useState('');
+  const [memories, setMemories] = useState<string[]>([]);
+  const [memoryNotice, setMemoryNotice] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -104,6 +168,25 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   }, [isOpen]);
 
   useEffect(() => () => speechCancelRef.current?.(), []);
+
+  useEffect(() => {
+    try {
+      const savedMemory = window.localStorage.getItem(memoryStorageKey);
+      if (!savedMemory) return;
+      const parsed: unknown = JSON.parse(savedMemory);
+      if (!Array.isArray(parsed)) {
+        throw new Error('Format de mémoire invalide.');
+      }
+      setMemories(parsed
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim().slice(0, 200))
+        .filter(Boolean)
+        .slice(0, 20));
+    } catch (error) {
+      console.error('[Sohane] Impossible de charger la mémoire locale:', error);
+      setMemoryNotice('La mémoire locale de Sohane n’a pas pu être lue sur cet appareil.');
+    }
+  }, []);
 
   useEffect(() => {
     const storedChatId = window.localStorage.getItem('inptic-chat-id');
@@ -198,6 +281,81 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
       role: 'user',
       content,
     };
+
+    const normalizedContent = normalizeCommand(content);
+    const rememberMatch = content.match(/^(?:souviens[- ]toi(?:\s+(?:que|de))?|m[ée]morise(?:\s+que)?|retiens(?:\s+que)?)\s+(.+)$/i);
+    const assistantMessageId = `${Date.now()}-assistant`;
+    let localReply = '';
+
+    const saveMemories = (nextMemories: string[]) => {
+      try {
+        window.localStorage.setItem(memoryStorageKey, JSON.stringify(nextMemories));
+        setMemories(nextMemories);
+        setMemoryNotice('Cette mémoire est enregistrée uniquement dans ce navigateur.');
+        return true;
+      } catch (error) {
+        console.error('[Sohane] Impossible d’enregistrer la mémoire locale:', error);
+        setMemoryNotice('La mémoire n’a pas pu être enregistrée dans ce navigateur.');
+        return false;
+      }
+    };
+
+    if (rememberMatch) {
+      const memory = rememberMatch[1].trim().slice(0, 200);
+      if (!memory) {
+        localReply = 'Dis-moi précisément ce que tu veux que je retienne.';
+      } else if (memories.some((item) => normalizeCommand(item) === normalizeCommand(memory))) {
+        localReply = 'Je m’en souviens déjà.';
+      } else if (memories.length >= 20) {
+        localReply = 'Ma mémoire locale est pleine. Demande-moi d’oublier un souvenir avant d’en ajouter un autre.';
+      } else {
+        localReply = saveMemories([...memories, memory])
+          ? 'D’accord, je vais m’en souvenir sur cet appareil.'
+          : 'Je n’ai pas pu enregistrer ce souvenir dans ce navigateur.';
+      }
+    } else if (
+      normalizedContent.includes("qu'est-ce que tu te rappelles") ||
+      normalizedContent.includes('que te rappelles-tu') ||
+      normalizedContent.includes('montre ma memoire') ||
+      normalizedContent.includes('montre tes souvenirs')
+    ) {
+      localReply = memories.length
+        ? `Voici ce que je retiens sur cet appareil :\n${memories.map((item, index) => `${index + 1}. ${item}`).join('\n')}`
+        : 'Je n’ai encore aucun souvenir enregistré sur cet appareil.';
+    } else if (
+      /^(?:oublie tout|efface ma memoire|supprime ma memoire|forget everything)$/.test(normalizedContent)
+    ) {
+      localReply = saveMemories([])
+        ? 'C’est fait, j’ai effacé ma mémoire locale.'
+        : 'Je n’ai pas pu effacer la mémoire locale de ce navigateur.';
+    } else if (/^(?:oublie|efface|supprime)(?: le souvenir)?\s+/.test(normalizedContent)) {
+      const target = normalizedContent.replace(/^(?:oublie|efface|supprime)(?: le souvenir)?\s+/, '');
+      const nextMemories = memories.filter((item) => !normalizeCommand(item).includes(target));
+      localReply = nextMemories.length === memories.length
+        ? 'Je n’ai pas trouvé ce souvenir dans ma mémoire locale.'
+        : saveMemories(nextMemories)
+          ? 'C’est fait, j’ai oublié ce souvenir.'
+          : 'Je n’ai pas pu modifier la mémoire locale de ce navigateur.';
+    }
+
+    const webAction = localReply ? null : getWebAction(content);
+    if (webAction) {
+      window.open(webAction.url, '_blank', 'noopener,noreferrer');
+      localReply = `[${webAction.message}](${webAction.url})`;
+    }
+
+    if (localReply) {
+      const assistantMessage = {
+        id: assistantMessageId,
+        role: 'assistant' as const,
+        content: localReply,
+      };
+      setMessages((current) => [...current, userMessage, assistantMessage]);
+      setInputValue('');
+      speakText(localReply.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), assistantMessageId);
+      return;
+    }
+
     const nextMessages = [...messages, userMessage];
 
     setMessages(nextMessages);
@@ -210,6 +368,7 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chatId,
+          memory: memories,
           messages: nextMessages.map(({ role, content: messageContent }) => ({ role, content: messageContent })),
         }),
       });
@@ -233,7 +392,7 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
       setMessages((current) => [...current, {
         id: `${Date.now()}-error`,
         role: 'assistant',
-        content: err?.message || 'Aucune clé IA n’est configurée. Veuillez ajouter GEMINI_API_KEY dans les variables d’environnement du serveur.',
+        content: err?.message || 'Sohane est momentanément indisponible. Vérifiez la configuration du fournisseur IA du site.',
       }]);
     } finally {
       setIsLoading(false);
@@ -301,7 +460,7 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
                   <img src="/logoinptic.ico" alt="INPTIC" className="h-auto w-full object-contain" />
                 </div>
                 <div>
-                  <h2 id="chat-header" className="font-bold">INPTIC Assistant</h2>
+                  <h2 id="chat-header" className="font-bold">Sohane</h2>
                   <p className="text-xs text-blue-100">{t('chat.assistant')}</p>
                 </div>
               </div>
@@ -388,7 +547,7 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
                 {isLoading && (
                   <div className="flex items-center gap-2 self-start rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
                     <Loader size={16} className="animate-spin text-blue-600" aria-hidden="true" />
-                    Gemini réfléchit, recherche ou vérifie un calcul…
+                    Sohane prépare une réponse…
                   </div>
                 )}
                 {speechError && (
@@ -420,6 +579,7 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
                 </button>
               </div>
               <p className="mx-auto mt-2 max-w-xl text-center text-[11px] text-slate-400">Les informations officielles Admissions et Contact font foi.</p>
+              {memoryNotice && <p role="status" className="mx-auto mt-1 max-w-xl text-center text-[11px] text-slate-500">{memoryNotice}</p>}
             </form>
           </div>
         </div>

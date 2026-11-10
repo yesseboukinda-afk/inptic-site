@@ -1,0 +1,8 @@
+Options -Indexes
+# Autoriser uniquement les images
+<FilesMatch "\.(webp|jpg|jpeg|png|gif)$">
+    Allow from all
+</FilesMatch>
+<FilesMatch "^(?!.*\.(webp|jpg|jpeg|png|gif)$)">
+    Deny from all
+</FilesMatch>
