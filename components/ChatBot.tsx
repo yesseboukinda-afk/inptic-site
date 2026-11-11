@@ -9,6 +9,14 @@ type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  files?: ChatFile[];
+};
+
+type ChatFile = {
+  id: string;
+  title: string;
+  format: string;
+  url: string;
 };
 
 type Conversation = {
@@ -30,18 +38,6 @@ function normalizeCommand(value: string) {
 
 function getWebAction(text: string): { url: string; message: string } | null {
   const command = normalizeCommand(text);
-  const searchPrefix = command.match(/^(?:recherche sur (?:internet|le web)|cherche(?: sur (?:internet|le web))?)\s*(.*)$/);
-  if (searchPrefix) {
-    const query = searchPrefix[1].trim();
-    if (!query) {
-      return null;
-    }
-    return {
-      url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-      message: `J’ouvre les résultats de recherche pour « ${query} » dans un nouvel onglet.`,
-    };
-  }
-
   if (/\b(?:ouvre|ouvrir|lance|lancer) (?:google chrome|chrome)\b/.test(command)) {
     return {
       url: 'https://www.google.com/chrome/',
@@ -81,23 +77,67 @@ function getWebAction(text: string): { url: string; message: string } | null {
 
 function renderMessage(text: string) {
   const cleanText = text.replace(/^#{1,3}\s+/gm, '');
-  const parts = cleanText.split(/(\[[^\]]+\]\((?:\/[^\s)]+|https?:\/\/[^\s)]+)\))/g);
+  const parts = cleanText.split(/(!\[[^\]]*\]\((?:\/(?!\/)[^\s)]+|https?:\/\/[^\s)]+)\)|\[[^\]]+\]\((?:\/(?!\/)[^\s)]+|https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<]+)/g);
 
   return parts.map((part, index) => {
-    const link = part.match(/^\[([^\]]+)\]\(((?:\/[^\s)]+|https?:\/\/[^\s)]+))\)$/);
+    const image = part.match(/^!\[([^\]]*)\]\(((?:\/(?!\/)[^\s)]+|https?:\/\/[^\s)]+))\)$/);
+    if (image && image[2].startsWith('/api/chat/images?id=')) {
+      const downloadUrl = `${image[2]}&download=1`;
+      return (
+        <figure key={`${image[2]}-${index}`} className="my-2 max-w-full">
+          <a href={image[2]} target="_blank" rel="noopener noreferrer" aria-label={image[1] || 'Ouvrir l’image générée'}>
+            <img src={image[2]} alt={image[1] || 'Image générée par Sohane'} className="max-h-72 max-w-full rounded-lg object-contain" />
+          </a>
+          <a href={downloadUrl} download className="mt-1 inline-block text-xs font-semibold text-blue-700 underline underline-offset-2">
+            Télécharger l’image
+          </a>
+        </figure>
+      );
+    }
 
-    if (!link) return <span key={`${part}-${index}`}>{part}</span>;
+    const link = part.match(/^\[([^\]]+)\]\(((?:\/(?!\/)[^\s)]+|https?:\/\/[^\s)]+))\)$/);
 
-    return (
-      <a
-        key={`${link[2]}-${index}`}
-        href={link[2]}
-        {...(link[2].startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-        className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900"
-      >
-        {link[1]}
-      </a>
-    );
+    if (link) {
+      if (link[2].startsWith('/api/chat/documents?') && /[?&]download=1(?:&|$)/.test(link[2])) {
+        return (
+          <a
+            key={`${link[2]}-${index}`}
+            href={link[2]}
+            className="my-2 flex w-fit max-w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-100"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-lg" aria-hidden="true">↓</span>
+            <span className="min-w-0">
+              <span className="block truncate">{link[1]}</span>
+              <span className="mt-0.5 block text-xs font-normal text-blue-700">Fichier prêt à télécharger</span>
+            </span>
+          </a>
+        );
+      }
+
+      return (
+        <a
+          key={`${link[2]}-${index}`}
+          href={link[2]}
+          {...(link[2].startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          className="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900"
+        >
+          {link[1]}
+        </a>
+      );
+    }
+
+    if (/^https?:\/\//i.test(part)) {
+      const url = part.replace(/[.,!?;:]+$/, '');
+      const punctuation = part.slice(url.length);
+      return (
+        <span key={`${part}-${index}`}>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="break-all font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900">{url}</a>
+          {punctuation}
+        </span>
+      );
+    }
+
+    return <span key={`${part}-${index}`}>{part}</span>;
   });
 }
 
@@ -112,9 +152,9 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [speechError, setSpeechError] = useState('');
-  const [speechNotice, setSpeechNotice] = useState('');
   const [memories, setMemories] = useState<string[]>([]);
   const [memoryNotice, setMemoryNotice] = useState('');
 
@@ -128,6 +168,9 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const speechCancelRef = useRef<(() => void) | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const openChat = () => {
     setIsMounted(true);
@@ -168,6 +211,10 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   }, [isOpen]);
 
   useEffect(() => () => speechCancelRef.current?.(), []);
+  useEffect(() => () => {
+    mediaRecorderRef.current?.stop();
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   useEffect(() => {
     try {
@@ -206,45 +253,78 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
       .catch(() => undefined);
   }, []);
 
-  const toggleListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('La reconnaissance vocale n’est pas prise en charge par votre navigateur.');
-      return;
-    }
-
+  const toggleListening = async () => {
     if (isListening) {
+      mediaRecorderRef.current?.stop();
       setIsListening(false);
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event: any) => {
-      const speechText = event.results[0][0].transcript;
-      setInputValue((prev) => (prev ? `${prev} ${speechText}` : speechText));
-      setIsListening(false);
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    setSpeechError('');
     try {
-      recognition.start();
-    } catch {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        throw new Error('Cet appareil ou navigateur ne permet pas l’enregistrement audio.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+        .find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) audioChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        setSpeechError('L’enregistrement audio a échoué. Vérifiez le microphone et réessayez.');
+        setIsListening(false);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.onstop = () => {
+        setIsListening(false);
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        const audio = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        audioChunksRef.current = [];
+        if (audio.size) void transcribeAudio(audio);
+      };
+      recorder.start();
+      setIsListening(true);
+    } catch (error) {
       setIsListening(false);
+      setSpeechError(error instanceof Error && error.name === 'NotAllowedError'
+        ? 'Autorisez l’accès au microphone dans les paramètres du navigateur, puis réessayez.'
+        : error instanceof Error ? error.message : 'Impossible de démarrer le microphone.');
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+  };
+
+  const transcribeAudio = async (audio: Blob) => {
+    setIsTranscribing(true);
+    setSpeechError('');
+    try {
+      const form = new FormData();
+      const extension = audio.type.includes('mp4')
+        ? 'm4a'
+        : audio.type.includes('ogg')
+          ? 'ogg'
+          : audio.type.includes('wav')
+            ? 'wav'
+            : 'webm';
+      form.set('audio', audio, `question.${extension}`);
+      const response = await fetch('/api/chat/transcribe', { method: 'POST', body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Impossible de transcrire votre question.');
+      if (typeof data.text !== 'string' || !data.text.trim()) {
+        throw new Error('Aucune parole n’a été reconnue. Rapprochez-vous du microphone et réessayez.');
+      }
+      void sendMessage(data.text, true);
+    } catch (error) {
+      setSpeechError(error instanceof Error ? error.message : 'Impossible de transcrire votre question.');
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -258,21 +338,21 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
 
     speechCancelRef.current?.();
     setSpeechError('');
-    setSpeechNotice('');
     setSpeakingMessageId(messageId);
-    speechCancelRef.current = speakFrenchText(text, () => {
+    const spokenText = text
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    speechCancelRef.current = speakFrenchText(spokenText, () => {
       speechCancelRef.current = null;
       setSpeakingMessageId(null);
     }, (error) => {
       speechCancelRef.current = null;
       setSpeakingMessageId(null);
       setSpeechError(error);
-    }, (notice) => {
-      setSpeechNotice(notice);
     });
   };
 
-  const sendMessage = async (messageText = inputValue) => {
+  const sendMessage = async (messageText = inputValue, shouldSpeakResponse = false) => {
     const content = messageText.trim();
     if (!content || isLoading) return;
 
@@ -352,7 +432,9 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
       };
       setMessages((current) => [...current, userMessage, assistantMessage]);
       setInputValue('');
-      speakText(localReply.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), assistantMessageId);
+      if (shouldSpeakResponse) {
+        speakText(localReply.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), assistantMessageId);
+      }
       return;
     }
 
@@ -384,16 +466,30 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
         id: `${Date.now()}-assistant`,
         role: 'assistant',
         content: assistantReply,
+        files: Array.isArray(data.documents)
+          ? data.documents.filter((file: unknown): file is ChatFile =>
+              file !== null &&
+              typeof file === 'object' &&
+              'id' in file && typeof file.id === 'string' &&
+              'title' in file && typeof file.title === 'string' &&
+              'format' in file && typeof file.format === 'string' &&
+              'url' in file && typeof file.url === 'string',
+            )
+          : [],
       }]);
 
-      // Synthèse vocale automatique de la réponse de l'assistant
-      speakText(assistantReply, `${Date.now()}-assistant`);
+      if (shouldSpeakResponse) {
+        speakText(assistantReply, `${Date.now()}-assistant`);
+      }
     } catch (err: any) {
       setMessages((current) => [...current, {
         id: `${Date.now()}-error`,
         role: 'assistant',
         content: err?.message || 'Sohane est momentanément indisponible. Vérifiez la configuration du fournisseur IA du site.',
       }]);
+      if (shouldSpeakResponse) {
+        speakText(err?.message || 'Sohane est momentanément indisponible.', `${Date.now()}-error`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -518,7 +614,20 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
                 {messages.map((message) => (
                   <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
                     <div className={`max-w-[88%] px-4 py-3 text-[15px] leading-7 ${message.role === 'user' ? 'rounded-2xl rounded-br-sm bg-slate-800 text-white shadow-sm' : 'text-slate-800'}`}>
-                      <p className="whitespace-pre-line">{renderMessage(message.content)}</p>
+                      <div className="whitespace-pre-line">{renderMessage(message.content)}</div>
+                      {message.files?.filter((file) => !message.content.includes(file.url)).map((file) => (
+                        <a
+                          key={file.id}
+                          href={file.url}
+                          className="my-2 flex w-fit max-w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-100"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-lg" aria-hidden="true">↓</span>
+                          <span className="min-w-0">
+                            <span className="block truncate">Télécharger {file.title}</span>
+                            <span className="mt-0.5 block text-xs font-normal text-blue-700">{file.format.toUpperCase()} · fichier prêt</span>
+                          </span>
+                        </a>
+                      ))}
                     </div>
                     {message.role === 'assistant' && (
                       <button
@@ -553,25 +662,23 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
                 {speechError && (
                   <p role="alert" className="text-xs text-red-700">{speechError}</p>
                 )}
-                {speechNotice && (
-                  <p role="status" className="text-xs text-amber-700">{speechNotice}</p>
-                )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
 
             <form className="border-t border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
               <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-100">
-                <textarea ref={inputRef} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={handleKeyDown} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} rows={1} disabled={isLoading} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed" />
+                <textarea ref={inputRef} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={handleKeyDown} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} rows={1} disabled={isLoading || isTranscribing} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed" />
 
                 <button
                   type="button"
                   onClick={toggleListening}
-                  className={`rounded-lg p-2.5 transition-colors ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  aria-label="Parler au micro"
-                  title={isListening ? 'Écoute en cours...' : 'Dicter votre question'}
+                  disabled={isTranscribing || isLoading}
+                  className={`rounded-lg p-2.5 transition-colors ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:cursor-wait disabled:opacity-60`}
+                  aria-label={isListening ? 'Terminer l’enregistrement vocal' : 'Parler au micro'}
+                  title={isTranscribing ? 'Transcription en cours…' : isListening ? 'Cliquer pour envoyer votre question' : 'Dicter votre question'}
                 >
-                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                  {isTranscribing ? <Loader size={18} className="animate-spin" /> : isListening ? <MicOff size={18} /> : <Mic size={18} />}
                 </button>
 
                 <button type="submit" disabled={isLoading || !inputValue.trim()} className="rounded-lg bg-blue-600 p-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label={t('chat.send')} title={t('chat.send')}>

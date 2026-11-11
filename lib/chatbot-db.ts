@@ -29,6 +29,12 @@ export type DocumentRecord = {
   updatedAt: string;
 };
 
+export type GeneratedImageRecord = {
+  id: string;
+  mimeType: string;
+  imageData: Uint8Array;
+};
+
 const databasePath = process.env.INPTIC_CHATBOT_DB_PATH || path.join(process.cwd(), 'data', 'inptic-chatbot.sqlite');
 let database: ChatbotDatabase | undefined;
 
@@ -59,6 +65,12 @@ function getDatabase() {
       content TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS generated_images (
+      id TEXT PRIMARY KEY,
+      mime_type TEXT NOT NULL,
+      image_data BLOB NOT NULL,
+      created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS messages_chat_id_idx ON messages(chat_id, created_at);
     CREATE INDEX IF NOT EXISTS documents_updated_at_idx ON documents(updated_at);
@@ -149,4 +161,20 @@ export function listDocuments(): DocumentRecord[] {
     SELECT id, title, kind, content, created_at AS createdAt, updated_at AS updatedAt
     FROM documents ORDER BY updated_at DESC
   `).all() as unknown as DocumentRecord[];
+}
+
+export function saveGeneratedImage(input: { mimeType: string; imageData: Uint8Array }): string {
+  const id = crypto.randomUUID();
+  getDatabase().prepare(`
+    INSERT INTO generated_images (id, mime_type, image_data, created_at)
+    VALUES (?, ?, ?, ?)
+  `).run(id, input.mimeType, input.imageData, now());
+  return id;
+}
+
+export function getGeneratedImage(imageId: string): GeneratedImageRecord | null {
+  return (getDatabase().prepare(`
+    SELECT id, mime_type AS mimeType, image_data AS imageData
+    FROM generated_images WHERE id = ?
+  `).get(imageId) as unknown as GeneratedImageRecord | undefined) || null;
 }

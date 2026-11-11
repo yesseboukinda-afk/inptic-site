@@ -1,7 +1,17 @@
 const audioCache = new Map<string, string>();
 
 function cleanTextForSpeech(text: string) {
-  return text
+  const fileLink = text.match(/\[([^\]]+)\]\((\/api\/chat\/documents\?[^)]+[?&]download=1[^)]*)\)/i);
+  if (fileLink) {
+    const introduction = text.slice(0, fileLink.index).trim();
+    const introductionWords = introduction.split(/\s+/).filter(Boolean).length;
+    if (introductionWords > 40) return 'Le fichier est prêt. Vous pouvez le télécharger dans la conversation.';
+    if (introduction) text = introduction;
+  }
+
+  const cleanText = text
+    .replace(/^Sources consultées\s*:[\s\S]*$/im, '')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
     .replace(/https?:\/\/\S+/g, '')
     .replace(/^#{1,6}\s*/gm, '')
@@ -9,8 +19,15 @@ function cleanTextForSpeech(text: string) {
     .replace(/[*_`]/g, '')
     .replace(/\n+/g, '. ')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 4000);
+    .trim();
+
+  const sentences = cleanText.match(/[^.!?…]+[.!?…]+["»”)]*|[^.!?…]+$/g) || [cleanText];
+  const conciseReply = sentences.slice(0, 2).join(' ').trim();
+  if (conciseReply.length <= 320) return conciseReply;
+
+  const shortened = conciseReply.slice(0, 317);
+  const lastSpace = shortened.lastIndexOf(' ');
+  return `${shortened.slice(0, lastSpace > 0 ? lastSpace : 317).trimEnd()}…`;
 }
 
 async function getSpeechAudio(text: string, signal: AbortSignal) {
@@ -107,7 +124,6 @@ export function speakFrenchText(
   text: string,
   onEnd: () => void,
   onError: (message: string) => void,
-  onFallback: (message: string) => void,
 ) {
   const cleanText = cleanTextForSpeech(text);
   const controller = new AbortController();
@@ -151,10 +167,6 @@ export function speakFrenchText(
       }
 
       const voice = selectFrenchVoice();
-      const voiceName = voice?.name ? ` (« ${voice.name} »)` : '';
-      onFallback(
-        `Gemini TTS est indisponible ; lecture avec la voix française locale${voiceName}. Une voix française féminine installée est utilisée si disponible.`,
-      );
       cancelBrowserSpeech = speakWithBrowserVoice(cleanText, voice, finish, onError);
     });
 

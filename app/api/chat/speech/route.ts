@@ -7,7 +7,13 @@ function readObject(value: unknown): Record<string, unknown> | undefined {
 }
 
 function readAudioData(value: unknown) {
-  const steps = readObject(value)?.steps;
+  const result = readObject(value);
+  if (typeof result?.output_audio === 'object' && result.output_audio !== null) {
+    const audio = readObject(result.output_audio)?.data;
+    if (typeof audio === 'string') return audio;
+  }
+
+  const steps = result?.steps;
   if (!Array.isArray(steps)) return undefined;
 
   for (const step of [...steps].reverse()) {

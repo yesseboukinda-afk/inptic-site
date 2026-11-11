@@ -36,7 +36,7 @@ export default function ChatbotPage() {
             <div className="rounded-xl border border-white/15 bg-white/5 p-4">
               <Search size={19} className="text-blue-200" aria-hidden="true" />
               <p className="mt-2 text-sm font-semibold">Recherchez sur le Web</p>
-              <p className="mt-1 text-xs leading-5 text-blue-100">Demandez « cherche sur internet… » pour ouvrir les résultats dans un onglet.</p>
+              <p className="mt-1 text-xs leading-5 text-blue-100">Demandez « cherche sur internet… » pour obtenir une réponse documentée avec ses sources.</p>
             </div>
             <div className="rounded-xl border border-white/15 bg-white/5 p-4">
               <Volume2 size={19} className="text-blue-200" aria-hidden="true" />

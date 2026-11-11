@@ -17,10 +17,10 @@ export type AIProvider = (typeof AI_PROVIDERS)[number];
 
 export const AI_PROVIDER_DEFAULTS: Record<AIProvider, { label: string; model: string; keyRequired: boolean }> = {
   qwen: { label: 'Alibaba Qwen / DashScope', model: 'qwen-plus', keyRequired: true },
-  groq: { label: 'Groq Cloud', model: 'llama-3.3-70b-versatile', keyRequired: true },
+  groq: { label: 'Groq Cloud', model: 'openai/gpt-oss-120b', keyRequired: true },
   claude: { label: 'Anthropic Claude', model: 'claude-3-5-sonnet-20241022', keyRequired: true },
   gemini: { label: 'Google Gemini', model: 'gemini-3.1-pro-preview', keyRequired: true },
-  deepseek: { label: 'DeepSeek', model: 'deepseek-chat', keyRequired: true },
+  deepseek: { label: 'DeepSeek', model: 'deepseek-flash', keyRequired: true },
   openai: { label: 'OpenAI', model: 'gpt-4o-mini', keyRequired: true },
   openrouter: { label: 'OpenRouter', model: 'openai/gpt-4o-mini', keyRequired: true },
   ollama: { label: 'Ollama sur le serveur', model: 'llama3.2', keyRequired: false },
@@ -46,15 +46,15 @@ type ProviderSettingRow = {
   is_active: boolean;
 };
 
-const ENVIRONMENT_KEYS: Record<AIProvider, string | null> = {
-  qwen: 'DASHSCOPE_API_KEY',
-  groq: 'GROQ_API_KEY',
-  claude: 'ANTHROPIC_API_KEY',
-  gemini: process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : 'GOOGLE_GENERATIVE_AI_API_KEY',
-  deepseek: 'DEEPSEEK_API_KEY',
-  openai: 'OPENAI_API_KEY',
-  openrouter: 'OPENROUTER_API_KEY',
-  ollama: null,
+const ENVIRONMENT_KEYS: Record<AIProvider, readonly string[]> = {
+  qwen: ['DASHSCOPE_API_KEY'],
+  groq: ['GROQ_API_KEY', 'groq_api'],
+  claude: ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'claude_api'],
+  gemini: ['GEMINI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'gemini_api'],
+  deepseek: ['DEEPSEEK_API_KEY', 'deepseek_api'],
+  openai: ['OPENAI_API_KEY', 'openai_api'],
+  openrouter: ['OPENROUTER_API_KEY', 'OPEN_ROUTER_API_KEY', 'open_routeur_api', 'openrouter_api'],
+  ollama: [],
 };
 
 function readEncryptionKey() {
@@ -90,8 +90,9 @@ export function isAIProvider(value: unknown): value is AIProvider {
 }
 
 export function getEnvironmentApiKey(provider: AIProvider) {
-  const keyName = ENVIRONMENT_KEYS[provider];
-  return keyName ? process.env[keyName] || '' : '';
+  return ENVIRONMENT_KEYS[provider]
+    .map((keyName) => process.env[keyName] || '')
+    .find(Boolean) || '';
 }
 
 function postgresErrorCode(error: unknown) {
@@ -129,6 +130,32 @@ export async function getActiveAIProviderSettings(): Promise<AIProviderSettings 
     apiKey,
     thinkingEnabled: row.thinking_enabled,
   };
+}
+
+export async function getAIProviderCascadeSettings(): Promise<AIProviderSettings[]> {
+  const rows = process.env.DATABASE_URL ? await listAIProviderSettings() : null;
+  const active = rows?.find((setting) => setting.is_active);
+  const orderedProviders = [
+    ...(active ? [active.provider] : []),
+    ...AI_PROVIDERS.filter((provider) => provider !== active?.provider),
+  ];
+
+  return orderedProviders.flatMap((provider) => {
+    if (provider === 'ollama') return [];
+    const row = rows?.find((setting) => setting.provider === provider);
+    const apiKey = row?.api_key_encrypted
+      ? decryptApiKey(row.api_key_encrypted)
+      : getEnvironmentApiKey(provider);
+    if (AI_PROVIDER_DEFAULTS[provider].keyRequired && !apiKey) return [];
+    return [{
+      provider,
+      model: row?.model || (provider === 'gemini'
+        ? process.env.GEMINI_MODEL || AI_PROVIDER_DEFAULTS[provider].model
+        : AI_PROVIDER_DEFAULTS[provider].model),
+      apiKey,
+      thinkingEnabled: row?.thinking_enabled ?? false,
+    }];
+  });
 }
 
 export function getPublicAIProviderSettings(rows: ProviderSettingRow[] | null) {
@@ -288,7 +315,12 @@ function providerEndpoint(provider: AIProvider) {
   }
 }
 
-function buildProviderRequest(settings: AIProviderSettings, systemPrompt: string, messages: AIChatMessage[]) {
+function buildProviderRequest(
+  settings: AIProviderSettings,
+  systemPrompt: string,
+  messages: AIChatMessage[],
+  maxOutputTokens: number,
+) {
   const endpoint = providerEndpoint(settings.provider).replace('MODEL', encodeURIComponent(settings.model));
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   let body: Record<string, unknown>;
@@ -305,8 +337,8 @@ function buildProviderRequest(settings: AIProviderSettings, systemPrompt: string
       tools: [{ google_search: {} }, { code_execution: {} }],
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 12288,
-        thinkingConfig: { thinkingBudget: 8192 },
+        maxOutputTokens,
+        thinkingConfig: { thinkingBudget: Math.min(1024, Math.floor(maxOutputTokens / 2)) },
       },
     };
   } else if (settings.provider === 'claude') {
@@ -317,7 +349,7 @@ function buildProviderRequest(settings: AIProviderSettings, systemPrompt: string
       model: settings.model,
       system: systemPrompt,
       messages: messages.map((message) => ({ role: message.role, content: message.content })),
-      max_tokens: 4096,
+      max_tokens: maxOutputTokens,
       temperature: 0.4,
     };
   } else if (settings.provider === 'ollama') {
@@ -325,7 +357,7 @@ function buildProviderRequest(settings: AIProviderSettings, systemPrompt: string
       model: settings.model,
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
       stream: false,
-      options: { temperature: 0.4 },
+      options: { temperature: 0.4, num_predict: maxOutputTokens },
     };
   } else {
     if (!settings.apiKey) throw new Error(`La clé ${AI_PROVIDER_DEFAULTS[settings.provider].label} n’est pas configurée.`);
@@ -338,7 +370,7 @@ function buildProviderRequest(settings: AIProviderSettings, systemPrompt: string
       model: settings.model,
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
       temperature: 0.4,
-      max_tokens: 4096,
+      max_tokens: maxOutputTokens,
       ...(settings.provider === 'qwen' ? { enable_thinking: settings.thinkingEnabled } : {}),
     };
   }
@@ -346,10 +378,41 @@ function buildProviderRequest(settings: AIProviderSettings, systemPrompt: string
   return { endpoint, headers, body };
 }
 
-async function callProvider(settings: AIProviderSettings, systemPrompt: string, messages: AIChatMessage[]) {
-  const { endpoint, headers, body } = buildProviderRequest(settings, systemPrompt, messages);
+async function callProvider(
+  settings: AIProviderSettings,
+  systemPrompt: string,
+  messages: AIChatMessage[],
+  webSearch = false,
+  maxOutputTokens = 800,
+) {
+  if (webSearch && !['gemini', 'claude', 'openai', 'openrouter'].includes(settings.provider)) {
+    throw new Error(`La recherche Web n’est pas prise en charge par ${AI_PROVIDER_DEFAULTS[settings.provider].label}.`);
+  }
+  const { endpoint: providerUrl, headers, body: providerBody } = buildProviderRequest(settings, systemPrompt, messages, maxOutputTokens);
+  const endpoint = webSearch && settings.provider === 'openai'
+    ? 'https://api.openai.com/v1/responses'
+    : providerUrl;
+  const body: Record<string, unknown> = webSearch && settings.provider === 'openai'
+    ? {
+        model: settings.model,
+        instructions: systemPrompt,
+        input: messages.map((message) => ({ role: message.role, content: message.content })),
+        tools: [{ type: 'web_search' }],
+        max_output_tokens: maxOutputTokens,
+      }
+    : webSearch && settings.provider === 'claude'
+      ? {
+          ...providerBody,
+          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        }
+      : webSearch && settings.provider === 'openrouter'
+        ? {
+            ...providerBody,
+            model: settings.model.endsWith(':online') ? settings.model : `${settings.model}:online`,
+          }
+        : providerBody;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const timeout = setTimeout(() => controller.abort(), webSearch ? 60_000 : 30_000);
   try {
     return await fetch(endpoint, {
       method: 'POST',
@@ -390,8 +453,10 @@ export async function generateAIProviderReply(
   settings: AIProviderSettings,
   systemPrompt: string,
   messages: AIChatMessage[],
+  webSearch = false,
+  maxOutputTokens = 800,
 ) {
-  const response = await callProvider(settings, systemPrompt, messages);
+  const response = await callProvider(settings, systemPrompt, messages, webSearch, maxOutputTokens);
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(`Le fournisseur ${AI_PROVIDER_DEFAULTS[settings.provider].label} a répondu avec le statut HTTP ${response.status}.`);
@@ -399,7 +464,35 @@ export async function generateAIProviderReply(
 
   let reply = '';
   let sources: { uri: string; title?: string }[] = [];
-  if (settings.provider === 'gemini') {
+  if (settings.provider === 'openai' && webSearch) {
+    const output = Array.isArray(data?.output) ? data.output : [];
+    reply = output.flatMap((item: { type?: unknown; content?: unknown }) =>
+      item.type === 'message' && Array.isArray(item.content)
+        ? item.content.flatMap((part: { type?: unknown; text?: unknown }) =>
+            part.type === 'output_text' && typeof part.text === 'string' ? [part.text] : [],
+          )
+        : [],
+    ).join('\n').trim();
+    sources = output.flatMap((item: { content?: unknown }) =>
+      Array.isArray(item.content)
+        ? item.content.flatMap((part: { annotations?: unknown }) =>
+            Array.isArray(part.annotations)
+              ? part.annotations.flatMap((annotation: { type?: unknown; url?: unknown; title?: unknown }) => {
+                  if (annotation.type !== 'url_citation' || typeof annotation.url !== 'string') return [];
+                  try {
+                    const uri = new URL(annotation.url);
+                    return uri.protocol === 'https:'
+                      ? [{ uri: uri.href, ...(typeof annotation.title === 'string' ? { title: annotation.title } : {}) }]
+                      : [];
+                  } catch {
+                    return [];
+                  }
+                })
+              : [],
+          )
+        : [],
+    );
+  } else if (settings.provider === 'gemini') {
     const candidate = data?.candidates?.[0];
     reply = candidate?.content?.parts
       ?.map((part: { text?: unknown }) => typeof part.text === 'string' ? part.text : '')
@@ -428,15 +521,52 @@ export async function generateAIProviderReply(
       .map((part: { text?: unknown }) => typeof part.text === 'string' ? part.text : '')
       .join('')
       .trim() || '';
+    sources = (data?.content || []).flatMap((part: { citations?: unknown }) =>
+      Array.isArray(part.citations)
+        ? part.citations.flatMap((citation: { type?: unknown; url?: unknown; title?: unknown }) => {
+            if (citation.type !== 'web_search_result_location' || typeof citation.url !== 'string') return [];
+            try {
+              const uri = new URL(citation.url);
+              return uri.protocol === 'https:'
+                ? [{ uri: uri.href, ...(typeof citation.title === 'string' ? { title: citation.title } : {}) }]
+                : [];
+            } catch {
+              return [];
+            }
+          })
+        : [],
+    );
   } else if (settings.provider === 'ollama') {
     reply = typeof data?.message?.content === 'string' ? data.message.content.trim() : '';
   } else {
     reply = typeof data?.choices?.[0]?.message?.content === 'string'
       ? data.choices[0].message.content.trim()
       : '';
+    if (settings.provider === 'openrouter') {
+      sources = (data?.choices?.[0]?.message?.annotations || []).flatMap(
+        (annotation: { type?: unknown; url_citation?: { url?: unknown; title?: unknown } }) => {
+          const citation = annotation.url_citation;
+          if (annotation.type !== 'url_citation' || typeof citation?.url !== 'string') return [];
+          try {
+            const uri = new URL(citation.url);
+            return uri.protocol === 'https:'
+              ? [{ uri: uri.href, ...(typeof citation.title === 'string' ? { title: citation.title } : {}) }]
+              : [];
+          } catch {
+            return [];
+          }
+        },
+      );
+    }
   }
 
   if (!reply) throw new Error(`${AI_PROVIDER_DEFAULTS[settings.provider].label} a renvoyé une réponse vide.`);
+  sources = sources.filter((source, index) =>
+    sources.findIndex((candidate) => candidate.uri === source.uri) === index,
+  ).slice(0, 5);
+  if (webSearch && !sources.length) {
+    throw new Error(`${AI_PROVIDER_DEFAULTS[settings.provider].label} n’a renvoyé aucune source vérifiable.`);
+  }
   return {
     reply,
     sources,
