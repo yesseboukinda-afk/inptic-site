@@ -34,29 +34,8 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="fr">
-      <body>
-        {/* Capture le prompt PWA le plus tôt possible */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.addEventListener("beforeinstallprompt", function(event) {
-                console.warn(
-                  "🔥 INPTIC : BEFOREINSTALLPROMPT REÇU PAR LE NAVIGATEUR"
-                );
-
-                event.preventDefault();
-
-                window.__INPTIC_PWA_PROMPT__ = event;
-
-                window.dispatchEvent(
-                  new Event("inptic-pwa-prompt-ready")
-                );
-              });
-            `,
-          }}
-        />
-
+    <html lang="fr" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <PWAInstallProvider>
           <I18nProvider>
             <PWARegister />

@@ -71,6 +71,13 @@ CREATE TABLE IF NOT EXISTS public.library_likes (
   PRIMARY KEY (user_id, book_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.library_guest_likes (
+  visitor_id UUID NOT NULL,
+  book_id BIGINT NOT NULL REFERENCES public.library_books(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (visitor_id, book_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.library_reading_progress (
   user_id UUID NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   book_id BIGINT NOT NULL REFERENCES public.library_books(id) ON DELETE CASCADE,
@@ -86,11 +93,13 @@ CREATE INDEX IF NOT EXISTS library_favorites_user_created_idx
   ON public.library_favorites(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS library_likes_user_created_idx
   ON public.library_likes(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS library_guest_likes_book_idx
+  ON public.library_guest_likes(book_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLE public.library_books, public.library_user_books,
   public.library_profiles, public.library_favorites, public.library_likes,
-  public.library_reading_progress
+  public.library_guest_likes, public.library_reading_progress
 TO "c1668531c_inptic-site";
 GRANT USAGE, SELECT ON SEQUENCE public.library_books_id_seq TO "c1668531c_inptic-site";
 

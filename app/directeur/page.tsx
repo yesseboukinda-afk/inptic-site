@@ -124,7 +124,7 @@ export default function DirecteurDashboard() {
       {/* ── BANNIÈRE HÉRO DG ── */}
       <section className="relative isolate overflow-hidden text-white bg-slate-950">
         <img
-          src="/banniere/DG.webp"
+          src="/banniere/page-directeur.webp"
           alt="Directeur Général INPTIC"
           fetchPriority="high"
           loading="eager"

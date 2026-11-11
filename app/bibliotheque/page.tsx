@@ -63,7 +63,7 @@ export default function LibraryPage() {
     void authClient.auth.getSession().then(({ data }) => setHasAdminAccess(isAdminRole(data.session?.user.app_metadata?.role)));
   }, []);
 
-  const updateInteraction = async (action: 'favorite' | 'like' | 'collection', book: LibraryBookCardData) => {
+  const updateInteraction = async (action: 'like' | 'collection', book: LibraryBookCardData) => {
     setNotice('');
     try {
       const response = await fetch('/api/library/interactions', {
@@ -80,15 +80,15 @@ export default function LibraryPage() {
           ...current,
           books: current.books.map((item) => item.id !== book.id ? item : {
             ...item,
-            ...(action === 'favorite' ? { isFavorite: Boolean(data.active) } : {
+            ...(action === 'like' ? {
               isLiked: Boolean(data.active),
               likesCount: Number(data.likesCount) || 0,
-            }),
+            } : {}),
           }),
         }));
       }
     } catch (actionError) {
-      setNotice(actionError instanceof Error ? actionError.message : 'Connectez-vous pour enregistrer vos livres.');
+      setNotice(actionError instanceof Error ? actionError.message : 'Impossible d’enregistrer cette action.');
     }
   };
 
@@ -174,7 +174,7 @@ export default function LibraryPage() {
                       key={book.id}
                       book={book}
                       layout="catalog"
-                      onFavorite={(item) => void updateInteraction('favorite', item)}
+                      showCollectionAction={false}
                       onLike={(item) => void updateInteraction('like', item)}
                       onAddToCollection={(item) => void updateInteraction('collection', item)}
                     />

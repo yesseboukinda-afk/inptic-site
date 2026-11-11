@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, BookOpen, Download, Heart, LoaderCircle, Plus, Search, ShieldCheck, Trash2, Upload, Users } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, FileSpreadsheet, Heart, LoaderCircle, Plus, Search, ShieldCheck, Trash2, Upload, Users } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { isAdminRole } from '@/lib/roles';
 
@@ -37,6 +37,7 @@ export default function LibraryAdminPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -44,7 +45,7 @@ export default function LibraryAdminPage() {
     setBusy(true);
     setError('');
     try {
-      const params = new URLSearchParams({ q: search.trim(), limit: '48', sort: 'date', page: String(page) });
+      const params = new URLSearchParams({ q: search.trim(), limit: '48', sort: 'date', page: String(page), admin: '1' });
       const [catalogResponse, statsResponse] = await Promise.all([
         fetch(`/api/library/books?${params}`, { cache: 'no-store' }),
         fetch('/api/library/admin', { cache: 'no-store' }),
@@ -100,26 +101,34 @@ export default function LibraryAdminPage() {
     }
   };
 
+  const importBooks = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setImporting(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await fetch('/api/library/admin/import', { method: 'POST', body: new FormData(form) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Impossible d’importer ce fichier.');
+      form.reset();
+      setNotice(`Import terminé : ${data.inserted} ajouté(s), ${data.updated} mis à jour.`);
+      await loadData();
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : 'Impossible d’importer ce fichier.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const editBook = async (event: FormEvent<HTMLFormElement>, book: AdminBook) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     setSaving(true);
     setError('');
     try {
-      const response = await fetch('/api/library/books', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: book.id,
-          title: formData.get('title'),
-          author: formData.get('author'),
-          description: formData.get('description'),
-          category: formData.get('category'),
-          language: formData.get('language'),
-          edition: formData.get('edition'),
-          pageCount: Number(formData.get('pageCount')),
-        }),
-      });
+      formData.set('id', book.id);
+      const response = await fetch('/api/library/books', { method: 'PATCH', body: formData });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Impossible de modifier cet ouvrage.');
       setNotice('Les informations du livre ont été mises à jour.');
@@ -222,6 +231,23 @@ export default function LibraryAdminPage() {
           </section>
         )}
 
+        <section className="border border-cyan-200 bg-cyan-50 p-5 shadow-sm sm:p-7">
+          <h2 className="flex items-center gap-2 text-xl font-bold"><FileSpreadsheet size={19} aria-hidden="true" /> Importer les métadonnées</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
+            Sélectionnez le CSV des livres. Les PDF et couvertures doivent déjà être présents sur le serveur.
+            Un nouvel import met à jour les livres associés au même nom de PDF sans remettre à zéro leurs compteurs.
+          </p>
+          <form onSubmit={(event) => void importBooks(event)} className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="block text-sm font-semibold">Fichier CSV (1 Mo maximum)
+              <input name="file" type="file" accept=".csv,text/csv" required className="mt-2 block w-full text-sm font-normal" />
+            </label>
+            <button type="submit" disabled={importing || saving} className="inline-flex min-h-11 items-center gap-2 bg-cyan-800 px-5 font-bold text-white hover:bg-cyan-900 disabled:opacity-50">
+              {importing ? <LoaderCircle size={16} className="animate-spin" /> : <Upload size={16} aria-hidden="true" />}
+              {importing ? 'Import en cours…' : 'Importer le CSV'}
+            </button>
+          </form>
+        </section>
+
         <section className="border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <h2 className="flex items-center gap-2 text-xl font-bold"><Plus size={19} aria-hidden="true" /> Ajouter un ouvrage</h2>
           <form onSubmit={createBook} className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -268,6 +294,7 @@ export default function LibraryAdminPage() {
                     <label className="text-xs font-semibold">Édition<input name="edition" defaultValue={book.edition} maxLength={120} className="mt-1 min-h-10 w-full border border-slate-300 px-2 text-sm font-normal" /></label>
                     <label className="text-xs font-semibold">Pages<input name="pageCount" type="number" min="0" max="100000" defaultValue={book.pageCount} className="mt-1 min-h-10 w-full border border-slate-300 px-2 text-sm font-normal" /></label>
                     <label className="text-xs font-semibold sm:col-span-2 lg:col-span-3">Description<textarea name="description" rows={2} defaultValue={book.description} maxLength={12000} className="mt-1 w-full border border-slate-300 px-2 py-2 text-sm font-normal" /></label>
+                    <label className="text-xs font-semibold">Remplacer la couverture (JPG, PNG ou WebP, 5 Mo max)<input name="cover" type="file" accept="image/jpeg,image/png,image/webp" className="mt-1 block w-full text-sm font-normal" /></label>
                     <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-3">
                       <button type="submit" disabled={saving} className="min-h-10 bg-cyan-800 px-4 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
                       <button type="button" onClick={() => void deleteBook(book)} className="inline-flex min-h-10 items-center gap-2 border border-red-200 px-4 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 size={15} aria-hidden="true" /> Supprimer</button>

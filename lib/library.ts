@@ -78,7 +78,7 @@ export function resolveLegacyLibraryPath(kind: 'books' | 'covers', filename: str
   const configured = kind === 'books' ? process.env.LIBRARY_BOOKS_DIR : process.env.LIBRARY_COVERS_DIR;
   const defaultDirectory = kind === 'books'
     ? path.join(process.cwd(), 'app', 'bibliotheque', 'livres')
-    : path.join(process.cwd(), 'app', 'bibliotheque', 'couvertures');
+    : path.join(process.cwd(), 'app', 'bibliotheque', 'images');
   const root = path.resolve(configured || defaultDirectory);
   const fullPath = path.resolve(root, safeName);
   if (!fullPath.startsWith(`${root}${path.sep}`)) throw new Error('Invalid library asset path.');

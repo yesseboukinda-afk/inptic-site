@@ -1,8 +1,13 @@
 'use client';
 
-import { Search, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import {
+  Search, Globe, UserRound, ChevronDown, Menu, X, LogIn, LogOut, LayoutDashboard, Settings,
+  Home, Newspaper, Trophy, BookOpen, Users, Library, Landmark, GraduationCap, Microscope,
+  Building2, Mail, Megaphone, Briefcase, ClipboardList,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
@@ -87,8 +92,14 @@ export default function Header() {
     },
   ];
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+  const [dropdownExpanded, setDropdownExpanded] = useState(false);
+  const [hoveredDropdownItem, setHoveredDropdownItem] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [desktopNavigationVisible, setDesktopNavigationVisible] = useState(false);
+  const [desktopNavigationCompact, setDesktopNavigationCompact] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
   const [accountRole, setAccountRole] = useState('');
@@ -100,13 +111,65 @@ export default function Header() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState(-1);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const mobileLanguageMenuRef = useRef<HTMLDivElement>(null);
+  const dropdownAnchorRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const dropdownCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const updateTheme = () => setIsDarkTheme(root.classList.contains('dark'));
+    updateTheme();
+
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const updateDropdownPosition = () => {
+      const anchor = dropdownAnchorRefs.current[openMenuId];
+      if (!anchor) return;
+      const bounds = anchor.getBoundingClientRect();
+      setDropdownPosition({
+        top: bounds.bottom + 8,
+        left: Math.min(Math.max(bounds.left, 8), Math.max(8, window.innerWidth - 328)),
+      });
+    };
+
+    updateDropdownPosition();
+    window.addEventListener('resize', updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      setDropdownExpanded(false);
+      return;
+    }
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDropdownExpanded(true);
+      return;
+    }
+
+    setDropdownExpanded(false);
+    const frame = requestAnimationFrame(() => setDropdownExpanded(true));
+    return () => cancelAnimationFrame(frame);
+  }, [openMenuId]);
+
+  useEffect(() => () => {
+    if (dropdownCloseTimerRef.current) clearTimeout(dropdownCloseTimerRef.current);
+  }, []);
 
   const languageOptions = [
     { code: 'fr', label: 'FR', flag: '🇫🇷' },
@@ -150,6 +213,263 @@ export default function Header() {
             ? 'Gestion des clubs'
             : 'Direction des études';
   const hasStaffDashboard = isSuperAdmin || Boolean(dashboardHref);
+  const menuIcons: Record<string, typeof Home> = {
+    bibliotheque: Library,
+    institut: Landmark,
+    formations: GraduationCap,
+    recherche: Microscope,
+  };
+  const desktopNavLinkStyle = {
+    width: desktopNavigationCompact ? '28px' : '36px',
+    minWidth: desktopNavigationCompact ? '28px' : '36px',
+    height: '40px',
+    flex: `0 0 ${desktopNavigationCompact ? '28px' : '36px'}`,
+    flexDirection: 'column' as const,
+    gap: desktopNavigationCompact ? '1px' : '2px',
+    padding: '2px',
+  };
+  const desktopNavLabelStyle = {
+    display: 'block',
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    fontSize: desktopNavigationCompact ? '6px' : '8px',
+    fontWeight: 600,
+    lineHeight: '10px',
+    textAlign: 'center' as const,
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  };
+  const cancelDesktopDropdownClose = () => {
+    if (dropdownCloseTimerRef.current) {
+      clearTimeout(dropdownCloseTimerRef.current);
+      dropdownCloseTimerRef.current = null;
+    }
+  };
+  const openDesktopDropdown = (id: string) => {
+    cancelDesktopDropdownClose();
+    setDropdownExpanded(false);
+    const anchor = dropdownAnchorRefs.current[id];
+    if (anchor) {
+      const bounds = anchor.getBoundingClientRect();
+      setDropdownPosition({
+        top: bounds.bottom + 8,
+        left: Math.min(Math.max(bounds.left, 8), Math.max(8, window.innerWidth - 328)),
+      });
+    }
+    setOpenMenuId(id);
+  };
+  const scheduleDesktopDropdownClose = () => {
+    cancelDesktopDropdownClose();
+    dropdownCloseTimerRef.current = setTimeout(() => {
+      setOpenMenuId(null);
+      setDropdownPosition(null);
+      dropdownCloseTimerRef.current = null;
+    }, 160);
+  };
+  const renderDesktopNavLink = (href: string, label: string, Icon: typeof Home) => {
+    const isActive = pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
+    const color = isDarkTheme
+      ? isActive ? '#f5cc72' : '#dbe5f2'
+      : isActive ? '#8a5a00' : '#0f172a';
+
+    return (
+      <Link
+        href={href}
+        aria-label={label}
+        title={label}
+        aria-current={isActive ? 'page' : undefined}
+        className="header-desktop-nav-link group/nav relative flex shrink-0 items-center justify-center rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:scale-125 focus:outline-none focus-visible:scale-125 focus-visible:ring-2 focus-visible:ring-cyan-300"
+        style={{ ...desktopNavLinkStyle, color }}
+      >
+        <Icon className="header-desktop-nav-icon" style={{ width: '18px', height: '16px', flex: '0 0 auto' }} strokeWidth={1.8} aria-hidden="true" />
+        <span className="header-desktop-nav-label" style={desktopNavLabelStyle} aria-hidden="true">{label}</span>
+      </Link>
+    );
+  };
+  const renderDesktopDropdown = (item: MenuItem) => {
+    if (typeof document === 'undefined' || !dropdownPosition) return null;
+
+    return createPortal(
+      <div
+        className="header-desktop-nav-dropdown fixed z-[100] grid w-80 max-w-[calc(100vw-1rem)] overflow-hidden"
+        data-open={dropdownExpanded}
+        onMouseEnter={cancelDesktopDropdownClose}
+        onMouseLeave={scheduleDesktopDropdownClose}
+        onFocus={cancelDesktopDropdownClose}
+        onBlur={scheduleDesktopDropdownClose}
+        style={{
+          top: dropdownPosition.top,
+          left: dropdownPosition.left,
+          gridTemplateRows: dropdownExpanded ? '1fr' : '0fr',
+          opacity: dropdownExpanded ? 1 : 0,
+          pointerEvents: dropdownExpanded ? 'auto' : 'none',
+          transition: 'grid-template-rows 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease-out',
+        }}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div
+            className="header-desktop-nav-dropdown-surface rounded-xl border border-slate-400/40 p-4 text-white shadow-2xl"
+            style={{
+              backgroundColor: 'transparent',
+              backdropFilter: 'blur(4px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(4px) saturate(160%)',
+            }}
+          >
+          <h3 className="header-desktop-nav-tree-root text-sm font-bold">{item.label}</h3>
+          <ul
+            className="header-desktop-nav-tree"
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              margin: '8px 0 0 7px',
+              padding: '0 0 0 16px',
+              listStyle: 'none',
+            }}
+          >
+            <li
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: '17px',
+                right: 'auto',
+                bottom: '17px',
+                left: 0,
+                width: '2px',
+                borderRadius: '2px',
+                backgroundColor: '#94a3b8',
+                listStyle: 'none',
+                pointerEvents: 'none',
+              }}
+            />
+            {item.submenu?.map((subitem) => (
+              <li
+                key={subitem.id}
+                className="header-desktop-nav-tree-item"
+                style={{ position: 'relative', minHeight: '34px', listStyle: 'none' }}
+              >
+                <span
+                  className="header-desktop-nav-tree-branch"
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    left: '-16px',
+                    width: '16px',
+                    height: '2px',
+                    borderRadius: '2px',
+                    backgroundColor: '#94a3b8',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      right: '-2px',
+                      width: '6px',
+                      height: '6px',
+                      border: '1px solid #fff',
+                      borderRadius: '50%',
+                      backgroundColor: '#64748b',
+                      transform: 'translateY(-50%)',
+                    }}
+                  />
+                </span>
+                <Link
+                  href={subitem.href}
+                  className="header-desktop-nav-tree-link text-white"
+                  onMouseEnter={() => setHoveredDropdownItem(subitem.id)}
+                  onMouseLeave={() => setHoveredDropdownItem(null)}
+                  onFocus={() => setHoveredDropdownItem(subitem.id)}
+                  onBlur={() => setHoveredDropdownItem(null)}
+                  style={{
+                    display: 'flex',
+                    minHeight: '34px',
+                    alignItems: 'center',
+                    padding: '4px 10px',
+                    borderRadius: '7px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    transform: hoveredDropdownItem === subitem.id ? 'scale(1.04)' : 'scale(1)',
+                    transformOrigin: 'left center',
+                    transition: 'transform 180ms ease, background-color 160ms ease',
+                    backgroundColor: hoveredDropdownItem === subitem.id ? 'rgba(255, 255, 255, 0.14)' : 'transparent',
+                  }}
+                >
+                  {subitem.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  };
+  const renderDesktopNavigation = () => (
+    <nav
+      className="site-header-desktop-nav main-nav min-w-0 flex-1"
+      aria-label="Menu principal"
+      style={{ display: desktopNavigationVisible ? 'flex' : 'none', overflow: 'visible' }}
+    >
+      <div className="site-primary-nav-glass flex min-h-12 w-max min-w-full items-center rounded-full" style={{ gap: desktopNavigationCompact ? '5px' : '13px' }}>
+        {renderDesktopNavLink('/', t('common.home'), Home)}
+        {renderDesktopNavLink('/actualites', t('common.news'), Newspaper)}
+        {renderDesktopNavLink('/concours', t('common.concours', 'Concours'), Trophy)}
+        {renderDesktopNavLink('/recherche/publications', t('common.publications', 'Publications'), BookOpen)}
+        {renderDesktopNavLink('/clubs', 'Clubs', Users)}
+
+        {menuItems.map((item) => {
+          const Icon = menuIcons[item.id] || BookOpen;
+          const isOpen = openMenuId === item.id;
+          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`));
+          const color = isDarkTheme
+            ? isActive ? '#f5cc72' : '#dbe5f2'
+            : isActive ? '#8a5a00' : '#0f172a';
+          return (
+            <div
+              key={item.id}
+              ref={(element) => { dropdownAnchorRefs.current[item.id] = element; }}
+              className="group relative shrink-0"
+              onMouseEnter={() => openDesktopDropdown(item.id)}
+              onMouseLeave={scheduleDesktopDropdownClose}
+            >
+              <Link
+                href={item.href}
+                aria-label={item.label}
+                title={item.label}
+                aria-current={isActive ? 'page' : undefined}
+                aria-expanded={item.submenu ? isOpen : undefined}
+                onFocus={() => item.submenu && openDesktopDropdown(item.id)}
+                className="header-desktop-nav-link group/nav relative flex shrink-0 items-center justify-center rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:scale-125 focus:outline-none focus-visible:scale-125 focus-visible:ring-2 focus-visible:ring-cyan-300"
+                style={{ ...desktopNavLinkStyle, color }}
+              >
+                <Icon className="header-desktop-nav-icon" style={{ width: '18px', height: '16px', flex: '0 0 auto' }} strokeWidth={1.8} aria-hidden="true" />
+                <span className="header-desktop-nav-label" style={desktopNavLabelStyle} aria-hidden="true">{item.label}</span>
+                {item.submenu && <ChevronDown size={9} aria-hidden="true" style={{ position: 'absolute', top: '1px', right: '1px' }} />}
+              </Link>
+
+              {item.submenu && isOpen && renderDesktopDropdown(item)}
+            </div>
+          );
+        })}
+
+        {renderDesktopNavLink('/entreprises', t('common.companies'), Briefcase)}
+        {renderDesktopNavLink('/contact', t('common.contact'), Mail)}
+        {renderDesktopNavLink('/annonces', t('common.annonces'), Megaphone)}
+        {isSuperAdmin && renderDesktopNavLink('/directeur', t('common.espaceDg', 'Espace DG'), Building2)}
+        {canManageAnnouncements && renderDesktopNavLink('/veille', t('common.gestionAnnonces', 'Veille'), Newspaper)}
+        {isSuperAdmin && renderDesktopNavLink('/admin', 'Super admin', Settings)}
+        {canManageScolarite && renderDesktopNavLink('/scolarite', t('common.scolarite', 'Scolarité'), GraduationCap)}
+        {canManageRH && renderDesktopNavLink('/admin/rh', t('common.gestionRh', 'Gestion RH'), ClipboardList)}
+      </div>
+    </nav>
+  );
 
   const syncAuthState = async () => {
     const { data } = await authClient.auth.getSession();
@@ -217,6 +537,22 @@ export default function Header() {
     applyTheme(mediaQuery.matches);
     mediaQuery.addEventListener('change', handleSystemThemeChange);
     return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+  }, []);
+
+  useEffect(() => {
+    const tabletOrLarger = window.matchMedia('(min-width: 768px)');
+    const updateNavigationVisibility = () => setDesktopNavigationVisible(tabletOrLarger.matches);
+    updateNavigationVisibility();
+    tabletOrLarger.addEventListener('change', updateNavigationVisibility);
+    return () => tabletOrLarger.removeEventListener('change', updateNavigationVisibility);
+  }, []);
+
+  useEffect(() => {
+    const compactViewport = window.matchMedia('(max-width: 1199px)');
+    const updateNavigationDensity = () => setDesktopNavigationCompact(compactViewport.matches);
+    updateNavigationDensity();
+    compactViewport.addEventListener('change', updateNavigationDensity);
+    return () => compactViewport.removeEventListener('change', updateNavigationDensity);
   }, []);
 
   useEffect(() => {
@@ -390,77 +726,34 @@ export default function Header() {
   };
 
   useEffect(() => {
-    setIsHydrated(true);
     setMobileMenuOpen(false);
     setExpandedMobileMenu(null);
   }, [pathname]);
 
-  if (!isHydrated) {
-    return (
-      <>
-        <header className="sticky top-0 z-50 flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18" role="banner">
-          <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
-            <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
-              <img src="/logoinptic.ico" alt="Logo INPTIC" width={71} height={40} className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
-            </Link>
-
-            <div className="ml-auto hidden items-center gap-3 lg:flex">
-              <div className="hidden h-10 w-56 rounded-full border border-gray-200 bg-gray-100 lg:block" />
-              <div className="h-10 w-10 rounded-lg border border-gray-200 bg-gray-100" />
-              <div className="h-10 w-28 rounded-lg border border-gray-200 bg-gray-100" />
-            </div>
-
-            <div className="ml-auto flex items-center gap-2 lg:hidden">
-              <div className="h-9 w-24 rounded-lg border border-gray-200 bg-gray-100" />
-              <div className="h-9 w-9 rounded-lg border border-gray-200 bg-gray-100" />
-              <div className="h-9 w-9 rounded-lg border border-gray-200 bg-gray-100" />
-            </div>
-          </div>
-        </header>
-        <nav
-          className="site-legacy-nav-fallback main-nav"
-          style={{ backgroundColor: 'var(--navy)' }}
-          aria-label="Navigation de secours"
-        >
-          <details>
-            <summary>Menu de navigation</summary>
-            <div className="site-legacy-nav-links">
-              <Link href="/">{t('common.home')}</Link>
-              <Link href="/actualites">{t('common.news')}</Link>
-              <Link href="/concours">{t('common.concours', 'Concours')}</Link>
-              <Link href="/recherche/publications">{t('common.publications', 'Publications')}</Link>
-              <Link href="/clubs">Clubs</Link>
-              {menuItems.map((item) => (
-                <div key={item.id}>
-                  <Link href={item.href}>{item.label}</Link>
-                  {item.submenu?.map((subitem) => (
-                    <Link key={subitem.id} href={subitem.href} className="site-legacy-nav-subitem">
-                      {subitem.label}
-                    </Link>
-                  ))}
-                </div>
-              ))}
-              <Link href="/entreprises">{t('common.companies')}</Link>
-              <Link href="/contact">{t('common.contact')}</Link>
-              <Link href="/annonces">{t('common.annonces')}</Link>
-              <Link href="/candidat">{t('common.login')}</Link>
-            </div>
-          </details>
-        </nav>
-      </>
-    );
-  }
-
   return (
     <>
-      <header className="sticky top-0 z-[70] flex h-16 items-center border-b border-slate-200 bg-white shadow-sm transition-shadow duration-300 md:h-18 lg:z-50" role="banner">
+      <header
+        className="site-header-glass sticky top-0 z-[70] flex h-16 items-center border-b shadow-sm transition-shadow duration-300 md:h-18 lg:z-50"
+        style={{
+          backgroundColor: isDarkTheme ? 'rgba(51, 65, 85, 0.15)' : 'rgba(255, 255, 255, 0.25)',
+          borderColor: isDarkTheme ? 'rgba(203, 213, 225, 0.4)' : 'rgba(148, 163, 184, 0.32)',
+          boxShadow: isDarkTheme
+            ? '0 8px 24px rgba(140, 157, 233, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+            : '0 8px 24px rgba(2, 12, 27, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(5px) saturate(155%)',
+          WebkitBackdropFilter: 'blur(5px) saturate(155%)',
+        }}
+        role="banner"
+      >
         <div className="container-x flex w-full items-center gap-3 px-3 sm:px-4 md:gap-8 md:px-0">
           <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
             <img src="/logoinptic.ico" alt="Logo INPTIC" width={71} height={40} className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
           </Link>
 
-          <div className="site-header-desktop-actions ml-auto hidden items-center gap-3 lg:flex">
-            <form action="/recherche" method="get" role="search" className="relative hidden lg:flex items-center border border-gray-300 rounded-full px-4 py-2 w-64 text-sm text-slate-400 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 transition-all duration-200">
+          {renderDesktopNavigation()}
+
+          <div className="site-header-desktop-actions ml-auto hidden items-center gap-2 lg:flex">
+            <form action="/recherche" method="get" role="search" className="relative hidden w-56 items-center rounded-full border border-gray-300 px-4 py-2 text-sm text-slate-400 transition-all duration-200 hover:border-blue-400 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200 xl:w-64 lg:flex">
               <input
                 type="search"
                 name="q"
@@ -639,122 +932,6 @@ export default function Header() {
           </div>
         </div>
       </header>
-
-      <nav className="site-primary-nav main-nav sticky top-[4.5rem] z-30 hidden shadow-md transition-colors duration-300 lg:block" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu principal">
-        <div className="container-x flex flex-wrap gap-2 md:gap-6 items-center min-h-12 text-sm px-4 md:px-0">
-          <Link href="/" className="nav-link transition-all duration-200 py-3 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            {t('common.home')}
-          </Link>
-
-          <Link href="/actualites" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            {t('common.news')}
-          </Link>
-
-          <Link href="/concours" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            {t('common.concours', 'Concours')}
-          </Link>
-
-          <Link href="/recherche/publications" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            {t('common.publications', 'Publications')}
-          </Link>
-          <Link href="/clubs" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            Clubs
-          </Link>
-
-          {menuItems.map((item) => (
-            <div key={item.id} className="relative group" onMouseEnter={() => setOpenMenuId(item.id)} onMouseLeave={() => setOpenMenuId(null)}>
-              <Link href={item.href} className="nav-link flex items-center gap-1 transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] group-hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm" aria-expanded={item.submenu ? openMenuId === item.id : undefined}>
-                {item.label}
-                {item.submenu && <ChevronDown size={14} aria-hidden="true" className="transition-transform duration-200 group-hover:rotate-180" />}
-              </Link>
-
-              {item.submenu && openMenuId === item.id && (
-                <div className="absolute top-full left-0 mt-0 bg-white text-gray-900 rounded-b-lg shadow-2xl border border-gray-200 py-6 px-6 w-96 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                  <div className="mb-4 pb-4 border-b border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-900">{item.label}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{item.description}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    {item.submenu.map((subitem) => (
-                      <Link key={subitem.id} href={subitem.href} className="block group/item p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 mt-1">
-                            <div className="flex items-center justify-center h-5 w-5 rounded-md bg-blue-100 group-hover/item:bg-blue-500 transition-all duration-200">
-                              <svg className="h-3 w-3 text-blue-600 group-hover/item:text-white transition-colors duration-200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900 group-hover/item:text-blue-600 transition-colors duration-200">{subitem.label}</p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          <Link href="/entreprises" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            {t('common.companies')}
-          </Link>
-          <Link href="/contact" className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm">
-            {t('common.contact')}
-          </Link>
-          <Link href="/annonces"
-            className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent hover:text-[var(--gold)] hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-          >
-            {t('common.annonces')}
-          </Link>
-
-          {isSuperAdmin && (
-            <Link
-              href="/directeur"
-              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-emerald-400 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-            >
-              {t('common.espaceDg', 'Espace DG')}
-            </Link>
-          )}
-
-          {canManageAnnouncements && (
-            <Link
-              href="/veille"
-              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-amber-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-            >
-              {t('common.gestionAnnonces', 'Veille')}
-            </Link>
-          )}
-
-          {isSuperAdmin && (
-            <Link
-              href="/admin"
-              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-violet-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-            >
-              Super admin
-            </Link>
-          )}
-
-          {canManageScolarite && (
-            <Link
-              href="/scolarite"
-              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-cyan-300 font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-            >
-              {t('common.scolarite', 'Scolarité')}
-            </Link>
-          )}
-
-          {canManageRH && (
-            <Link
-              href="/admin/rh"
-              className="nav-link transition-all duration-200 py-3 px-2 border-b-2 border-transparent text-[var(--gold)] font-bold hover:border-[var(--gold)] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-950 rounded-sm"
-            >
-              {t('common.gestionRh', 'Gestion RH')}
-            </Link>
-          )}
-        </div>
-      </nav>
 
       {mobileMenuOpen && (
         <nav id="mobile-menu" ref={mobileMenuRef} className="site-mobile-nav main-nav fixed inset-x-0 bottom-0 top-16 z-[60] overflow-y-auto overscroll-contain border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200 md:top-[4.5rem] lg:hidden" style={{ backgroundColor: 'var(--navy)' }} role="navigation" aria-label="Menu mobile">

@@ -9,7 +9,7 @@ export default function Presentation() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative isolate overflow-hidden text-white">
         <img
-          src="/banniere/DGA.webp"
+          src="/banniere/page-presentation-institut.webp"
           alt=""
           fetchPriority="high"
           loading="eager"

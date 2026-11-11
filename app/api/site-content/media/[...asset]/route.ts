@@ -14,7 +14,8 @@ export async function GET(
 ) {
   const { asset } = await context.params;
   const slot = asset.join('/');
-  if (!SITE_IMAGE_SLOTS.some((image) => image.path === slot)) {
+  const image = SITE_IMAGE_SLOTS.find((candidate) => candidate.path === slot);
+  if (!image) {
     return NextResponse.json({ error: 'Photo introuvable.' }, { status: 404 });
   }
 
@@ -56,7 +57,8 @@ export async function GET(
   }
 
   try {
-    const filePath = path.join(process.cwd(), 'public', ...asset);
+    const fallbackAsset = image.fallback ?? slot;
+    const filePath = path.join(process.cwd(), 'public', ...fallbackAsset.split('/'));
     const contents = await readFile(filePath);
     const etag = createImageEtag(contents);
     if (matchesIfNoneMatch(request.headers.get('if-none-match'), etag)) {

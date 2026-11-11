@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookmarkPlus, BookOpen, Download, Heart, ThumbsUp } from 'lucide-react';
+import { BookmarkPlus, BookOpen, Download, ThumbsUp } from 'lucide-react';
 import { useState } from 'react';
 
 export type LibraryBookCardData = {
@@ -22,7 +22,6 @@ export type LibraryBookCardData = {
 type Props = {
   book: LibraryBookCardData;
   layout?: 'default' | 'catalog';
-  onFavorite?: (book: LibraryBookCardData) => void;
   onLike?: (book: LibraryBookCardData) => void;
   onAddToCollection?: (book: LibraryBookCardData) => void;
   showCollectionAction?: boolean;
@@ -31,7 +30,6 @@ type Props = {
 export default function LibraryBookCard({
   book,
   layout = 'default',
-  onFavorite,
   onLike,
   onAddToCollection,
   showCollectionAction = true,
@@ -43,7 +41,7 @@ export default function LibraryBookCard({
 
   if (layout === 'catalog') {
     return (
-      <article className="min-w-0 text-center">
+      <article className="library-book-catalog-card min-w-0 text-center">
         <div className="group relative aspect-[3/4] overflow-hidden rounded-sm bg-gradient-to-br from-slate-900 via-blue-950 to-cyan-900 shadow-sm">
           <Link href={`/bibliotheque/lecture?id=${encodeURIComponent(book.id)}`} className="absolute inset-0" aria-label={`Lire ${book.title}`}>
             {coverAvailable ? (
@@ -63,32 +61,24 @@ export default function LibraryBookCard({
               type="button"
               onClick={() => onAddToCollection?.(book)}
               aria-label="Ajouter à ma bibliothèque"
-              className="absolute bottom-2 left-2 z-10 rounded-sm bg-white/90 p-1.5 text-slate-600 shadow-sm hover:text-cyan-800"
+              className="library-book-catalog-action library-book-catalog-bookmark absolute bottom-2 left-2 z-10 rounded-sm bg-white/90 p-1.5 text-slate-600 shadow-sm hover:text-cyan-800"
             >
               <BookmarkPlus size={15} aria-hidden="true" />
             </button>
           )}
-          <div className="absolute bottom-2 right-2 z-10 flex gap-1 rounded-sm bg-white/90 p-1 shadow-sm sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-            <button
-              type="button"
-              onClick={() => onFavorite?.(book)}
-              aria-label={book.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-              className={`rounded-sm p-1 ${book.isFavorite ? 'text-rose-600' : 'text-slate-500 hover:text-rose-600'}`}
-            >
-              <Heart size={14} fill={book.isFavorite ? 'currentColor' : 'none'} aria-hidden="true" />
-            </button>
+          <div className="library-book-catalog-action library-book-catalog-actions absolute bottom-2 right-2 z-10 flex gap-1 rounded-sm bg-white/90 p-1 shadow-sm sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
             <button
               type="button"
               onClick={() => onLike?.(book)}
               aria-label={`${book.isLiked ? 'Retirer le j’aime' : 'Aimer ce livre'} (${book.likesCount})`}
-              className={`rounded-sm p-1 ${book.isLiked ? 'text-cyan-800' : 'text-slate-500 hover:text-cyan-800'}`}
+              className={`library-book-catalog-action-button rounded-sm p-1 ${book.isLiked ? 'is-liked text-cyan-800' : 'text-slate-500 hover:text-cyan-800'}`}
             >
               <ThumbsUp size={14} aria-hidden="true" />
             </button>
             <a
               href={`/api/library/file?id=${encodeURIComponent(book.id)}&download=1`}
               aria-label={`Télécharger ${book.title}`}
-              className="rounded-sm p-1 text-slate-500 hover:text-cyan-800"
+              className="library-book-catalog-action-button rounded-sm p-1 text-slate-500 hover:text-cyan-800"
             >
               <Download size={14} aria-hidden="true" />
             </a>
@@ -103,7 +93,7 @@ export default function LibraryBookCard({
   }
 
   return (
-    <article className="overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+    <article className="library-book-standard-card overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
       <Link href={`/bibliotheque/lecture?id=${encodeURIComponent(book.id)}`} className="group block">
         <div className="relative grid h-52 place-items-center overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-cyan-900">
           {coverAvailable && (
@@ -137,7 +127,7 @@ export default function LibraryBookCard({
           )}
         </div>
       </Link>
-      <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+      <div className="library-book-standard-actions flex items-center justify-between border-t border-slate-100 px-4 py-3">
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1"><Download size={13} aria-hidden="true" />{book.downloadCount}</span>
           <button
@@ -155,14 +145,6 @@ export default function LibraryBookCard({
               <BookmarkPlus size={16} aria-hidden="true" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onFavorite?.(book)}
-            aria-label={book.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            className={`p-1.5 ${book.isFavorite ? 'text-rose-600' : 'text-slate-500 hover:text-rose-600'}`}
-          >
-            <Heart size={16} fill={book.isFavorite ? 'currentColor' : 'none'} aria-hidden="true" />
-          </button>
           <a
             href={`/api/library/file?id=${encodeURIComponent(book.id)}&download=1`}
             className="inline-flex items-center gap-1.5 bg-cyan-800 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-900"

@@ -9,6 +9,27 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+async function findLegacyCover(filename: string) {
+  const defaultDirectory = path.resolve(process.cwd(), 'app', 'bibliotheque', 'images');
+  const candidates = [
+    { file: resolveLegacyLibraryPath('covers', filename), root: path.resolve(process.env.LIBRARY_COVERS_DIR || defaultDirectory) },
+    { file: path.join(defaultDirectory, filename), root: defaultDirectory },
+  ];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (seen.has(candidate.file)) continue;
+    seen.add(candidate.file);
+    try {
+      const fullPath = await realpath(candidate.file);
+      const root = await realpath(candidate.root);
+      if (fullPath.startsWith(`${root}${path.sep}`)) return fullPath;
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id');
   if (!id || !/^[1-9]\d{0,17}$/.test(id)) return new NextResponse(null, { status: 400 });
@@ -20,7 +41,7 @@ export async function GET(request: NextRequest) {
     );
     const book = rows[0];
     if (!book || !book.is_public) return new NextResponse(null, { status: 404 });
-    let fullPath: string;
+    let fullPath: string | null = null;
     let filename: string;
     if (book.cover_path) {
       const { rows: stored } = await pool.query<{ original_filename: string }>(
@@ -28,16 +49,24 @@ export async function GET(request: NextRequest) {
          WHERE bucket = $1 AND path = $2 AND is_public = FALSE`,
         [LIBRARY_FILE_BUCKET, book.cover_path],
       );
-      if (!stored[0]) return new NextResponse(null, { status: 404 });
-      filename = stored[0].original_filename;
-      fullPath = resolveStoredFilePath(LIBRARY_FILE_BUCKET, book.cover_path);
-    } else if (book.legacy_cover_name) {
-      filename = book.legacy_cover_name;
-      const candidate = resolveLegacyLibraryPath('covers', filename);
-      fullPath = await realpath(candidate);
-      const root = await realpath(path.resolve(process.env.LIBRARY_COVERS_DIR || path.join(process.cwd(), 'bibliotheque', 'images')));
-      if (!fullPath.startsWith(`${root}${path.sep}`)) return new NextResponse(null, { status: 400 });
+      if (stored[0]) {
+        filename = stored[0].original_filename;
+        try {
+          fullPath = await realpath(resolveStoredFilePath(LIBRARY_FILE_BUCKET, book.cover_path));
+        } catch (error) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+        }
+      } else {
+        filename = book.legacy_cover_name || '';
+      }
     } else {
+      filename = book.legacy_cover_name || '';
+    }
+    if (!fullPath && book.legacy_cover_name) {
+      filename = book.legacy_cover_name;
+      fullPath = await findLegacyCover(filename);
+    }
+    if (!fullPath) {
       return new NextResponse(null, { status: 404 });
     }
     const fileStat = await stat(fullPath);
@@ -46,7 +75,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': libraryFileMimeType(filename, true),
         'Content-Length': String(fileStat.size),
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff',
       },
     });

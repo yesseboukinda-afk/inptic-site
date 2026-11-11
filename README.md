@@ -218,16 +218,18 @@ Après `scripts/00_lws_complete_schema.sql`, exécuter
 `scripts/create-lws-database.sh` installe désormais aussi ce schéma. Les pages
 d'administration sont réservées aux comptes ayant un rôle administrateur du
 site et les opérations sensibles sont revérifiées côté serveur.
+Pour une base existante, exécuter également `scripts/26_library_guest_likes.sql`
+afin d'activer les J’aime sans connexion.
 
 Les PDF disponibles pour React sont présents dans `app/bibliotheque/livres`.
-Les couvertures peuvent être placées dans `app/bibliotheque/couvertures` ou
+Les couvertures peuvent être placées dans `app/bibliotheque/images` ou
 stockées ailleurs en définissant `LIBRARY_COVERS_DIR`. Le lecteur React sert les PDF via une route contrôlée,
 plutôt que de les exposer comme des fichiers statiques. En production, vérifier
 que ces fichiers sont présents sur le serveur Node après déploiement ; pour les
 hébergeurs qui séparent le code construit des médias, définir `LIBRARY_BOOKS_DIR`
 et `LIBRARY_COVERS_DIR` avec les chemins absolus vers leurs emplacements
 persistants. Les valeurs par défaut sont `app/bibliotheque/livres` et
-`app/bibliotheque/couvertures`. Le stockage privé utilisé pour les nouveaux
+`app/bibliotheque/images`. Le stockage privé utilisé pour les nouveaux
 uploads nécessite aussi `PRIVATE_STORAGE_DIR`.
 
 Le script `scripts/import_legacy_library.mjs` importe les métadonnées des
@@ -250,6 +252,19 @@ avant l'import pour conserver les données personnelles liées aux utilisateurs.
 Les anciens mots de passe, profils de connexion Google/Apple et fichiers ne
 sont pas importés par ce script. L'application PHP historique n'est pas
 nécessaire au fonctionnement de la bibliothèque React.
+
+Un administrateur peut également importer le CSV des livres depuis
+`/bibliotheque/admin`. Cette méthode utilise la connexion PostgreSQL du site
+et ne demande pas de configurer `DATABASE_URL` sur l'ordinateur de l'administrateur.
+Les PDF et couvertures référencés doivent déjà avoir été déployés sur le serveur.
+L'import est transactionnel, vérifie les fichiers référencés et met à jour un
+livre déjà importé à partir du même nom de PDF sans remettre à zéro ses compteurs.
+Un super administrateur ouvre `/bibliotheque/admin` pour ajouter un PDF avec sa
+couverture, modifier les métadonnées ou remplacer une couverture, et supprimer
+un livre ou une sélection. Les J’aime sont ouverts aux visiteurs et limités à
+un par navigateur et par ouvrage ; les favoris, la collection personnelle et
+l'enregistrement de la progression de lecture demandent une session.
+Le compteur de téléchargements n'augmente qu'à la fin de l'envoi complet du PDF.
 
 Les principales fonctions de l'ancienne API mobile sont disponibles sous
 `/api/library/mobile/books` (`type=recent|popular`), `/api/library/mobile/search`

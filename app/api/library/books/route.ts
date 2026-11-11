@@ -3,6 +3,7 @@ import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { deleteStoredFile, saveStoredFile } from '@/lib/localStorage';
 import { authorizeLibraryAdmin, LIBRARY_FILE_BUCKET, LIBRARY_NO_STORE_HEADERS, normalizeLibraryBook } from '@/lib/library';
+import { isAdminRole } from '@/lib/roles';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -34,12 +35,18 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Math.min(10_000, Number(request.nextUrl.searchParams.get('page')) || 1));
   const limit = Math.max(1, Math.min(48, Number(request.nextUrl.searchParams.get('limit')) || 24));
   const offset = (page - 1) * limit;
-  const where: string[] = ['(b.is_public = TRUE OR b.owner_user_id = $1)'];
-  const values: unknown[] = [null];
+  const where: string[] = ['(b.is_public = TRUE OR b.owner_user_id = $1 OR $3 = TRUE)'];
+  const visitorCookie = request.cookies.get('inptic_library_visitor')?.value || '';
+  const visitorId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(visitorCookie)
+    ? visitorCookie
+    : null;
+  const values: unknown[] = [null, visitorId, false];
 
   try {
     const user = await getAuthenticatedUser(request);
     values[0] = user?.id || null;
+    const includePrivate = request.nextUrl.searchParams.get('admin') === '1' && Boolean(user && isAdminRole(user.role));
+    values[2] = includePrivate;
     if (requestedId !== null) {
       if (!/^[1-9]\d{0,17}$/.test(requestedId)) {
         return NextResponse.json({ error: 'Identifiant de livre invalide.' }, { status: 400 });
@@ -47,13 +54,14 @@ export async function GET(request: NextRequest) {
       const { rows } = await getPostgresPool().query(
         `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
            EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
-           EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id) AS is_liked,
+           (EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id)
+            OR EXISTS (SELECT 1 FROM public.library_guest_likes gl WHERE gl.visitor_id = $2 AND gl.book_id = b.id)) AS is_liked,
            COALESCE(p.current_page, 0) AS current_page,
            COALESCE(p.total_pages, 0) AS progress_pages
          FROM public.library_books b
          LEFT JOIN public.library_reading_progress p ON p.book_id = b.id AND p.user_id = $1
-         WHERE b.id = $2 AND (b.is_public = TRUE OR b.owner_user_id = $1)`,
-        [user?.id || null, requestedId],
+         WHERE b.id = $3 AND (b.is_public = TRUE OR b.owner_user_id = $1)`,
+        [user?.id || null, visitorId, requestedId],
       );
       if (!rows[0]) return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
       return NextResponse.json({ book: normalizeLibraryBook(rows[0] as Record<string, unknown>) }, { headers: LIBRARY_NO_STORE_HEADERS });
@@ -99,7 +107,8 @@ export async function GET(request: NextRequest) {
     const rowsResult = await pool.query(
       `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
          EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
-         EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id) AS is_liked,
+         (EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id)
+          OR EXISTS (SELECT 1 FROM public.library_guest_likes gl WHERE gl.visitor_id = $2 AND gl.book_id = b.id)) AS is_liked,
          COALESCE(p.current_page, 0) AS current_page,
          COALESCE(p.total_pages, 0) AS progress_pages
        FROM public.library_books b
@@ -121,7 +130,8 @@ export async function GET(request: NextRequest) {
       pool.query(
         `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
            EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
-           EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id) AS is_liked,
+           (EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id)
+            OR EXISTS (SELECT 1 FROM public.library_guest_likes gl WHERE gl.visitor_id = $2 AND gl.book_id = b.id)) AS is_liked,
            COALESCE(p.current_page, 0) AS current_page,
            COALESCE(p.total_pages, 0) AS progress_pages
          FROM public.library_books b
@@ -129,7 +139,7 @@ export async function GET(request: NextRequest) {
          WHERE b.is_public = TRUE
          ORDER BY b.download_count DESC, b.created_at DESC
          LIMIT 3`,
-        [values[0]],
+        [values[0], values[1]],
       ),
     ]);
     return NextResponse.json({
@@ -245,10 +255,17 @@ export async function PATCH(request: NextRequest) {
   const auth = await authorizeLibraryAdmin(request);
   if ('error' in auth) return auth.error;
   let body: Record<string, unknown>;
+  let cover: FormDataEntryValue | null = null;
   try {
-    body = await request.json();
+    if (request.headers.get('content-type')?.includes('multipart/form-data')) {
+      const form = await request.formData();
+      body = Object.fromEntries(form.entries());
+      cover = form.get('cover');
+    } else {
+      body = await request.json();
+    }
   } catch {
-    return NextResponse.json({ error: 'Requête JSON invalide.' }, { status: 400 });
+    return NextResponse.json({ error: 'Formulaire ou requête JSON invalide.' }, { status: 400 });
   }
   const id = typeof body.id === 'string' ? body.id : '';
   const title = typeof body.title === 'string' ? body.title.trim() : '';
@@ -263,18 +280,85 @@ export async function PATCH(request: NextRequest) {
       edition.length > 120 || !Number.isInteger(pageCount) || pageCount < 0 || pageCount > 100_000) {
     return NextResponse.json({ error: 'Vérifiez les champs du livre.' }, { status: 400 });
   }
+
+  let coverBytes: Buffer | null = null;
+  let coverMime: string | null = null;
+  if (cover instanceof File && cover.size > 0) {
+    if (cover.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'La couverture dépasse 5 Mo.' }, { status: 400 });
+    coverBytes = Buffer.from(await cover.arrayBuffer());
+    if (cover.type === 'image/jpeg' && coverBytes[0] === 0xff && coverBytes[1] === 0xd8) coverMime = cover.type;
+    else if (cover.type === 'image/png' && coverBytes.subarray(0, 8).toString('hex') === '89504e470d0a1a0a') coverMime = cover.type;
+    else if (cover.type === 'image/webp' && coverBytes.subarray(0, 4).toString('ascii') === 'RIFF' && coverBytes.subarray(8, 12).toString('ascii') === 'WEBP') coverMime = cover.type;
+    else return NextResponse.json({ error: 'La couverture doit être une image JPG, PNG ou WebP valide.' }, { status: 400 });
+  }
+
+  const extension = coverMime === 'image/jpeg' ? 'jpg' : coverMime === 'image/png' ? 'png' : 'webp';
+  let newCoverPath: string | null = null;
+  let updated = false;
   try {
-    const result = await getPostgresPool().query(
-      `UPDATE public.library_books
-       SET title = $2, author = $3, description = $4, category = $5, language = $6,
-           edition = $7, page_count = $8, updated_at = NOW()
-       WHERE id = $1
-       RETURNING id`,
-      [id, title, author, description, category, language, edition, pageCount],
-    );
-    if (!result.rowCount) return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
+    if (coverBytes && coverMime) {
+      const savedCover = await saveStoredFile({
+        bucket: LIBRARY_FILE_BUCKET,
+        relativePath: `covers/${randomUUID()}.${extension}`,
+        contents: coverBytes,
+        originalFilename: cover instanceof File ? cover.name.slice(0, 255) || `couverture.${extension}` : `couverture.${extension}`,
+        mimeType: coverMime,
+        isPublic: false,
+        ownerUserId: auth.user.id,
+      });
+      newCoverPath = savedCover.path;
+    }
+
+    const client = await getPostgresPool().connect();
+    let previousCoverPath: string | null = null;
+    try {
+      await client.query('BEGIN');
+      const existing = await client.query<{ cover_path: string | null }>(
+        'SELECT cover_path FROM public.library_books WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      if (!existing.rowCount) {
+        await client.query('ROLLBACK');
+        if (newCoverPath) await deleteStoredFile(LIBRARY_FILE_BUCKET, newCoverPath);
+        return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
+      }
+      previousCoverPath = existing.rows[0].cover_path;
+      await client.query(
+        `UPDATE public.library_books
+         SET title = $2, author = $3, description = $4, category = $5, language = $6,
+             edition = $7, page_count = $8,
+             cover_path = COALESCE($9, cover_path),
+             legacy_cover_name = CASE WHEN $9 IS NULL THEN legacy_cover_name ELSE NULL END,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [id, title, author, description, category, language, edition, pageCount, newCoverPath],
+      );
+      await client.query('COMMIT');
+      updated = true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    if (newCoverPath && previousCoverPath && previousCoverPath !== newCoverPath) {
+      try {
+        const removed = await deleteStoredFile(LIBRARY_FILE_BUCKET, previousCoverPath);
+        if (!removed) console.error('[Library API] Replaced book cover left an orphaned stored file.');
+      } catch (cleanupError) {
+        console.error('[Library API] Replaced book cover cleanup failed:', cleanupError);
+      }
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (newCoverPath && !updated) {
+      try {
+        const removed = await deleteStoredFile(LIBRARY_FILE_BUCKET, newCoverPath);
+        if (!removed) console.error('[Library API] Failed to clean up an unused replacement cover.');
+      } catch (cleanupError) {
+        console.error('[Library API] Unused replacement cover cleanup failed:', cleanupError);
+      }
+    }
     console.error('[Library API] Book update failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible de modifier ce livre.' }, { status: 503 });
   }

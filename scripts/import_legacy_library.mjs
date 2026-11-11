@@ -1,67 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import pg from 'pg';
+import { libraryCsvField as field, parseLibraryCsv as parseCsv, safeLibraryAssetName as safeLegacyName } from '../lib/library-csv.mjs';
 
 const { Pool } = pg;
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let value = '';
-  let quoted = false;
-  const input = text.replace(/^\uFEFF/, '');
-
-  for (let index = 0; index < input.length; index += 1) {
-    const character = input[index];
-    if (quoted) {
-      if (character === '"' && input[index + 1] === '"') {
-        value += '"';
-        index += 1;
-      } else if (character === '"') {
-        quoted = false;
-      } else {
-        value += character;
-      }
-    } else if (character === '"') {
-      quoted = true;
-    } else if (character === ',') {
-      row.push(value);
-      value = '';
-    } else if (character === '\n' || character === '\r') {
-      if (character === '\r' && input[index + 1] === '\n') index += 1;
-      row.push(value);
-      if (row.some((cell) => cell.trim())) rows.push(row);
-      row = [];
-      value = '';
-    } else {
-      value += character;
-    }
-  }
-  if (value || row.length) {
-    row.push(value);
-    if (row.some((cell) => cell.trim())) rows.push(row);
-  }
-  if (rows.length < 2) return [];
-
-  const headers = rows[0].map((header) => header.trim().toLowerCase());
-  return rows.slice(1).map((cells) => Object.fromEntries(
-    headers.map((header, index) => [header, (cells[index] || '').trim()]),
-  ));
-}
-
-function field(row, ...names) {
-  for (const name of names) {
-    const value = row[name];
-    if (value !== undefined && value !== '') return value;
-  }
-  return '';
-}
-
-function safeLegacyName(value, extension) {
-  const filename = path.basename(value);
-  if (filename !== value || value.includes('\\') || value.includes('/') || !filename.toLowerCase().endsWith(extension)) return null;
-  return filename;
-}
 
 async function loadCsv(filename, label, required = false) {
   if (!filename) {

@@ -1,7 +1,9 @@
 import type { NextConfig } from 'next';
+import { SITE_IMAGE_SLOTS } from './lib/site-content';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  htmlLimitedBots: /.*/,
   async headers() {
     return [
       {
@@ -44,6 +46,9 @@ const nextConfig: NextConfig = {
       '/formations/telecommunications.webp',
       '/formations/management-tic.webp',
       '/formations/multimedia-internet.webp',
+      ...SITE_IMAGE_SLOTS
+        .filter((image) => image.path.startsWith('banniere/page-'))
+        .map((image) => `/${image.path}`),
     ];
 
     return {

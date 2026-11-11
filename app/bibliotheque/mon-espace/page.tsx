@@ -119,12 +119,12 @@ export default function PersonalLibraryPage() {
     }
   };
 
-  const toggle = async (action: 'favorite' | 'like', book: LibraryBookCardData) => {
+  const toggleLike = async (book: LibraryBookCardData) => {
     try {
       const response = await fetch('/api/library/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, bookId: book.id }),
+        body: JSON.stringify({ action: 'like', bookId: book.id }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Impossible de mettre à jour le livre.');
@@ -166,8 +166,7 @@ export default function PersonalLibraryPage() {
                   <LibraryBookCard
                     book={book}
                     showCollectionAction={tab !== 'collection'}
-                    onFavorite={(item) => void toggle('favorite', item)}
-                    onLike={(item) => void toggle('like', item)}
+                    onLike={(item) => void toggleLike(item)}
                   />
                   {tab === 'collection' && (
                     <button type="button" onClick={() => void removeBook(book)} aria-label={`Retirer ${book.title} de ma collection`} className="absolute right-2 top-2 bg-white p-2 text-slate-600 shadow hover:text-red-700">

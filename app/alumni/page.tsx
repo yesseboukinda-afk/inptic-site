@@ -506,7 +506,7 @@ export default function Alumni() {
       <section className="relative isolate overflow-hidden text-white">
 
         <img
-          src="/banniere/1.webp"
+          src="/banniere/page-alumni.webp"
           alt=""
           fetchPriority="high"
           loading="eager"

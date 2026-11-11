@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
          (SELECT COUNT(*)::int FROM public.app_users) AS users,
          (SELECT COALESCE(SUM(download_count), 0)::bigint FROM public.library_books) AS downloads,
          (SELECT COUNT(*)::int FROM public.library_favorites) AS favorites,
-         (SELECT COUNT(*)::int FROM public.library_likes) AS likes`,
+         (SELECT COALESCE(SUM(likes_count), 0)::bigint FROM public.library_books) AS likes`,
     );
     return NextResponse.json({ stats: rows[0] }, { headers: LIBRARY_NO_STORE_HEADERS });
   } catch (error) {

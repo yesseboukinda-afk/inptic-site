@@ -17,12 +17,6 @@ interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
-declare global {
-  interface Window {
-    __INPTIC_PWA_PROMPT__?: BeforeInstallPromptEvent;
-  }
-}
-
 interface PWAInstallContextType {
   install: () => Promise<boolean>;
   isInstalled: boolean;
@@ -61,18 +55,6 @@ export function PWAInstallProvider({
       setIsInstalled(standalone);
     };
 
-    const capturePrompt = () => {
-      const event =
-        window.__INPTIC_PWA_PROMPT__;
-
-      if (!event) {
-        return;
-      }
-
-      promptRef.current = event;
-      setCanInstall(true);
-    };
-
     const onBeforeInstallPrompt = (
       event: Event
     ) => {
@@ -82,34 +64,20 @@ export function PWAInstallProvider({
         event as BeforeInstallPromptEvent;
 
       promptRef.current = installEvent;
-
-      window.__INPTIC_PWA_PROMPT__ =
-        installEvent;
-
       setCanInstall(true);
     };
 
     const onAppInstalled = () => {
       promptRef.current = null;
-
-      window.__INPTIC_PWA_PROMPT__ =
-        undefined;
-
       setCanInstall(false);
       setIsInstalled(true);
     };
 
     checkInstalled();
-    capturePrompt();
 
     window.addEventListener(
       "beforeinstallprompt",
       onBeforeInstallPrompt
-    );
-
-    window.addEventListener(
-      "inptic-pwa-prompt-ready",
-      capturePrompt
     );
 
     window.addEventListener(
@@ -121,11 +89,6 @@ export function PWAInstallProvider({
       window.removeEventListener(
         "beforeinstallprompt",
         onBeforeInstallPrompt
-      );
-
-      window.removeEventListener(
-        "inptic-pwa-prompt-ready",
-        capturePrompt
       );
 
       window.removeEventListener(
@@ -149,10 +112,6 @@ export function PWAInstallProvider({
         await event.userChoice;
 
       promptRef.current = null;
-
-      window.__INPTIC_PWA_PROMPT__ =
-        undefined;
-
       setCanInstall(false);
 
       return result.outcome === "accepted";

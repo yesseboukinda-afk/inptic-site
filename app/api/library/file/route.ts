@@ -15,7 +15,14 @@ function isValidId(value: string | null): value is string {
   return Boolean(value && /^[1-9]\d{0,17}$/.test(value));
 }
 
-function fileResponse(request: NextRequest, fullPath: string, size: number, filename: string, download: boolean) {
+function fileResponse(
+  request: NextRequest,
+  fullPath: string,
+  size: number,
+  filename: string,
+  download: boolean,
+  onComplete?: () => Promise<void>,
+) {
   const range = request.headers.get('range');
   let start = 0;
   let end = size - 1;
@@ -45,7 +52,7 @@ function fileResponse(request: NextRequest, fullPath: string, size: number, file
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(filename)}`);
   if (status === 206) headers.set('Content-Range', `bytes ${start}-${end}/${size}`);
-  return new NextResponse(createLibraryReadStream(fullPath, { start, end }), { status, headers });
+  return new NextResponse(createLibraryReadStream(fullPath, { start, end }, onComplete), { status, headers });
 }
 
 export async function GET(request: NextRequest) {
@@ -93,11 +100,25 @@ export async function GET(request: NextRequest) {
 
     const fileStat = await stat(fullPath);
     if (!fileStat.isFile()) return NextResponse.json({ error: 'Fichier du livre introuvable.' }, { status: 404 });
-    if (request.nextUrl.searchParams.get('download') === '1' && !request.headers.has('range')) {
-      await pool.query('UPDATE public.library_books SET download_count = download_count + 1 WHERE id = $1', [id]);
-    }
+    const download = request.nextUrl.searchParams.get('download') === '1';
     const filename = `${book.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'livre'}.pdf`;
-    return fileResponse(request, fullPath, fileStat.size, filename, request.nextUrl.searchParams.get('download') === '1');
+    return fileResponse(
+      request,
+      fullPath,
+      fileStat.size,
+      filename,
+      download,
+      download && !request.headers.has('range')
+        ? async () => {
+            try {
+              await pool.query('UPDATE public.library_books SET download_count = download_count + 1 WHERE id = $1', [id]);
+            } catch (error) {
+              console.error('[Library API] Completed download count update failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+              throw error;
+            }
+          }
+        : undefined,
+    );
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return NextResponse.json({ error: 'Fichier du livre introuvable sur le serveur.' }, { status: 404 });
