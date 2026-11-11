@@ -17,6 +17,24 @@ function isValidBookId(value: string | null): value is string {
   return Boolean(value && /^[1-9]\d{0,17}$/.test(value));
 }
 
+function getCatalogDiagnostic(error: unknown, stage: string) {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    && typeof error.code === 'string'
+    ? error.code
+    : '';
+  const codeLabel = /^[0-9A-Z]{5}$/.test(code) ? ` (${code})` : '';
+  const reason = code === '42501' ? 'droits PostgreSQL insuffisants'
+    : code === '42P01' ? 'table PostgreSQL absente'
+      : code === '42703' ? 'colonne PostgreSQL absente'
+        : code === '3D000' ? 'base PostgreSQL introuvable'
+          : code === '28P01' || code === '28000' ? 'identifiants PostgreSQL refusés'
+            : code.startsWith('08') ? 'connexion PostgreSQL impossible'
+              : codeLabel ? `erreur PostgreSQL${codeLabel}`
+                : 'erreur de connexion ou de requête PostgreSQL';
+
+  return `${stage} : ${reason}${codeLabel && !reason.includes(codeLabel) ? codeLabel : ''}.`;
+}
+
 export async function GET(request: NextRequest) {
   const requestedId = request.nextUrl.searchParams.get('id');
   const search = (request.nextUrl.searchParams.get('q') || '').trim().slice(0, 120);
@@ -41,9 +59,13 @@ export async function GET(request: NextRequest) {
     ? visitorCookie
     : null;
   const values: unknown[] = [null, visitorId, false];
+  let adminDiagnosticEnabled = false;
+  let queryStage = 'authentification';
 
   try {
     const user = await getAuthenticatedUser(request);
+    adminDiagnosticEnabled = Boolean(user && isAdminRole(user.role));
+    queryStage = 'lecture du catalogue';
     values[0] = user?.id || null;
     const includePrivate = request.nextUrl.searchParams.get('admin') === '1' && Boolean(user && isAdminRole(user.role));
     values[2] = includePrivate;
@@ -95,6 +117,7 @@ export async function GET(request: NextRequest) {
 
     const pool = getPostgresPool();
     const whereSql = where.join(' AND ');
+    queryStage = 'comptage des ouvrages';
     const countResult = await pool.query<{ total: number }>(
       `SELECT COUNT(*)::int AS total FROM public.library_books b WHERE ${whereSql}`,
       values,
@@ -104,6 +127,7 @@ export async function GET(request: NextRequest) {
       : sort === 'likes' ? 'b.likes_count DESC, b.created_at DESC'
         : sort === 'title' ? 'LOWER(b.title) ASC'
           : 'b.created_at DESC';
+    queryStage = 'chargement des ouvrages';
     const rowsResult = await pool.query(
       `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
          EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
@@ -118,6 +142,7 @@ export async function GET(request: NextRequest) {
        LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset],
     );
+    queryStage = 'chargement des filtres et statistiques';
     const [facets, totals, featured] = await Promise.all([
       pool.query(
         `SELECT ARRAY(SELECT DISTINCT category FROM public.library_books WHERE is_public AND category <> '' ORDER BY category) AS categories,
@@ -155,7 +180,10 @@ export async function GET(request: NextRequest) {
     }, { headers: LIBRARY_NO_STORE_HEADERS });
   } catch (error) {
     console.error('[Library API] Catalog query failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Le catalogue de la bibliothèque est indisponible.' }, { status: 503, headers: LIBRARY_NO_STORE_HEADERS });
+    return NextResponse.json({
+      error: 'Le catalogue de la bibliothèque est indisponible.',
+      ...(adminDiagnosticEnabled ? { diagnostic: getCatalogDiagnostic(error, queryStage) } : {}),
+    }, { status: 503, headers: LIBRARY_NO_STORE_HEADERS });
   }
 }
 

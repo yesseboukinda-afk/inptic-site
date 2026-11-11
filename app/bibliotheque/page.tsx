@@ -40,7 +40,10 @@ export default function LibraryPage() {
     try {
       const response = await fetch(`/api/library/books?${params}`, { cache: 'no-store', signal });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Le catalogue est indisponible.');
+      if (!response.ok) {
+        const message = data.error || 'Le catalogue est indisponible.';
+        throw new Error(data.diagnostic ? `${message}\nDiagnostic : ${data.diagnostic}` : message);
+      }
       setResult(data as CatalogResponse);
     } catch (loadError) {
       if (loadError instanceof Error && loadError.name === 'AbortError') return;
@@ -157,7 +160,7 @@ export default function LibraryPage() {
           <p className="text-sm text-slate-600"><strong className="text-slate-900">{result.total}</strong> ouvrage{result.total === 1 ? '' : 's'} dans le catalogue</p>
           {notice && <p role="status" className="text-sm font-medium text-cyan-900">{notice}</p>}
         </div>
-        {error && <p role="alert" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
+        {error && <p role="alert" className="mt-5 whitespace-pre-line border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
 
         {busy ? (
           <div className="grid min-h-52 place-items-center"><LoaderCircle className="animate-spin text-cyan-800" size={30} aria-label="Chargement du catalogue" /></div>
