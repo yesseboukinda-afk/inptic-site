@@ -4,6 +4,13 @@ import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
 import { libraryFileMimeType, LIBRARY_FILE_BUCKET, LIBRARY_NO_STORE_HEADERS, resolveLegacyLibraryPath } from '@/lib/library';
 import { createLibraryReadStream } from '@/lib/library-stream';
+import {
+  getLibraryFileBook,
+  getLibraryFileCatalog,
+  isLibraryDatabaseUnavailable,
+  shouldFallbackToLibraryFiles,
+  shouldUseLibraryFileCatalog,
+} from '@/lib/library-file-catalog.mjs';
 import { resolveStoredFilePath } from '@/lib/localStorage';
 import { isAdminRole } from '@/lib/roles';
 import { NextRequest, NextResponse } from 'next/server';
@@ -55,9 +62,37 @@ function fileResponse(
   return new NextResponse(createLibraryReadStream(fullPath, { start, end }, onComplete), { status, headers });
 }
 
+async function serveFileCatalogBook(request: NextRequest, id: string) {
+  const books = await getLibraryFileCatalog();
+  const book = getLibraryFileBook(books, id);
+  if (!book?.legacyFileName) return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
+
+  const root = await realpath(path.resolve(process.env.LIBRARY_BOOKS_DIR || path.join(process.cwd(), 'app', 'bibliotheque', 'livres')));
+  const fullPath = await realpath(resolveLegacyLibraryPath('books', book.legacyFileName));
+  if (!fullPath.startsWith(`${root}${path.sep}`)) {
+    return NextResponse.json({ error: 'Chemin de fichier invalide.' }, { status: 400 });
+  }
+  const fileStat = await stat(fullPath);
+  if (!fileStat.isFile()) return NextResponse.json({ error: 'Fichier du livre introuvable.' }, { status: 404 });
+  const download = request.nextUrl.searchParams.get('download') === '1';
+  const filename = `${book.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'livre'}.pdf`;
+  return fileResponse(request, fullPath, fileStat.size, filename, download);
+}
+
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id');
   if (!isValidId(id)) return NextResponse.json({ error: 'Identifiant de livre invalide.' }, { status: 400 });
+  if (shouldUseLibraryFileCatalog()) {
+    try {
+      return await serveFileCatalogBook(request, id);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return NextResponse.json({ error: 'Fichier du livre introuvable sur le serveur.' }, { status: 404 });
+      }
+      console.error('[Library API] File catalog PDF delivery failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json({ error: 'Impossible de lire ce document.' }, { status: 503 });
+    }
+  }
   try {
     const pool = getPostgresPool();
     const { rows } = await pool.query<{
@@ -120,6 +155,17 @@ export async function GET(request: NextRequest) {
         : undefined,
     );
   } catch (error) {
+    if (shouldFallbackToLibraryFiles() && isLibraryDatabaseUnavailable(error)) {
+        console.warn('[Library API] PostgreSQL is unavailable; serving the file catalog PDF.');
+        try {
+          return await serveFileCatalogBook(request, id);
+        } catch (fileError) {
+          if (fileError instanceof Error && 'code' in fileError && fileError.code === 'ENOENT') {
+            return NextResponse.json({ error: 'Fichier du livre introuvable sur le serveur.' }, { status: 404 });
+          }
+          console.error('[Library API] File catalog PDF fallback failed:', fileError instanceof Error ? fileError.message : 'UNKNOWN_ERROR');
+        }
+    }
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return NextResponse.json({ error: 'Fichier du livre introuvable sur le serveur.' }, { status: 404 });
     }

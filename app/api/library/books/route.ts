@@ -1,8 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import { deleteStoredFile, saveStoredFile } from '@/lib/localStorage';
+import { deleteStoredFile } from '@/lib/localStorage';
 import { authorizeLibraryAdmin, LIBRARY_FILE_BUCKET, LIBRARY_NO_STORE_HEADERS, normalizeLibraryBook } from '@/lib/library';
+import { deleteLibraryAsset, saveLibraryAsset } from '@/lib/library-assets';
+import {
+  filterLibraryFileCatalog,
+  getLibraryFileBook,
+  getLibraryFileCatalog,
+  isLibraryDatabaseUnavailable,
+  shouldFallbackToLibraryFiles,
+  shouldUseLibraryFileCatalog,
+} from '@/lib/library-file-catalog.mjs';
 import { isAdminRole } from '@/lib/roles';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -35,6 +44,33 @@ function getCatalogDiagnostic(error: unknown, stage: string) {
   return `${stage} : ${reason}${codeLabel && !reason.includes(codeLabel) ? codeLabel : ''}.`;
 }
 
+async function getFileCatalogResponse(request: NextRequest) {
+  const books = await getLibraryFileCatalog();
+  const requestedId = request.nextUrl.searchParams.get('id');
+  if (requestedId !== null) {
+    if (!isValidBookId(requestedId)) {
+      return NextResponse.json({ error: 'Identifiant de livre invalide.' }, { status: 400 });
+    }
+    const book = getLibraryFileBook(books, requestedId);
+    if (!book) return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
+    return NextResponse.json({ book }, { headers: LIBRARY_NO_STORE_HEADERS });
+  }
+
+  const params = request.nextUrl.searchParams;
+  const initialValue = (params.get('initial') || 'ALL').toUpperCase();
+  const initial = /^[A-Z]$/.test(initialValue) || initialValue === '#' ? initialValue : 'ALL';
+  return NextResponse.json(filterLibraryFileCatalog(books, {
+    search: (params.get('q') || '').trim().slice(0, 120),
+    category: (params.get('category') || params.get('categorie') || '').trim().slice(0, 120),
+    language: (params.get('language') || params.get('langue') || '').trim().slice(0, 80),
+    author: (params.get('author') || '').trim().slice(0, 120),
+    initial,
+    sort: params.get('sort') || (params.get('type') === 'popular' ? 'downloads' : 'date'),
+    page: Number(params.get('page')) || 1,
+    limit: Number(params.get('limit')) || 24,
+  }), { headers: LIBRARY_NO_STORE_HEADERS });
+}
+
 export async function GET(request: NextRequest) {
   const requestedId = request.nextUrl.searchParams.get('id');
   const search = (request.nextUrl.searchParams.get('q') || '').trim().slice(0, 120);
@@ -61,6 +97,18 @@ export async function GET(request: NextRequest) {
   const values: unknown[] = [null, visitorId, false];
   let adminDiagnosticEnabled = false;
   let queryStage = 'authentification';
+
+  if (shouldUseLibraryFileCatalog()) {
+    try {
+      return await getFileCatalogResponse(request);
+    } catch (error) {
+      console.error('[Library API] File catalog query failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+      return NextResponse.json({ error: 'Le catalogue de la bibliothèque est indisponible.' }, {
+        status: 503,
+        headers: LIBRARY_NO_STORE_HEADERS,
+      });
+    }
+  }
 
   try {
     const user = await getAuthenticatedUser(request);
@@ -117,10 +165,15 @@ export async function GET(request: NextRequest) {
 
     const pool = getPostgresPool();
     const whereSql = where.join(' AND ');
+    const countWhereSql = whereSql.replace(/\$(\d+)/g, (placeholder, parameter: string) => {
+      const index = Number(parameter);
+      return index > 2 ? `$${index - 1}` : placeholder;
+    });
+    const countValues = [values[0], values[2], ...values.slice(3)];
     queryStage = 'comptage des ouvrages';
     const countResult = await pool.query<{ total: number }>(
-      `SELECT COUNT(*)::int AS total FROM public.library_books b WHERE ${whereSql}`,
-      values,
+      `SELECT COUNT(*)::int AS total FROM public.library_books b WHERE ${countWhereSql}`,
+      countValues,
     );
     const total = Number(countResult.rows[0]?.total) || 0;
     const orderBy = sort === 'downloads' ? 'b.download_count DESC, b.created_at DESC'
@@ -179,6 +232,14 @@ export async function GET(request: NextRequest) {
       languages: facets.rows[0]?.languages || [],
     }, { headers: LIBRARY_NO_STORE_HEADERS });
   } catch (error) {
+    if (shouldFallbackToLibraryFiles() && isLibraryDatabaseUnavailable(error)) {
+      console.warn('[Library API] PostgreSQL is unavailable; serving the file catalog.');
+      try {
+        return await getFileCatalogResponse(request);
+      } catch (fileError) {
+        console.error('[Library API] File catalog fallback failed:', fileError instanceof Error ? fileError.message : 'UNKNOWN_ERROR');
+      }
+    }
     console.error('[Library API] Catalog query failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({
       error: 'Le catalogue de la bibliothèque est indisponible.',
@@ -190,8 +251,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await authorizeLibraryAdmin(request);
   if ('error' in auth) return auth.error;
-  if (!process.env.DATABASE_URL || !process.env.PRIVATE_STORAGE_DIR) {
-    return NextResponse.json({ error: 'PostgreSQL ou le stockage persistant n’est pas configuré.' }, { status: 503 });
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
   }
 
   let form: FormData;
@@ -235,45 +296,35 @@ export async function POST(request: NextRequest) {
 
   const id = randomUUID();
   const extension = coverMime === 'image/jpeg' ? 'jpg' : coverMime === 'image/png' ? 'png' : 'webp';
-  const savedPaths: string[] = [];
+  const pdfFileName = `${id}.pdf`;
+  const savedAssets: Array<{ kind: 'books' | 'covers'; filename: string }> = [];
   try {
-    const file = await saveStoredFile({
-      bucket: LIBRARY_FILE_BUCKET,
-      relativePath: `books/${id}.pdf`,
-      contents: pdfBytes,
-      originalFilename: pdf.name.slice(0, 255) || `${id}.pdf`,
-      mimeType: 'application/pdf',
-      isPublic: false,
-      ownerUserId: auth.user.id,
-    });
-    savedPaths.push(file.path);
-    let coverPath: string | null = null;
+    await saveLibraryAsset('books', pdfFileName, pdfBytes);
+    savedAssets.push({ kind: 'books', filename: pdfFileName });
+    let coverFileName: string | null = null;
     if (coverBytes && coverMime) {
-      const savedCover = await saveStoredFile({
-        bucket: LIBRARY_FILE_BUCKET,
-        relativePath: `covers/${id}.${extension}`,
-        contents: coverBytes,
-        originalFilename: (cover as File).name.slice(0, 255) || `${id}.${extension}`,
-        mimeType: coverMime,
-        isPublic: false,
-        ownerUserId: auth.user.id,
-      });
-      coverPath = savedCover.path;
-      savedPaths.push(coverPath);
+      coverFileName = `${id}.${extension}`;
+      await saveLibraryAsset('covers', coverFileName, coverBytes);
+      savedAssets.push({ kind: 'covers', filename: coverFileName });
     }
     const { rows } = await getPostgresPool().query(
       `INSERT INTO public.library_books
-         (title, author, description, category, language, edition, page_count, file_path, cover_path, created_by)
+         (title, author, description, category, language, edition, page_count,
+          legacy_file_name, legacy_cover_name, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id, ${BOOK_FIELDS.split(', ').slice(1).join(', ')}`,
-      [title, author, description, category, language, edition, pageCount, file.path, coverPath, auth.user.id],
+      [title, author, description, category, language, edition, pageCount, pdfFileName, coverFileName, auth.user.id],
     );
     return NextResponse.json({ book: normalizeLibraryBook(rows[0] as Record<string, unknown>) }, { status: 201 });
   } catch (error) {
-    await Promise.all(savedPaths.map((filePath) => deleteStoredFile(LIBRARY_FILE_BUCKET, filePath).catch((cleanupError) => {
-      console.error('[Library API] Uploaded file cleanup failed:', cleanupError);
-      return false;
-    })));
+    await Promise.all(savedAssets.map(async (asset) => {
+      try {
+        const removed = await deleteLibraryAsset(asset.kind, asset.filename);
+        if (!removed) console.error('[Library API] Uploaded library asset was missing during cleanup.');
+      } catch (cleanupError) {
+        console.error('[Library API] Uploaded library asset cleanup failed:', cleanupError);
+      }
+    }));
     console.error('[Library API] Book upload failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
     return NextResponse.json({ error: 'Impossible d’ajouter le livre au catalogue.' }, { status: 503 });
   }
@@ -321,20 +372,12 @@ export async function PATCH(request: NextRequest) {
   }
 
   const extension = coverMime === 'image/jpeg' ? 'jpg' : coverMime === 'image/png' ? 'png' : 'webp';
-  let newCoverPath: string | null = null;
+  let newCoverFileName: string | null = null;
   let updated = false;
   try {
     if (coverBytes && coverMime) {
-      const savedCover = await saveStoredFile({
-        bucket: LIBRARY_FILE_BUCKET,
-        relativePath: `covers/${randomUUID()}.${extension}`,
-        contents: coverBytes,
-        originalFilename: cover instanceof File ? cover.name.slice(0, 255) || `couverture.${extension}` : `couverture.${extension}`,
-        mimeType: coverMime,
-        isPublic: false,
-        ownerUserId: auth.user.id,
-      });
-      newCoverPath = savedCover.path;
+      newCoverFileName = `${randomUUID()}.${extension}`;
+      await saveLibraryAsset('covers', newCoverFileName, coverBytes);
     }
 
     const client = await getPostgresPool().connect();
@@ -347,7 +390,7 @@ export async function PATCH(request: NextRequest) {
       );
       if (!existing.rowCount) {
         await client.query('ROLLBACK');
-        if (newCoverPath) await deleteStoredFile(LIBRARY_FILE_BUCKET, newCoverPath);
+        if (newCoverFileName) await deleteLibraryAsset('covers', newCoverFileName);
         return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
       }
       previousCoverPath = existing.rows[0].cover_path;
@@ -355,11 +398,11 @@ export async function PATCH(request: NextRequest) {
         `UPDATE public.library_books
          SET title = $2, author = $3, description = $4, category = $5, language = $6,
              edition = $7, page_count = $8,
-             cover_path = COALESCE($9, cover_path),
-             legacy_cover_name = CASE WHEN $9 IS NULL THEN legacy_cover_name ELSE NULL END,
+             cover_path = CASE WHEN $9 IS NULL THEN cover_path ELSE NULL END,
+             legacy_cover_name = COALESCE($9, legacy_cover_name),
              updated_at = NOW()
          WHERE id = $1`,
-        [id, title, author, description, category, language, edition, pageCount, newCoverPath],
+        [id, title, author, description, category, language, edition, pageCount, newCoverFileName],
       );
       await client.query('COMMIT');
       updated = true;
@@ -369,7 +412,7 @@ export async function PATCH(request: NextRequest) {
     } finally {
       client.release();
     }
-    if (newCoverPath && previousCoverPath && previousCoverPath !== newCoverPath) {
+    if (newCoverFileName && previousCoverPath) {
       try {
         const removed = await deleteStoredFile(LIBRARY_FILE_BUCKET, previousCoverPath);
         if (!removed) console.error('[Library API] Replaced book cover left an orphaned stored file.');
@@ -379,9 +422,9 @@ export async function PATCH(request: NextRequest) {
     }
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (newCoverPath && !updated) {
+    if (newCoverFileName && !updated) {
       try {
-        const removed = await deleteStoredFile(LIBRARY_FILE_BUCKET, newCoverPath);
+        const removed = await deleteLibraryAsset('covers', newCoverFileName);
         if (!removed) console.error('[Library API] Failed to clean up an unused replacement cover.');
       } catch (cleanupError) {
         console.error('[Library API] Unused replacement cover cleanup failed:', cleanupError);

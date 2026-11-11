@@ -3,6 +3,11 @@ import { SITE_IMAGE_SLOTS } from './lib/site-content';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  outputFileTracingIncludes: {
+    '/api/library/books': ['./migration/library_books_from_pdf.csv'],
+    '/api/library/file': ['./migration/library_books_from_pdf.csv'],
+    '/api/library/cover': ['./migration/library_books_from_pdf.csv'],
+  },
   htmlLimitedBots: /.*/,
   async headers() {
     return [

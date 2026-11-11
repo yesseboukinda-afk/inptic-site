@@ -229,8 +229,26 @@ que ces fichiers sont présents sur le serveur Node après déploiement ; pour l
 hébergeurs qui séparent le code construit des médias, définir `LIBRARY_BOOKS_DIR`
 et `LIBRARY_COVERS_DIR` avec les chemins absolus vers leurs emplacements
 persistants. Les valeurs par défaut sont `app/bibliotheque/livres` et
-`app/bibliotheque/images`. Le stockage privé utilisé pour les nouveaux
-uploads nécessite aussi `PRIVATE_STORAGE_DIR`.
+`app/bibliotheque/images`. Les uploads de livres par l’administration sont
+écrits dans ces répertoires ; PostgreSQL conserve leurs métadonnées et les noms
+des fichiers. Sur LWS, définir `LIBRARY_BOOKS_DIR` et `LIBRARY_COVERS_DIR` vers
+des répertoires persistants accessibles en écriture pour que ces uploads
+survivent aux redéploiements. Les livres personnels restent dans le stockage
+privé défini par `PRIVATE_STORAGE_DIR`.
+
+Le catalogue public peut aussi lire les métadonnées de
+`migration/library_books_from_pdf.csv` sans PostgreSQL : c’est le mode utilisé
+par défaut en développement, et il sert de repli en production si la connexion
+PostgreSQL est indisponible. Les filtres, la recherche, le tri, la pagination,
+les couvertures et la lecture/téléchargement des PDF restent disponibles pour
+les ouvrages présents dans ce fichier. Définir `LIBRARY_CATALOG_SOURCE=file`
+pour imposer ce mode, `LIBRARY_CATALOG_SOURCE=database` pour imposer PostgreSQL,
+ou `LIBRARY_CATALOG_SOURCE=auto` pour essayer PostgreSQL puis utiliser les
+fichiers en cas de panne de connexion. Les favoris, les J’aime, la progression
+de lecture et l’administration restent des fonctions avec état et nécessitent
+PostgreSQL.
+En production, laisser ce réglage absent ou choisir `auto` pour privilégier
+PostgreSQL ; le mode `file` ne sert qu’un catalogue public en lecture seule.
 
 Le script `scripts/import_legacy_library.mjs` importe les métadonnées des
 ouvrages et, si les CSV sont fournis, les profils de bibliothèque, favoris,
