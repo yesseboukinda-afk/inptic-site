@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
     '/api/library/file': ['./migration/library_books_from_pdf.csv'],
     '/api/library/cover': ['./migration/library_books_from_pdf.csv'],
   },
-  htmlLimitedBots: /.*/,
   async headers() {
     return [
       {

@@ -67,9 +67,16 @@ function normalizeRequest(text: string) {
 
 function requestsDocument(text: string) {
   const command = normalizeRequest(text);
-  return /\b(?:genere|generer|cree|creer|redige|rediger|prepare|preparer|produis|ecris|ecrire|concois|concoire|fais|faire|realise|realiser)\b.{0,70}\b(?:document|rapport|lettre|cv|curriculum vitae|compte rendu|memoire|fiche|presentation)\b/.test(command)
-    || /\b(?:genere|generer|cree|creer|prepare|preparer|produis|ecris|fais|faire|realise|realiser|telecharge|telecharger)\b.{0,55}\b(?:fichier|document|tableur|classeur|diaporama|presentation|pdf|docx|xlsx|pptx|csv|excel|powerpoint|word)\b/.test(command)
+  return /\b(?:gener\w*|cre\w*|redig\w*|prepar\w*|produi\w*|ecri\w*|concoi\w*|fai\w*|realis\w*)\b.{0,80}\b(?:document|rapport|lettre|cv|curriculum vitae|compte rendu|memoire|fiche|presentation)\b/.test(command)
+    || /\b(?:gener\w*|cre\w*|prepar\w*|produi\w*|ecri\w*|fai\w*|realis\w*|telecharg\w*)\b.{0,55}\b(?:fichier|document|tableur|classeur|diaporama|presentation|pdf|docx|xlsx|pptx|csv|excel|powerpoint|word)\b/.test(command)
     || /\b(?:fichier|document|tableur|classeur|diaporama|presentation|pdf|docx|xlsx|pptx|csv|excel|powerpoint|word)\b.{0,45}\b(?:telechargeable|a telecharger|telecharger|format)\b/.test(command);
+}
+
+function requestsFileFormat(text: string) {
+  const command = normalizeRequest(text);
+  const format = '(?:pdf|docx|word|xlsx|excel|pptx|powerpoint|csv|txt)';
+  return new RegExp(`\\b(?:document|fichier|format|version)\\b.{0,30}\\b${format}\\b`).test(command)
+    || new RegExp(`^\\s*(?:en\\s+|format\\s+)?${format}\\s*(?:stp|svp|s'il te plait|merci)?\\s*[.!?]*\\s*$`).test(command);
 }
 
 function getRequestedFileFormat(text: string): ChatbotFileFormat {
@@ -284,8 +291,18 @@ async function siteAuditedPOST(req: NextRequest) {
     }
 
     const text = messages.filter((item) => item.role === 'user').at(-1)?.content || '';
+    const previousMessages = messages.slice(0, -1);
+    const previousAssistant = previousMessages.at(-1);
+    const previousUser = previousMessages.slice(0, -1).reverse().find((message) => message.role === 'user');
+    const fileFormatFollowUp = requestsFileFormat(text)
+      && previousAssistant?.role === 'assistant'
+      && previousUser !== undefined
+      && requestsDocument(previousUser.content);
+    const previousDocumentContent = fileFormatFollowUp && previousAssistant?.role === 'assistant'
+      ? previousAssistant.content
+      : '';
     const webResearchRequested = requestsWebResearch(text);
-    const documentRequested = requestsDocument(text);
+    const documentRequested = requestsDocument(text) || fileFormatFollowUp;
     const previousImageRequest = [...messages.slice(0, -1)]
       .reverse()
       .find((message) => message.role === 'user' && requestsImage(message.content));
@@ -316,7 +333,7 @@ Contexte du site :\n${siteKnowledge}${memoryContext}`;
     const openRouterKey = getEnvironmentApiKey('openrouter');
     const providerCascade = await getAIProviderCascadeSettings();
 
-    if (!providerCascade.length && !geminiApiKey && !openAiKey && !openRouterKey) {
+    if (!providerCascade.length && !geminiApiKey && !openAiKey && !openRouterKey && !fileFormatFollowUp) {
       return NextResponse.json(
         {
           success: false,
@@ -373,6 +390,10 @@ Contexte du site :\n${siteKnowledge}${memoryContext}`;
         usedModel,
       });
     };
+
+    if (fileFormatFollowUp) {
+      return await finishReply(previousDocumentContent, 'Document préparé depuis la réponse précédente');
+    }
 
     if (imageRequested && !documentRequested) {
       try {

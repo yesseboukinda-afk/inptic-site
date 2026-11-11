@@ -272,10 +272,16 @@ export default function Header() {
     const color = isDarkTheme
       ? isActive ? '#f5cc72' : '#dbe5f2'
       : isActive ? '#8a5a00' : '#0f172a';
+    const prefetchRoute = () => {
+      void router.prefetch(href);
+    };
 
     return (
       <Link
         href={href}
+        prefetch={true}
+        onMouseEnter={prefetchRoute}
+        onFocus={prefetchRoute}
         aria-label={label}
         title={label}
         aria-current={isActive ? 'page' : undefined}
@@ -380,10 +386,17 @@ export default function Header() {
                 </span>
                 <Link
                   href={subitem.href}
+                  prefetch={true}
+                  onMouseEnter={() => {
+                    setHoveredDropdownItem(subitem.id);
+                    void router.prefetch(subitem.href);
+                  }}
                   className="header-desktop-nav-tree-link text-white"
-                  onMouseEnter={() => setHoveredDropdownItem(subitem.id)}
                   onMouseLeave={() => setHoveredDropdownItem(null)}
-                  onFocus={() => setHoveredDropdownItem(subitem.id)}
+                  onFocus={() => {
+                    setHoveredDropdownItem(subitem.id);
+                    void router.prefetch(subitem.href);
+                  }}
                   onBlur={() => setHoveredDropdownItem(null)}
                   style={{
                     display: 'flex',
@@ -445,6 +458,7 @@ export default function Header() {
             >
               <Link
                 href={item.href}
+                prefetch={true}
                 aria-label={item.label}
                 title={item.label}
                 aria-current={isActive ? 'page' : undefined}
@@ -726,8 +740,33 @@ export default function Header() {
   };
 
   const toggleMobileSubmenu = (id: string) => {
+    const item = menuItems.find((menuItem) => menuItem.id === id);
+    const routes = new Set(item?.submenu?.map((subitem) => subitem.href) ?? []);
+    routes.forEach((href) => {
+      if (href !== pathname) void router.prefetch(href);
+    });
     setExpandedMobileMenu((current) => (current === id ? null : id));
   };
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const routes = [
+      '/',
+      '/actualites',
+      '/concours',
+      '/recherche/publications',
+      '/clubs',
+      '/bibliotheque',
+      '/formations',
+      '/entreprises',
+      '/contact',
+      '/annonces',
+    ];
+    routes.forEach((href) => {
+      if (href !== pathname) void router.prefetch(href);
+    });
+  }, [mobileMenuOpen, pathname, router]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -753,7 +792,7 @@ export default function Header() {
           className="flex items-center gap-3 md:gap-4"
           style={{ width: 'calc(100% - 30px)', marginInline: 'auto' }}
         >
-          <Link href="/" className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
+          <Link href="/" prefetch={true} className="flex flex-shrink-0 items-center gap-3 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2" aria-label="INPTIC - Accueil">
             <img src="/logoinptic.ico" alt="Logo INPTIC" width={71} height={40} className="h-8 w-14 object-contain sm:h-9 sm:w-16 md:h-10 md:w-[71px]" />
           </Link>
 
@@ -832,7 +871,7 @@ export default function Header() {
 
             {hasStaffDashboard ? (
               <>
-                <Link href={dashboardHref} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={dashboardLabel}>
+                <Link href={dashboardHref} prefetch={true} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={dashboardLabel}>
                   <LayoutDashboard size={16} aria-hidden="true" />
                   <span className="btn-label">{dashboardLabel}</span>
                 </Link>
@@ -843,7 +882,7 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/concours" className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.concoursSpace', 'Espace Concours')}>
+                <Link href="/concours" prefetch={true} className="navbar-icon-only bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={16} aria-hidden="true" />
                   <span className="btn-label">{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
@@ -853,7 +892,7 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <Link href="/candidat" className="navbar-icon-only bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.login')}>
+              <Link href="/candidat" prefetch={true} className="navbar-icon-only bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-95" aria-label={t('common.login')}>
                 <UserRound size={16} aria-hidden="true" />
                 <span className="btn-label">{t('common.login')}</span>
               </Link>
@@ -863,7 +902,7 @@ export default function Header() {
           <div className="site-header-mobile-actions ml-auto flex items-center gap-2 lg:hidden">
             {hasStaffDashboard ? (
               <>
-                <Link href={dashboardHref} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={dashboardLabel}>
+                <Link href={dashboardHref} prefetch={true} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={dashboardLabel}>
                   <LayoutDashboard size={14} aria-hidden="true" />
                   <span>{dashboardLabel}</span>
                 </Link>
@@ -874,7 +913,7 @@ export default function Header() {
               </>
             ) : isStudent ? (
               <>
-                <Link href="/concours" className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.concoursSpace', 'Espace Concours')}>
+                <Link href="/concours" prefetch={true} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" aria-label={t('common.concoursSpace', 'Espace Concours')}>
                   <UserRound size={14} aria-hidden="true" />
                   <span>{t('common.concoursSpace', 'Espace Concours')}</span>
                 </Link>
@@ -884,7 +923,7 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <Link href="/candidat" className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.login')}>
+              <Link href="/candidat" prefetch={true} className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-semibold text-white" aria-label={t('common.login')}>
                 <UserRound size={14} aria-hidden="true" />
                 <span>{t('common.login')}</span>
               </Link>
@@ -967,22 +1006,22 @@ export default function Header() {
               {renderSearchSuggestions('header-search-suggestions-mobile')}
             </form>
 
-            <Link href="/" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/" prefetch={true} onTouchStart={() => { void router.prefetch('/'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.home')}
             </Link>
 
-            <Link href="/actualites" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/actualites" prefetch={true} onTouchStart={() => { void router.prefetch('/actualites'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.news')}
             </Link>
 
-            <Link href="/concours" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/concours" prefetch={true} onTouchStart={() => { void router.prefetch('/concours'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.concours', 'Concours')}
             </Link>
 
-            <Link href="/recherche/publications" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/recherche/publications" prefetch={true} onTouchStart={() => { void router.prefetch('/recherche/publications'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.publications', 'Publications')}
             </Link>
-            <Link href="/clubs" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/clubs" prefetch={true} onTouchStart={() => { void router.prefetch('/clubs'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               Clubs
             </Link>
 
@@ -996,7 +1035,7 @@ export default function Header() {
                 {item.submenu && expandedMobileMenu === item.id && (
                   <div className="pl-4 space-y-1 mt-1 animate-in slide-in-from-top duration-150">
                     {item.submenu.map((subitem) => (
-                      <Link key={subitem.id} href={subitem.href} className="block px-4 py-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm text-gray-700" onClick={() => setMobileMenuOpen(false)}>
+                      <Link key={subitem.id} href={subitem.href} prefetch={true} onTouchStart={() => { void router.prefetch(subitem.href); }} className="block px-4 py-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm text-gray-700" onClick={() => setMobileMenuOpen(false)}>
                         {subitem.label}
                       </Link>
                     ))}
@@ -1005,14 +1044,14 @@ export default function Header() {
               </div>
             ))}
 
-            <Link href="/entreprises" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/entreprises" prefetch={true} onTouchStart={() => { void router.prefetch('/entreprises'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.companies')}
             </Link>
-            <Link href="/contact" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/contact" prefetch={true} onTouchStart={() => { void router.prefetch('/contact'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.contact')}
             </Link>
 
-            <Link href="/annonces" className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/annonces" prefetch={true} onTouchStart={() => { void router.prefetch('/annonces'); }} className="block px-4 py-3 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-medium text-gray-900" onClick={() => setMobileMenuOpen(false)}>
               {t('common.annonces')}
             </Link>
 

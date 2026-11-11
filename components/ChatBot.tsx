@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bot, History, Loader, Menu, Plus, Send, X, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Bot, Download, FileText, History, Loader, Menu, Plus, Presentation, Send, Table, X, Mic, MicOff, Volume2 } from 'lucide-react';
 import { speakFrenchText } from '@/lib/chatbot-speech';
 import { useTranslation } from 'react-i18next';
 
@@ -26,6 +26,42 @@ type Conversation = {
 };
 
 const memoryStorageKey = 'sohane-memory';
+
+function getDocumentIcon(format: string) {
+  if (format === 'xlsx' || format === 'csv') return Table;
+  if (format === 'pptx') return Presentation;
+  return FileText;
+}
+
+function DocumentDownloadCard({ title, format, url }: Omit<ChatFile, 'id'>) {
+  const normalizedFormat = format.toLowerCase();
+  const DocumentIcon = getDocumentIcon(normalizedFormat);
+  const formatColor = normalizedFormat === 'pdf'
+    ? 'bg-rose-50 text-rose-700'
+    : normalizedFormat === 'xlsx' || normalizedFormat === 'csv'
+      ? 'bg-emerald-50 text-emerald-700'
+      : normalizedFormat === 'pptx'
+        ? 'bg-orange-50 text-orange-700'
+        : 'bg-blue-50 text-blue-700';
+
+  return (
+    <a
+      href={url}
+      className="my-2 flex w-fit max-w-full items-center gap-3 !rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      aria-label={`Télécharger ${title} au format ${normalizedFormat.toUpperCase()}`}
+    >
+      <span className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center !rounded-xl ${formatColor}`} aria-hidden="true">
+        <DocumentIcon size={21} strokeWidth={1.8} />
+        <span className="mt-0.5 text-[8px] font-bold uppercase leading-none">{normalizedFormat}</span>
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate">{title.replace(/\s*\(\.(?:pdf|docx|xlsx|pptx|csv|txt)\)$/i, '')}</span>
+        <span className="mt-0.5 block text-xs font-normal text-slate-500">Document {normalizedFormat.toUpperCase()} · Télécharger</span>
+      </span>
+      <Download className="ml-1 shrink-0 text-blue-600" size={18} aria-hidden="true" />
+    </a>
+  );
+}
 
 function normalizeCommand(value: string) {
   return value
@@ -99,19 +135,8 @@ function renderMessage(text: string) {
 
     if (link) {
       if (link[2].startsWith('/api/chat/documents?') && /[?&]download=1(?:&|$)/.test(link[2])) {
-        return (
-          <a
-            key={`${link[2]}-${index}`}
-            href={link[2]}
-            className="my-2 flex w-fit max-w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-100"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-lg" aria-hidden="true">↓</span>
-            <span className="min-w-0">
-              <span className="block truncate">{link[1]}</span>
-              <span className="mt-0.5 block text-xs font-normal text-blue-700">Fichier prêt à télécharger</span>
-            </span>
-          </a>
-        );
+        const format = link[2].match(/[?&]format=(pdf|docx|xlsx|pptx|csv|txt)(?:&|$)/i)?.[1]?.toLowerCase() || 'file';
+        return <DocumentDownloadCard key={`${link[2]}-${index}`} title={link[1]} format={format} url={link[2]} />;
       }
 
       return (
@@ -146,6 +171,7 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   const suggestions = t('chat.suggestions', { returnObjects: true }) as string[];
   const [isOpen, setIsOpen] = useState(initiallyOpen);
   const [isMounted, setIsMounted] = useState(initiallyOpen);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [chatId, setChatId] = useState<string | null>(null);
@@ -209,6 +235,13 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
+
+  useEffect(() => {
+    const updateViewport = () => setIsSmallScreen(window.innerWidth <= 639);
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   useEffect(() => () => speechCancelRef.current?.(), []);
   useEffect(() => () => {
@@ -538,36 +571,62 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
 
       {isMounted && (
         <div
-          className="fixed right-4 bottom-20 z-40 w-[min(420px,calc(100vw-2rem))]"
+          className="sohane-chat-backdrop"
+          style={isSmallScreen
+            ? {
+                position: 'fixed',
+                inset: 0,
+                zIndex: 60,
+                width: '100%',
+                height: '100dvh',
+                backgroundColor: 'rgb(2 6 23 / 35%)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+            }
+            : {
+                position: 'fixed',
+                right: '1rem',
+                bottom: '6rem',
+                zIndex: 60,
+                width: 'min(440px, calc(100vw - 2rem))',
+              }}
           onClick={closeChat}
           role="presentation"
         >
           <div
             id="chat-window"
-            className={`relative flex h-[min(470px,calc(100vh-96px))] w-full flex-col overflow-hidden rounded-xl bg-white shadow-2xl ${isOpen ? 'chatbot-panel-enter' : 'chatbot-panel-exit'}`}
+            className={`sohane-chat-panel relative flex h-full w-full flex-col overflow-hidden border border-white/60 bg-slate-50 shadow-2xl ${isOpen ? 'chatbot-panel-enter' : 'chatbot-panel-exit'}`}
+            style={{
+              height: isSmallScreen ? 'min(72dvh, 600px)' : 'min(640px, calc(100dvh - 120px))',
+              width: isSmallScreen ? 'calc(100% - 1rem)' : '100%',
+              maxWidth: isSmallScreen ? 440 : undefined,
+              borderRadius: isSmallScreen ? '20px 20px 0 0' : 22,
+            }}
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-labelledby="chat-header"
             aria-modal="true"
           >
-            <header className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-white">
+            <header className="flex shrink-0 items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-blue-800 px-3 py-2.5 text-white sm:px-4 sm:py-3.5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-20 items-center justify-center overflow-hidden rounded-lg bg-white px-1">
-                  <img src="/logoinptic.ico" alt="INPTIC" className="h-auto w-full object-contain" />
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center !rounded-2xl border border-white/20 bg-white/10 shadow-inner">
+                  <Bot size={23} aria-hidden="true" />
+                  <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 !rounded-full border-2 border-blue-950 bg-emerald-400" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 id="chat-header" className="font-bold">Sohane</h2>
-                  <p className="text-xs text-blue-100">{t('chat.assistant')}</p>
+                  <h2 id="chat-header" className="font-semibold tracking-wide">Sohane</h2>
+                  <p className="mt-0.5 text-xs text-blue-100">{t('chat.assistant')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setShowHistory((visible) => !visible)} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={showHistory ? t('chat.hideSidebar') : t('chat.showSidebar')} title={showHistory ? t('chat.hideSidebar') : t('chat.showSidebar')}>
+                <button onClick={() => setShowHistory((visible) => !visible)} className="!rounded-xl p-2 text-blue-100 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label={showHistory ? t('chat.hideSidebar') : t('chat.showSidebar')} title={showHistory ? t('chat.hideSidebar') : t('chat.showSidebar')}>
                   {showHistory ? <Menu size={19} aria-hidden="true" /> : <History size={19} aria-hidden="true" />}
                 </button>
-                <button onClick={startNewConversation} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={t('chat.newConversation')} title={t('chat.newConversation')}>
+                <button onClick={startNewConversation} className="!rounded-xl p-2 text-blue-100 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label={t('chat.newConversation')} title={t('chat.newConversation')}>
                   <Plus size={20} aria-hidden="true" />
                 </button>
-                <button onClick={closeChat} className="rounded-lg p-2 text-blue-100 hover:bg-white/10 hover:text-white" aria-label={t('chat.close')} title={t('chat.close')}>
+                <button onClick={closeChat} className="flex h-11 w-11 items-center justify-center !rounded-xl bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label={t('chat.close')} title={t('chat.close')}>
                   <X size={20} aria-hidden="true" />
                 </button>
               </div>
@@ -600,53 +659,49 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
               </aside>
             )}
 
-            <div className="flex flex-1 flex-col overflow-y-auto bg-white p-4 sm:p-10" role="log" aria-live="polite">
-              <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+            <div className="flex flex-1 flex-col overflow-y-auto bg-slate-50 px-4 py-5 sm:px-5" role="log" aria-live="polite">
+              <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5">
                 {messages.length === 1 && (
-                  <div className="mx-auto mt-12 w-full max-w-2xl text-center sm:mt-20">
-                    <div className="mx-auto mb-5 flex h-16 w-28 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200">
-                      <img src="/logoinptic.ico" alt="INPTIC" className="h-auto w-full object-contain" />
+                  <div className="mx-auto mt-8 w-full max-w-2xl text-center sm:mt-12">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center !rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-900/20">
+                      <Bot size={28} aria-hidden="true" />
                     </div>
-                    <h3 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Comment puis-je vous aider ?</h3>
-                    <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-500">Formations, admissions, vie étudiante et informations sur l’INPTIC. Posez votre question naturellement.</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Sohane · INPTIC</p>
+                    <h3 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Comment puis-je vous aider ?</h3>
+                    <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">Formations, admissions, vie étudiante… Posez votre question, je vous réponds ici.</p>
                   </div>
                 )}
                 {messages.map((message) => (
-                  <div key={message.id} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    <div className={`max-w-[88%] px-4 py-3 text-[15px] leading-7 ${message.role === 'user' ? 'rounded-2xl rounded-br-sm bg-slate-800 text-white shadow-sm' : 'text-slate-800'}`}>
+                  <div key={message.id} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {message.role === 'assistant' && (
+                      <span className="mb-5 flex h-8 w-8 shrink-0 items-center justify-center !rounded-xl bg-blue-100 text-blue-700" aria-hidden="true">
+                        <Bot size={17} />
+                      </span>
+                    )}
+                    <div className={`max-w-[88%] px-4 py-3 text-[14px] leading-6 shadow-sm sm:text-[15px] ${message.role === 'user' ? '!rounded-2xl !rounded-br-md bg-gradient-to-br from-blue-600 to-blue-700 text-white' : '!rounded-2xl !rounded-bl-md border border-slate-200/80 bg-white text-slate-800'}`}>
                       <div className="whitespace-pre-line">{renderMessage(message.content)}</div>
                       {message.files?.filter((file) => !message.content.includes(file.url)).map((file) => (
-                        <a
-                          key={file.id}
-                          href={file.url}
-                          className="my-2 flex w-fit max-w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-100"
-                        >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-lg" aria-hidden="true">↓</span>
-                          <span className="min-w-0">
-                            <span className="block truncate">Télécharger {file.title}</span>
-                            <span className="mt-0.5 block text-xs font-normal text-blue-700">{file.format.toUpperCase()} · fichier prêt</span>
-                          </span>
-                        </a>
+                        <DocumentDownloadCard key={file.id} {...file} />
                       ))}
+                      {message.role === 'assistant' && (
+                        <button
+                          type="button"
+                          onClick={() => speakText(message.content, message.id)}
+                          className="mt-2 inline-flex items-center gap-1.5 border-t border-slate-100 pt-2 text-xs font-medium text-slate-500 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          title="Écouter la réponse"
+                        >
+                          <Volume2 size={14} aria-hidden="true" />
+                          <span>{speakingMessageId === message.id ? 'Arrêter la lecture' : 'Écouter'}</span>
+                        </button>
+                      )}
                     </div>
-                    {message.role === 'assistant' && (
-                      <button
-                        type="button"
-                        onClick={() => speakText(message.content, message.id)}
-                        className="mt-1 ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition"
-                        title="Écouter la réponse"
-                      >
-                        <Volume2 size={13} />
-                        <span>{speakingMessageId === message.id ? 'Arrêter la lecture' : 'Écouter'}</span>
-                      </button>
-                    )}
                   </div>
                 ))}
 
                 {messages.length === 1 && (
-                  <div className="mx-auto mt-8 grid w-full max-w-2xl gap-2 pt-4 sm:grid-cols-3">
+                  <div className="mx-auto mt-5 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
                     {suggestions.map((suggestion) => (
-                      <button key={suggestion} onClick={() => void sendMessage(suggestion)} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-xs leading-5 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-400 hover:text-slate-900 hover:shadow-md">
+                      <button key={suggestion} onClick={() => void sendMessage(suggestion)} className="!rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-left text-sm leading-5 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 hover:text-slate-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                         {suggestion}
                       </button>
                     ))}
@@ -654,38 +709,38 @@ export default function ChatBot({ initiallyOpen = false }: { initiallyOpen?: boo
                 )}
 
                 {isLoading && (
-                  <div className="flex items-center gap-2 self-start rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+                  <div className="ml-10 flex items-center gap-2 self-start !rounded-2xl !rounded-bl-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
                     <Loader size={16} className="animate-spin text-blue-600" aria-hidden="true" />
                     Sohane prépare une réponse…
                   </div>
                 )}
                 {speechError && (
-                  <p role="alert" className="text-xs text-red-700">{speechError}</p>
+                  <p role="alert" className="ml-10 !rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{speechError}</p>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
 
-            <form className="border-t border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
-              <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-100">
+            <form className="shrink-0 border-t border-slate-200 bg-white px-3 py-3 sm:px-4 sm:py-4" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
+              <div className="mx-auto flex max-w-3xl items-end gap-2 !rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-sm transition focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
                 <textarea ref={inputRef} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={handleKeyDown} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} rows={1} disabled={isLoading || isTranscribing} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed" />
 
                 <button
                   type="button"
                   onClick={toggleListening}
                   disabled={isTranscribing || isLoading}
-                  className={`rounded-lg p-2.5 transition-colors ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:cursor-wait disabled:opacity-60`}
+                  className={`!rounded-xl p-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-white text-slate-600 hover:bg-blue-100 hover:text-blue-700'} disabled:cursor-wait disabled:opacity-60`}
                   aria-label={isListening ? 'Terminer l’enregistrement vocal' : 'Parler au micro'}
                   title={isTranscribing ? 'Transcription en cours…' : isListening ? 'Cliquer pour envoyer votre question' : 'Dicter votre question'}
                 >
                   {isTranscribing ? <Loader size={18} className="animate-spin" /> : isListening ? <MicOff size={18} /> : <Mic size={18} />}
                 </button>
 
-                <button type="submit" disabled={isLoading || !inputValue.trim()} className="rounded-lg bg-blue-600 p-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label={t('chat.send')} title={t('chat.send')}>
+                <button type="submit" disabled={isLoading || !inputValue.trim()} className="!rounded-xl bg-blue-600 p-2.5 text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label={t('chat.send')} title={t('chat.send')}>
                   <Send size={18} aria-hidden="true" />
                 </button>
               </div>
-              <p className="mx-auto mt-2 max-w-xl text-center text-[11px] text-slate-400">Les informations officielles Admissions et Contact font foi.</p>
+              <p className="mx-auto mt-2 max-w-xl text-center text-[10px] text-slate-400 sm:text-[11px]">Les informations officielles Admissions et Contact font foi.</p>
               {memoryNotice && <p role="status" className="mx-auto mt-1 max-w-xl text-center text-[11px] text-slate-500">{memoryNotice}</p>}
             </form>
           </div>
