@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, KeyRound, LogIn, UserPlus } from 'lucide-react';
-import { Lottie } from 'lottie-react';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/authMessages';
 import { getRolePath, getStaffRole, isDirectorRole, isRHRole, isSuperAdminRole, normalizeRole } from '@/lib/roles';
 import { useTranslation } from 'react-i18next';
 import { getCandidateJourneyPath } from '@/lib/admissionsWorkflow';
+import StatusAnimation from '@/components/StatusAnimation';
+import useDarkTheme from '@/components/useDarkTheme';
 
 const generateDossierNumber = () => `INPTIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
@@ -165,6 +166,7 @@ function SocialAuthButtons({ onClick, t }: { onClick: (provider: (typeof socialP
 export default function Candidat() {
   const { t } = useTranslation();
   const router = useRouter();
+  const isDarkTheme = useDarkTheme();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [msg, setMsg] = useState('');
@@ -192,7 +194,7 @@ export default function Candidat() {
       setShowLoginSuccess(false);
       loginNavigationTimer.current = null;
       router[method](destination);
-    }, 1400);
+    }, 2000);
   };
 
   const handleSocialAuth = async (provider: (typeof socialProviders)[number]['provider']) => {
@@ -527,7 +529,7 @@ export default function Candidat() {
       }
 
       setMsg('Compte candidat créé et connecté. Complétez maintenant votre dossier de candidature.');
-      router.push(getCandidateDestination(profile));
+      navigateAfterLogin(getCandidateDestination(profile), 'push', true);
     } catch (error) {
       const message = error instanceof Error ? translateAuthError(error.message, t) : t('auth.genericError');
       setMsg(message);
@@ -542,20 +544,21 @@ export default function Candidat() {
         <div
           role="status"
           aria-live="assertive"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+          className="auth-success-overlay fixed inset-0 z-[100] flex items-center justify-center px-4 backdrop-blur-sm"
+          style={{
+            backgroundColor: isDarkTheme ? 'rgb(2 6 23 / 92%)' : 'rgb(255 255 255 / 92%)',
+            color: isDarkTheme ? '#f8fafc' : '#0f172a',
+          }}
         >
-          <div className="flex flex-col items-center text-center text-white">
-            <div className="flex h-80 w-80 max-w-[85vw] items-center justify-center rounded-full bg-white shadow-[0_0_100px_rgba(74,222,128,0.35)]">
-              <Lottie
-                src="/icons8-check-50.json"
-                autoplay
-                loop={false}
-                className="h-full w-full"
-                aria-label="Connexion validée"
-              />
-            </div>
+          <div className="flex flex-col items-center text-center text-current">
+            <StatusAnimation label="Connexion validée" size={256} mode="success" />
             <p className="mt-6 text-2xl font-black tracking-wide sm:text-3xl">Connexion validée</p>
-            <p className="mt-2 text-sm font-medium text-slate-200">Bienvenue à l’INPTIC</p>
+            <p
+              className="auth-success-subtitle mt-2 text-sm font-medium"
+              style={{ color: isDarkTheme ? '#e2e8f0' : '#475569' }}
+            >
+              Bienvenue à l’INPTIC
+            </p>
           </div>
         </div>
       )}

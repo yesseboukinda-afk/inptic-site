@@ -12,18 +12,31 @@ import {
   shouldFallbackToLibraryFiles,
   shouldUseLibraryFileCatalog,
 } from '@/lib/library-file-catalog.mjs';
-import { isAdminRole } from '@/lib/roles';
+import { isSuperAdminRole } from '@/lib/roles';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BOOK_FIELDS = `id, title, author, description, category, language, edition, page_count,
-  legacy_file_name, file_path, legacy_cover_name, cover_path, download_count, likes_count,
+  legacy_file_name, file_path, legacy_cover_name, cover_path, download_count,
   is_public, owner_user_id, created_at`;
 
 function isValidBookId(value: string | null): value is string {
   return Boolean(value && /^[1-9]\d{0,17}$/.test(value));
+}
+
+async function deleteLegacyAssetIfUnused(
+  kind: 'books' | 'covers',
+  filename: string,
+  column: 'legacy_file_name' | 'legacy_cover_name',
+) {
+  const { rows } = await getPostgresPool().query<{ in_use: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM public.library_books WHERE ${column} = $1) AS in_use`,
+    [filename],
+  );
+  if (rows[0]?.in_use) return;
+  await deleteLibraryAsset(kind, filename);
 }
 
 function getCatalogDiagnostic(error: unknown, stage: string) {
@@ -81,7 +94,7 @@ export async function GET(request: NextRequest) {
   const initialValue = (request.nextUrl.searchParams.get('initial') || 'ALL').toUpperCase();
   const initial = /^[A-Z]$/.test(initialValue) || initialValue === '#' ? initialValue : 'ALL';
   const requestedType = request.nextUrl.searchParams.get('type');
-  const sort = ['date', 'downloads', 'likes', 'title'].includes(sortValue || '')
+  const sort = ['date', 'downloads', 'title'].includes(sortValue || '')
     ? sortValue
     : requestedType === 'popular'
       ? 'downloads'
@@ -89,49 +102,47 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, Math.min(10_000, Number(request.nextUrl.searchParams.get('page')) || 1));
   const limit = Math.max(1, Math.min(48, Number(request.nextUrl.searchParams.get('limit')) || 24));
   const offset = (page - 1) * limit;
-  const where: string[] = ['(b.is_public = TRUE OR b.owner_user_id = $1 OR $3 = TRUE)'];
-  const visitorCookie = request.cookies.get('inptic_library_visitor')?.value || '';
-  const visitorId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(visitorCookie)
-    ? visitorCookie
-    : null;
-  const values: unknown[] = [null, visitorId, false];
+  const where: string[] = ['(b.is_public = TRUE OR b.owner_user_id = $1 OR $2 = TRUE)'];
+  const values: unknown[] = [null, false];
   let adminDiagnosticEnabled = false;
   let queryStage = 'authentification';
 
   if (shouldUseLibraryFileCatalog()) {
-    try {
-      return await getFileCatalogResponse(request);
-    } catch (error) {
-      console.error('[Library API] File catalog query failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-      return NextResponse.json({ error: 'Le catalogue de la bibliothèque est indisponible.' }, {
-        status: 503,
-        headers: LIBRARY_NO_STORE_HEADERS,
-      });
+    const user = request.nextUrl.searchParams.get('admin') === '1'
+      ? await getAuthenticatedUser(request)
+      : null;
+    if (!user || !isSuperAdminRole(user.role)) {
+      try {
+        return await getFileCatalogResponse(request);
+      } catch (error) {
+        console.error('[Library API] File catalog query failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+        return NextResponse.json({ error: 'Le catalogue de la bibliothèque est indisponible.' }, {
+          status: 503,
+          headers: LIBRARY_NO_STORE_HEADERS,
+        });
+      }
     }
   }
 
   try {
     const user = await getAuthenticatedUser(request);
-    adminDiagnosticEnabled = Boolean(user && isAdminRole(user.role));
+    adminDiagnosticEnabled = Boolean(user && isSuperAdminRole(user.role));
     queryStage = 'lecture du catalogue';
     values[0] = user?.id || null;
-    const includePrivate = request.nextUrl.searchParams.get('admin') === '1' && Boolean(user && isAdminRole(user.role));
-    values[2] = includePrivate;
+    const includePrivate = request.nextUrl.searchParams.get('admin') === '1' && Boolean(user && isSuperAdminRole(user.role));
+    values[1] = includePrivate;
     if (requestedId !== null) {
       if (!/^[1-9]\d{0,17}$/.test(requestedId)) {
         return NextResponse.json({ error: 'Identifiant de livre invalide.' }, { status: 400 });
       }
       const { rows } = await getPostgresPool().query(
         `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
-           EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
-           (EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id)
-            OR EXISTS (SELECT 1 FROM public.library_guest_likes gl WHERE gl.visitor_id = $2 AND gl.book_id = b.id)) AS is_liked,
            COALESCE(p.current_page, 0) AS current_page,
            COALESCE(p.total_pages, 0) AS progress_pages
          FROM public.library_books b
          LEFT JOIN public.library_reading_progress p ON p.book_id = b.id AND p.user_id = $1
-         WHERE b.id = $3 AND (b.is_public = TRUE OR b.owner_user_id = $1)`,
-        [user?.id || null, visitorId, requestedId],
+         WHERE b.id = $2 AND (b.is_public = TRUE OR b.owner_user_id = $1)`,
+        [user?.id || null, requestedId],
       );
       if (!rows[0]) return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
       return NextResponse.json({ book: normalizeLibraryBook(rows[0] as Record<string, unknown>) }, { headers: LIBRARY_NO_STORE_HEADERS });
@@ -165,27 +176,19 @@ export async function GET(request: NextRequest) {
 
     const pool = getPostgresPool();
     const whereSql = where.join(' AND ');
-    const countWhereSql = whereSql.replace(/\$(\d+)/g, (placeholder, parameter: string) => {
-      const index = Number(parameter);
-      return index > 2 ? `$${index - 1}` : placeholder;
-    });
-    const countValues = [values[0], values[2], ...values.slice(3)];
+    const countValues = [...values];
     queryStage = 'comptage des ouvrages';
     const countResult = await pool.query<{ total: number }>(
-      `SELECT COUNT(*)::int AS total FROM public.library_books b WHERE ${countWhereSql}`,
+      `SELECT COUNT(*)::int AS total FROM public.library_books b WHERE ${whereSql}`,
       countValues,
     );
     const total = Number(countResult.rows[0]?.total) || 0;
     const orderBy = sort === 'downloads' ? 'b.download_count DESC, b.created_at DESC'
-      : sort === 'likes' ? 'b.likes_count DESC, b.created_at DESC'
-        : sort === 'title' ? 'LOWER(b.title) ASC'
-          : 'b.created_at DESC';
+      : sort === 'title' ? 'LOWER(b.title) ASC'
+        : 'b.created_at DESC';
     queryStage = 'chargement des ouvrages';
     const rowsResult = await pool.query(
       `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
-         EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
-         (EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id)
-          OR EXISTS (SELECT 1 FROM public.library_guest_likes gl WHERE gl.visitor_id = $2 AND gl.book_id = b.id)) AS is_liked,
          COALESCE(p.current_page, 0) AS current_page,
          COALESCE(p.total_pages, 0) AS progress_pages
        FROM public.library_books b
@@ -207,9 +210,6 @@ export async function GET(request: NextRequest) {
       ),
       pool.query(
         `SELECT b.${BOOK_FIELDS.split(', ').join(', b.')},
-           EXISTS (SELECT 1 FROM public.library_favorites f WHERE f.user_id = $1 AND f.book_id = b.id) AS is_favorite,
-           (EXISTS (SELECT 1 FROM public.library_likes l WHERE l.user_id = $1 AND l.book_id = b.id)
-            OR EXISTS (SELECT 1 FROM public.library_guest_likes gl WHERE gl.visitor_id = $2 AND gl.book_id = b.id)) AS is_liked,
            COALESCE(p.current_page, 0) AS current_page,
            COALESCE(p.total_pages, 0) AS progress_pages
          FROM public.library_books b
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
          WHERE b.is_public = TRUE
          ORDER BY b.download_count DESC, b.created_at DESC
          LIMIT 3`,
-        [values[0], values[1]],
+        [values[0]],
       ),
     ]);
     return NextResponse.json({
@@ -335,11 +335,13 @@ export async function PATCH(request: NextRequest) {
   if ('error' in auth) return auth.error;
   let body: Record<string, unknown>;
   let cover: FormDataEntryValue | null = null;
+  let pdf: FormDataEntryValue | null = null;
   try {
     if (request.headers.get('content-type')?.includes('multipart/form-data')) {
       const form = await request.formData();
       body = Object.fromEntries(form.entries());
       cover = form.get('cover');
+      pdf = form.get('file');
     } else {
       body = await request.json();
     }
@@ -371,38 +373,63 @@ export async function PATCH(request: NextRequest) {
     else return NextResponse.json({ error: 'La couverture doit être une image JPG, PNG ou WebP valide.' }, { status: 400 });
   }
 
+  let pdfBytes: Buffer | null = null;
+  if (pdf instanceof File && pdf.size > 0) {
+    if (pdf.size > 50 * 1024 * 1024) return NextResponse.json({ error: 'Le PDF dépasse 50 Mo.' }, { status: 400 });
+    pdfBytes = Buffer.from(await pdf.arrayBuffer());
+    if (pdf.type !== 'application/pdf' || pdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+      return NextResponse.json({ error: 'Le fichier doit être un document PDF valide.' }, { status: 400 });
+    }
+  }
+
   const extension = coverMime === 'image/jpeg' ? 'jpg' : coverMime === 'image/png' ? 'png' : 'webp';
   let newCoverFileName: string | null = null;
+  const newPdfFileName = pdfBytes ? `${randomUUID()}.pdf` : null;
   let updated = false;
+  let previousFilePath: string | null = null;
+  let previousLegacyFileName: string | null = null;
+  let previousCoverPath: string | null = null;
+  let previousLegacyCoverName: string | null = null;
   try {
     if (coverBytes && coverMime) {
       newCoverFileName = `${randomUUID()}.${extension}`;
       await saveLibraryAsset('covers', newCoverFileName, coverBytes);
     }
+    if (pdfBytes && newPdfFileName) await saveLibraryAsset('books', newPdfFileName, pdfBytes);
 
     const client = await getPostgresPool().connect();
-    let previousCoverPath: string | null = null;
     try {
       await client.query('BEGIN');
-      const existing = await client.query<{ cover_path: string | null }>(
-        'SELECT cover_path FROM public.library_books WHERE id = $1 FOR UPDATE',
+      const existing = await client.query<{
+        file_path: string | null;
+        legacy_file_name: string | null;
+        cover_path: string | null;
+        legacy_cover_name: string | null;
+      }>(
+        'SELECT file_path, legacy_file_name, cover_path, legacy_cover_name FROM public.library_books WHERE id = $1 FOR UPDATE',
         [id],
       );
       if (!existing.rowCount) {
         await client.query('ROLLBACK');
         if (newCoverFileName) await deleteLibraryAsset('covers', newCoverFileName);
+        if (newPdfFileName) await deleteLibraryAsset('books', newPdfFileName);
         return NextResponse.json({ error: 'Livre introuvable.' }, { status: 404 });
       }
+      previousFilePath = existing.rows[0].file_path;
+      previousLegacyFileName = existing.rows[0].legacy_file_name;
       previousCoverPath = existing.rows[0].cover_path;
+      previousLegacyCoverName = existing.rows[0].legacy_cover_name;
       await client.query(
         `UPDATE public.library_books
          SET title = $2, author = $3, description = $4, category = $5, language = $6,
              edition = $7, page_count = $8,
              cover_path = CASE WHEN $9 IS NULL THEN cover_path ELSE NULL END,
              legacy_cover_name = COALESCE($9, legacy_cover_name),
+             file_path = CASE WHEN $10 IS NULL THEN file_path ELSE NULL END,
+             legacy_file_name = COALESCE($10, legacy_file_name),
              updated_at = NOW()
          WHERE id = $1`,
-        [id, title, author, description, category, language, edition, pageCount, newCoverFileName],
+        [id, title, author, description, category, language, edition, pageCount, newCoverFileName, newPdfFileName],
       );
       await client.query('COMMIT');
       updated = true;
@@ -412,15 +439,47 @@ export async function PATCH(request: NextRequest) {
     } finally {
       client.release();
     }
-    if (newCoverFileName && previousCoverPath) {
-      try {
-        const removed = await deleteStoredFile(LIBRARY_FILE_BUCKET, previousCoverPath);
-        if (!removed) console.error('[Library API] Replaced book cover left an orphaned stored file.');
-      } catch (cleanupError) {
-        console.error('[Library API] Replaced book cover cleanup failed:', cleanupError);
+    let cleanupWarning = false;
+    if (newPdfFileName) {
+      if (previousFilePath) {
+        try {
+          if (!await deleteStoredFile(LIBRARY_FILE_BUCKET, previousFilePath)) cleanupWarning = true;
+        } catch (cleanupError) {
+          cleanupWarning = true;
+          console.error('[Library API] Replaced book PDF cleanup failed:', cleanupError);
+        }
+      }
+      if (previousLegacyFileName) {
+        try {
+          await deleteLegacyAssetIfUnused('books', previousLegacyFileName, 'legacy_file_name');
+        } catch (cleanupError) {
+          cleanupWarning = true;
+          console.error('[Library API] Replaced source PDF cleanup failed:', cleanupError);
+        }
       }
     }
-    return NextResponse.json({ success: true });
+    if (newCoverFileName) {
+      if (previousCoverPath) {
+        try {
+          if (!await deleteStoredFile(LIBRARY_FILE_BUCKET, previousCoverPath)) cleanupWarning = true;
+        } catch (cleanupError) {
+          cleanupWarning = true;
+          console.error('[Library API] Replaced book cover cleanup failed:', cleanupError);
+        }
+      }
+      if (previousLegacyCoverName) {
+        try {
+          await deleteLegacyAssetIfUnused('covers', previousLegacyCoverName, 'legacy_cover_name');
+        } catch (cleanupError) {
+          cleanupWarning = true;
+          console.error('[Library API] Replaced source cover cleanup failed:', cleanupError);
+        }
+      }
+    }
+    return NextResponse.json({
+      success: true,
+      ...(cleanupWarning ? { warning: 'Le livre a été modifié, mais un ancien fichier n’a pas pu être supprimé.' } : {}),
+    });
   } catch (error) {
     if (newCoverFileName && !updated) {
       try {
@@ -428,6 +487,13 @@ export async function PATCH(request: NextRequest) {
         if (!removed) console.error('[Library API] Failed to clean up an unused replacement cover.');
       } catch (cleanupError) {
         console.error('[Library API] Unused replacement cover cleanup failed:', cleanupError);
+      }
+    }
+    if (newPdfFileName && !updated) {
+      try {
+        await deleteLibraryAsset('books', newPdfFileName);
+      } catch (cleanupError) {
+        console.error('[Library API] Unused replacement PDF cleanup failed:', cleanupError);
       }
     }
     console.error('[Library API] Book update failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
@@ -448,17 +514,36 @@ export async function DELETE(request: NextRequest) {
     const result = await getPostgresPool().query(
       `DELETE FROM public.library_books
        WHERE id = ANY($1::bigint[])
-       RETURNING file_path, cover_path`,
+       RETURNING file_path, legacy_file_name, cover_path, legacy_cover_name`,
       [ids],
     );
     if (!result.rowCount) return NextResponse.json({ error: 'Aucun livre correspondant.' }, { status: 404 });
-    const cleanupResults = await Promise.all(result.rows.flatMap((row) =>
-      [row.file_path, row.cover_path]
-        .filter((filePath): filePath is string => typeof filePath === 'string')
-        .map((filePath) => deleteStoredFile(LIBRARY_FILE_BUCKET, filePath)),
-    ));
-    if (cleanupResults.some((deleted) => !deleted)) {
-      console.error('[Library API] A deleted book left an orphaned stored file.');
+    let cleanupWarning = false;
+    await Promise.all(result.rows.map(async (row) => {
+      for (const [filePath, legacyFileName, kind, column] of [
+        [row.file_path, row.legacy_file_name, 'books', 'legacy_file_name'],
+        [row.cover_path, row.legacy_cover_name, 'covers', 'legacy_cover_name'],
+      ] as const) {
+        if (filePath) {
+          try {
+            if (!await deleteStoredFile(LIBRARY_FILE_BUCKET, filePath)) cleanupWarning = true;
+          } catch (cleanupError) {
+            cleanupWarning = true;
+            console.error('[Library API] Stored book asset cleanup failed:', cleanupError);
+          }
+        }
+        if (legacyFileName) {
+          try {
+            await deleteLegacyAssetIfUnused(kind, legacyFileName, column);
+          } catch (cleanupError) {
+            cleanupWarning = true;
+            console.error('[Library API] Source book asset cleanup failed:', cleanupError);
+          }
+        }
+      }
+    }));
+    if (cleanupWarning) {
+      console.error('[Library API] A deleted book left an orphaned stored or source file.');
       return NextResponse.json({
         success: true,
         deleted: result.rowCount,

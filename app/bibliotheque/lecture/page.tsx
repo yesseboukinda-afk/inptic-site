@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, BookmarkPlus, Download, LoaderCircle, Save } from 'lucide-react';
+import { ArrowLeft, Bookmark, Download, LoaderCircle } from 'lucide-react';
 import LibraryPdfViewer from '@/components/library/LibraryPdfViewer';
+import StatusAnimation from '@/components/StatusAnimation';
+import LibraryDownloadButton from '@/components/library/LibraryDownloadButton';
 
 type Book = {
   id: string;
@@ -13,7 +15,6 @@ type Book = {
   pageCount: number;
   currentPage: number;
   progressPages: number;
-  isFavorite: boolean;
 };
 
 export default function LibraryReaderPage() {
@@ -21,7 +22,7 @@ export default function LibraryReaderPage() {
   const [page, setPage] = useState(1);
   const [pdfPageCount, setPdfPageCount] = useState(0);
   const [busy, setBusy] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [marking, setMarking] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const pageCount = pdfPageCount || book?.pageCount || 0;
@@ -55,44 +56,25 @@ export default function LibraryReaderPage() {
     return () => { active = false; };
   }, []);
 
-  const saveProgress = async () => {
+  const markPage = async () => {
     if (!book) return;
-    setSaving(true);
+    setMarking(true);
     setError('');
     setNotice('');
     try {
       const response = await fetch('/api/library/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'progress', bookId: book.id, currentPage: page, totalPages: book.pageCount }),
+        body: JSON.stringify({ action: 'progress', bookId: book.id, currentPage: page, totalPages: pageCount }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer la progression.');
-      setBook({ ...book, currentPage: page, progressPages: book.pageCount });
-      setNotice('Votre position de lecture a été enregistrée.');
+      setBook({ ...book, currentPage: page, progressPages: pageCount });
+      setNotice(`La page ${page} a été ajoutée à vos marque-pages.`);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Connectez-vous pour enregistrer votre progression.');
+      setError(saveError instanceof Error ? saveError.message : 'Connectez-vous pour marquer cette page.');
     } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleFavorite = async () => {
-    if (!book) return;
-    setError('');
-    setNotice('');
-    try {
-      const response = await fetch('/api/library/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'favorite', bookId: book.id }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Impossible de mettre à jour vos favoris.');
-      setBook({ ...book, isFavorite: Boolean(data.active) });
-      setNotice(data.active ? 'Livre ajouté à vos favoris.' : 'Livre retiré de vos favoris.');
-    } catch (favoriteError) {
-      setError(favoriteError instanceof Error ? favoriteError.message : 'Connectez-vous pour gérer vos favoris.');
+      setMarking(false);
     }
   };
 
@@ -120,17 +102,18 @@ export default function LibraryReaderPage() {
               />
               {pageCount > 0 && <span>sur {pageCount}</span>}
             </label>
-            <button type="button" onClick={() => void saveProgress()} disabled={saving} className="inline-flex items-center gap-2 border border-white/30 px-3 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50">
-              {saving ? <LoaderCircle size={15} className="animate-spin" /> : <Save size={15} aria-hidden="true" />}
-              Enregistrer ma position
+            <button type="button" onClick={() => void markPage()} disabled={marking} className="inline-flex items-center gap-2 border border-white/30 px-3 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50">
+              {marking ? <LoaderCircle size={15} className="animate-spin" /> : <Bookmark size={15} aria-hidden="true" />}
+              Marquer cette page
             </button>
-            <button type="button" onClick={() => void toggleFavorite()} className="inline-flex items-center gap-2 border border-white/30 px-3 py-2 text-sm font-semibold hover:bg-white/10">
-              <BookmarkPlus size={15} aria-hidden="true" />
-              {book.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            </button>
-            <a href={`/api/library/file?id=${encodeURIComponent(book.id)}&download=1`} className="inline-flex items-center gap-2 bg-cyan-700 px-3 py-2 text-sm font-bold hover:bg-cyan-600">
+            <LibraryDownloadButton
+              href={`/api/library/file?id=${encodeURIComponent(book.id)}&download=1`}
+              filename={`${book.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'livre'}.pdf`}
+              title={book.title}
+              className="inline-flex items-center gap-2 bg-cyan-700 px-3 py-2 text-sm font-bold hover:bg-cyan-600"
+            >
               <Download size={15} aria-hidden="true" /> Télécharger
-            </a>
+            </LibraryDownloadButton>
           </div>
         )}
       </header>
@@ -144,7 +127,7 @@ export default function LibraryReaderPage() {
       {error && <p role="alert" className="mx-4 mt-4 border border-red-300/30 bg-red-950 p-3 text-sm text-red-100 sm:mx-7">{error}</p>}
       {notice && <p role="status" className="mx-4 mt-4 border border-emerald-300/30 bg-emerald-950 p-3 text-sm text-emerald-100 sm:mx-7">{notice}</p>}
       {busy ? (
-        <div className="grid min-h-[70vh] place-items-center"><LoaderCircle className="animate-spin text-cyan-300" size={32} aria-label="Chargement du livre" /></div>
+        <div className="grid min-h-[70vh] place-items-center"><StatusAnimation label="Chargement du livre" /></div>
       ) : book ? (
         <LibraryPdfViewer
           src={`/api/library/file?id=${encodeURIComponent(book.id)}`}

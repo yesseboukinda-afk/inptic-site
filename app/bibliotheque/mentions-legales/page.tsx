@@ -16,7 +16,7 @@ export default function LibraryLegalPage() {
         </section>
         <section className="mt-7 space-y-3">
           <h2 className="text-2xl font-bold">Données personnelles</h2>
-          <p className="leading-7 text-slate-700">Les favoris, collections, appréciations et progrès de lecture sont associés au compte INPTIC. Pour consulter les règles de traitement des données et exercer vos droits, utilisez les pages générales du site.</p>
+          <p className="leading-7 text-slate-700">Les collections et progrès de lecture sont associés au compte INPTIC. Pour consulter les règles de traitement des données et exercer vos droits, utilisez les pages générales du site.</p>
           <div className="flex flex-wrap gap-4 text-sm font-semibold text-cyan-800">
             <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>
             <Link href="/conditions-d-utilisation" className="hover:underline">Conditions d’utilisation</Link>

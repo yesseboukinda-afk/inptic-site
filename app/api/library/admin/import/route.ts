@@ -1,4 +1,4 @@
-import { realpath, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { getPostgresPool } from '@/lib/postgres';
 import {
@@ -30,7 +30,7 @@ type ImportBook = {
 
 class ImportValidationError extends Error {}
 
-async function ensureAssetExists(kind: 'books' | 'covers', filename: string, rowNumber: number) {
+async function ensureAssetExists(kind: 'books' | 'covers', filename: string, rowNumber: number, allowMissing = false) {
   const configuredDirectory = kind === 'books' ? process.env.LIBRARY_BOOKS_DIR : process.env.LIBRARY_COVERS_DIR;
   const defaultDirectory = kind === 'books'
     ? path.join(process.cwd(), 'app', 'bibliotheque', 'livres')
@@ -48,6 +48,7 @@ async function ensureAssetExists(kind: 'books' | 'covers', filename: string, row
   } catch (error) {
     if (error instanceof ImportValidationError) throw error;
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      if (allowMissing) return false;
       throw new ImportValidationError(`Ligne ${rowNumber} : fichier absent du serveur (${filename}).`);
     }
     if (error instanceof Error && error.message === 'Invalid library asset name.') {
@@ -55,6 +56,7 @@ async function ensureAssetExists(kind: 'books' | 'covers', filename: string, row
     }
     throw error;
   }
+  return true;
 }
 
 function parseImportRows(text: string): ImportBook[] {
@@ -111,7 +113,7 @@ function parseImportRows(text: string): ImportBook[] {
   });
 }
 
-async function importBooks(client: PoolClient, books: ImportBook[]) {
+async function importBooks(client: PoolClient, books: ImportBook[], updateExisting: boolean) {
   let inserted = 0;
   let updated = 0;
 
@@ -124,24 +126,26 @@ async function importBooks(client: PoolClient, books: ImportBook[]) {
       [book.fileName],
     );
     if (existing.rows[0]) {
-      await client.query(
-        `UPDATE public.library_books
-         SET title = $2,
-             author = CASE WHEN $3 <> '' THEN $3 ELSE author END,
-             description = CASE WHEN $4 <> '' THEN $4 ELSE description END,
-             category = CASE WHEN $5 <> '' THEN $5 ELSE category END,
-             language = CASE WHEN $6 <> '' THEN $6 ELSE language END,
-             edition = CASE WHEN $7 <> '' THEN $7 ELSE edition END,
-             page_count = CASE WHEN $8 > 0 THEN $8 ELSE page_count END,
-             legacy_cover_name = COALESCE($9, legacy_cover_name), is_public = TRUE,
-             updated_at = NOW()
-         WHERE id = $1`,
-        [
-          existing.rows[0].id, book.title, book.author, book.description, book.category,
-          book.language, book.edition, book.pageCount, book.coverName,
-        ],
-      );
-      updated += 1;
+      if (updateExisting) {
+        await client.query(
+          `UPDATE public.library_books
+           SET title = $2,
+               author = CASE WHEN $3 <> '' THEN $3 ELSE author END,
+               description = CASE WHEN $4 <> '' THEN $4 ELSE description END,
+               category = CASE WHEN $5 <> '' THEN $5 ELSE category END,
+               language = CASE WHEN $6 <> '' THEN $6 ELSE language END,
+               edition = CASE WHEN $7 <> '' THEN $7 ELSE edition END,
+               page_count = CASE WHEN $8 > 0 THEN $8 ELSE page_count END,
+               legacy_cover_name = COALESCE($9, legacy_cover_name), is_public = TRUE,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [
+            existing.rows[0].id, book.title, book.author, book.description, book.category,
+            book.language, book.edition, book.pageCount, book.coverName,
+          ],
+        );
+        updated += 1;
+      }
       continue;
     }
 
@@ -175,28 +179,44 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Formulaire d’import invalide.' }, { status: 400 });
   }
+  const importSource = form.get('source') === 'repository';
   const file = form.get('file');
-  if (!(file instanceof File) || !file.name.toLowerCase().endsWith('.csv')) {
+  if (!importSource && (!(file instanceof File) || !file.name.toLowerCase().endsWith('.csv'))) {
     return NextResponse.json({ error: 'Sélectionnez un fichier CSV.' }, { status: 400 });
   }
-  if (file.size > MAX_CSV_BYTES) {
+  if (!importSource && file instanceof File && file.size > MAX_CSV_BYTES) {
     return NextResponse.json({ error: 'Le fichier CSV dépasse la limite de 1 Mo.' }, { status: 413 });
   }
 
   let books: ImportBook[];
+  let skippedMissing = 0;
   try {
-    books = parseImportRows(await file.text());
-    for (let index = 0; index < books.length; index += 1) {
-      const book = books[index];
-      await ensureAssetExists('books', book.fileName, index + 2);
-      if (book.coverName) await ensureAssetExists('covers', book.coverName, index + 2);
+    let csv: string;
+    if (importSource) {
+      csv = await readFile(path.join(process.cwd(), 'migration', 'library_books_from_pdf.csv'), 'utf8');
+    } else if (file instanceof File) {
+      csv = await file.text();
+    } else {
+      return NextResponse.json({ error: 'Sélectionnez un fichier CSV.' }, { status: 400 });
     }
+    const parsedBooks = parseImportRows(csv);
+    books = [];
+    for (let index = 0; index < parsedBooks.length; index += 1) {
+      const book = parsedBooks[index];
+      if (!await ensureAssetExists('books', book.fileName, index + 2, importSource)) {
+        skippedMissing += 1;
+        continue;
+      }
+      if (book.coverName) await ensureAssetExists('covers', book.coverName, index + 2);
+      books.push(book);
+    }
+    if (!books.length) throw new ImportValidationError('Aucun PDF source disponible à synchroniser.');
   } catch (error) {
     if (error instanceof ImportValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400, headers: LIBRARY_NO_STORE_HEADERS });
     }
-    console.error('[Library import API] File validation failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
-    return NextResponse.json({ error: 'Impossible de vérifier les fichiers de la bibliothèque.' }, { status: 503 });
+    console.error('[Library import API] Source catalog validation failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    return NextResponse.json({ error: 'Impossible de lire ou vérifier les fichiers de la bibliothèque.' }, { status: 503 });
   }
 
   let client: PoolClient;
@@ -211,10 +231,10 @@ export async function POST(request: NextRequest) {
   try {
     await client.query('BEGIN');
     transactionStarted = true;
-    const result = await importBooks(client, books);
+    const result = await importBooks(client, books, !importSource);
     await client.query('COMMIT');
     transactionStarted = false;
-    return NextResponse.json({ ...result, total: books.length }, { headers: LIBRARY_NO_STORE_HEADERS });
+    return NextResponse.json({ ...result, total: books.length, skippedMissing }, { headers: LIBRARY_NO_STORE_HEADERS });
   } catch (error) {
     if (transactionStarted) {
       try {

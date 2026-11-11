@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { BookmarkPlus, BookOpen, Download, ThumbsUp } from 'lucide-react';
+import { BookOpen, Download } from 'lucide-react';
 import { useState } from 'react';
+import LibraryDownloadButton from './LibraryDownloadButton';
 
 export type LibraryBookCardData = {
   id: string;
@@ -12,9 +13,6 @@ export type LibraryBookCardData = {
   language: string;
   pageCount: number;
   downloadCount: number;
-  likesCount: number;
-  isFavorite: boolean;
-  isLiked: boolean;
   currentPage: number;
   progressPages: number;
 };
@@ -22,17 +20,11 @@ export type LibraryBookCardData = {
 type Props = {
   book: LibraryBookCardData;
   layout?: 'default' | 'catalog';
-  onLike?: (book: LibraryBookCardData) => void;
-  onAddToCollection?: (book: LibraryBookCardData) => void;
-  showCollectionAction?: boolean;
 };
 
 export default function LibraryBookCard({
   book,
   layout = 'default',
-  onLike,
-  onAddToCollection,
-  showCollectionAction = true,
 }: Props) {
   const [coverAvailable, setCoverAvailable] = useState(true);
   const progress = book.progressPages > 0
@@ -56,32 +48,16 @@ export default function LibraryBookCard({
               <span className="grid h-full place-items-center"><BookOpen size={42} className="text-cyan-100/80" aria-hidden="true" /></span>
             )}
           </Link>
-          {showCollectionAction && (
-            <button
-              type="button"
-              onClick={() => onAddToCollection?.(book)}
-              aria-label="Ajouter à ma bibliothèque"
-              className="library-book-catalog-action library-book-catalog-bookmark absolute bottom-2 left-2 z-10 rounded-sm bg-white/90 p-1.5 text-slate-600 shadow-sm hover:text-cyan-800"
-            >
-              <BookmarkPlus size={15} aria-hidden="true" />
-            </button>
-          )}
           <div className="library-book-catalog-action library-book-catalog-actions absolute bottom-2 right-2 z-10 flex gap-1 rounded-sm bg-white/90 p-1 shadow-sm sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-            <button
-              type="button"
-              onClick={() => onLike?.(book)}
-              aria-label={`${book.isLiked ? 'Retirer le j’aime' : 'Aimer ce livre'} (${book.likesCount})`}
-              className={`library-book-catalog-action-button rounded-sm p-1 ${book.isLiked ? 'is-liked text-cyan-800' : 'text-slate-500 hover:text-cyan-800'}`}
-            >
-              <ThumbsUp size={14} aria-hidden="true" />
-            </button>
-            <a
+            <LibraryDownloadButton
               href={`/api/library/file?id=${encodeURIComponent(book.id)}&download=1`}
+              filename={`${book.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'livre'}.pdf`}
+              title={book.title}
               aria-label={`Télécharger ${book.title}`}
               className="library-book-catalog-action-button rounded-sm p-1 text-slate-500 hover:text-cyan-800"
             >
               <Download size={14} aria-hidden="true" />
-            </a>
+            </LibraryDownloadButton>
           </div>
         </div>
         <Link href={`/bibliotheque/lecture?id=${encodeURIComponent(book.id)}`} className="group block px-1">
@@ -130,27 +106,16 @@ export default function LibraryBookCard({
       <div className="library-book-standard-actions flex items-center justify-between border-t border-slate-100 px-4 py-3">
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1"><Download size={13} aria-hidden="true" />{book.downloadCount}</span>
-          <button
-            type="button"
-            onClick={() => onLike?.(book)}
-            aria-label={book.isLiked ? 'Retirer le j’aime' : 'Aimer ce livre'}
-            className={`inline-flex items-center gap-1 ${book.isLiked ? 'text-cyan-800' : 'text-slate-500 hover:text-cyan-800'}`}
-          >
-            <ThumbsUp size={13} aria-hidden="true" />{book.likesCount}
-          </button>
         </div>
-        <div className="flex items-center gap-2">
-          {showCollectionAction && (
-            <button type="button" onClick={() => onAddToCollection?.(book)} className="p-1.5 text-slate-500 hover:text-cyan-800" aria-label="Ajouter à ma bibliothèque">
-              <BookmarkPlus size={16} aria-hidden="true" />
-            </button>
-          )}
-          <a
+        <div>
+          <LibraryDownloadButton
             href={`/api/library/file?id=${encodeURIComponent(book.id)}&download=1`}
+            filename={`${book.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'livre'}.pdf`}
+            title={book.title}
             className="inline-flex items-center gap-1.5 bg-cyan-800 px-3 py-2 text-xs font-bold text-white hover:bg-cyan-900"
           >
             <Download size={14} aria-hidden="true" /> Télécharger
-          </a>
+          </LibraryDownloadButton>
         </div>
       </div>
     </article>

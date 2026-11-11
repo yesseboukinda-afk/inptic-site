@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, BookOpen, Library, LoaderCircle, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, Library, ShieldCheck } from 'lucide-react';
 import LibraryBookCard, { type LibraryBookCardData } from '@/components/library/LibraryBookCard';
+import StatusAnimation from '@/components/StatusAnimation';
 import { authClient } from '@/lib/auth-client';
-import { isAdminRole } from '@/lib/roles';
+import { isSuperAdminRole } from '@/lib/roles';
 
 type CatalogResponse = {
   books: LibraryBookCardData[];
@@ -29,7 +30,6 @@ export default function LibraryPage() {
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
 
   const loadCatalog = useCallback(async (signal: AbortSignal) => {
@@ -63,37 +63,8 @@ export default function LibraryPage() {
   }, [loadCatalog]);
 
   useEffect(() => {
-    void authClient.auth.getSession().then(({ data }) => setHasAdminAccess(isAdminRole(data.session?.user.app_metadata?.role)));
+    void authClient.auth.getSession().then(({ data }) => setHasAdminAccess(isSuperAdminRole(data.session?.user.app_metadata?.role)));
   }, []);
-
-  const updateInteraction = async (action: 'like' | 'collection', book: LibraryBookCardData) => {
-    setNotice('');
-    try {
-      const response = await fetch('/api/library/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, bookId: book.id }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer cette action.');
-      if (action === 'collection') {
-        setNotice(data.added ? 'Livre ajouté à votre bibliothèque personnelle.' : 'Ce livre est déjà dans votre bibliothèque.');
-      } else {
-        setResult((current) => ({
-          ...current,
-          books: current.books.map((item) => item.id !== book.id ? item : {
-            ...item,
-            ...(action === 'like' ? {
-              isLiked: Boolean(data.active),
-              likesCount: Number(data.likesCount) || 0,
-            } : {}),
-          }),
-        }));
-      }
-    } catch (actionError) {
-      setNotice(actionError instanceof Error ? actionError.message : 'Impossible d’enregistrer cette action.');
-    }
-  };
 
   const booksByInitial = result.books.reduce<Record<string, LibraryBookCardData[]>>((groups, book) => {
     const firstCharacter = book.title.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').charAt(0).toUpperCase();
@@ -116,7 +87,7 @@ export default function LibraryPage() {
               </span>
               <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">La bibliothèque numérique</h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
-                Explorez les ouvrages, partagez vos ressources et reprenez votre lecture depuis votre espace personnel.
+                Explorez les ouvrages et reprenez votre lecture depuis votre espace personnel.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -158,12 +129,11 @@ export default function LibraryPage() {
 
         <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600"><strong className="text-slate-900">{result.total}</strong> ouvrage{result.total === 1 ? '' : 's'} dans le catalogue</p>
-          {notice && <p role="status" className="text-sm font-medium text-cyan-900">{notice}</p>}
         </div>
         {error && <p role="alert" className="mt-5 whitespace-pre-line border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
 
         {busy ? (
-          <div className="grid min-h-52 place-items-center"><LoaderCircle className="animate-spin text-cyan-800" size={30} aria-label="Chargement du catalogue" /></div>
+          <div className="grid min-h-52 place-items-center"><StatusAnimation label="Chargement du catalogue" /></div>
         ) : result.books.length ? (
           <div className="mt-5 space-y-8">
             {initialOrder.map((letter) => (
@@ -177,9 +147,6 @@ export default function LibraryPage() {
                       key={book.id}
                       book={book}
                       layout="catalog"
-                      showCollectionAction={false}
-                      onLike={(item) => void updateInteraction('like', item)}
-                      onAddToCollection={(item) => void updateInteraction('collection', item)}
                     />
                   ))}
                 </div>

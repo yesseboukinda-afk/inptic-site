@@ -1,7 +1,7 @@
 import 'server-only';
 import path from 'node:path';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
-import { isAdminRole } from '@/lib/roles';
+import { isSuperAdminRole } from '@/lib/roles';
 
 export const LIBRARY_FILE_BUCKET = 'library';
 export const LIBRARY_NO_STORE_HEADERS = {
@@ -22,12 +22,9 @@ export type LibraryBook = {
   legacyCoverName: string | null;
   coverPath: string | null;
   downloadCount: number;
-  likesCount: number;
   isPublic: boolean;
   ownerUserId: string | null;
   createdAt: string;
-  isFavorite: boolean;
-  isLiked: boolean;
   currentPage: number;
   progressPages: number;
 };
@@ -47,12 +44,9 @@ export function normalizeLibraryBook(row: Record<string, unknown>): LibraryBook 
     legacyCoverName: typeof row.legacy_cover_name === 'string' ? row.legacy_cover_name : null,
     coverPath: typeof row.cover_path === 'string' ? row.cover_path : null,
     downloadCount: Number(row.download_count) || 0,
-    likesCount: Number(row.likes_count) || 0,
     isPublic: Boolean(row.is_public),
     ownerUserId: typeof row.owner_user_id === 'string' ? row.owner_user_id : null,
     createdAt: String(row.created_at || ''),
-    isFavorite: Boolean(row.is_favorite),
-    isLiked: Boolean(row.is_liked),
     currentPage: Number(row.current_page) || 0,
     progressPages: Number(row.progress_pages) || 0,
   };
@@ -63,8 +57,8 @@ export async function authorizeLibraryAdmin(request: import('next/server').NextR
   if (!user) {
     return { error: Response.json({ error: 'Session requise. Veuillez vous connecter.' }, { status: 401 }) };
   }
-  if (!isAdminRole(user.role)) {
-    return { error: Response.json({ error: 'Accès réservé à l’administration.' }, { status: 403 }) };
+  if (!isSuperAdminRole(user.role)) {
+    return { error: Response.json({ error: 'Accès réservé au super-administrateur.' }, { status: 403 }) };
   }
   return { user };
 }
