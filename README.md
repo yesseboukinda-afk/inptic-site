@@ -366,12 +366,13 @@ Pour activer les inscriptions et envois de newsletter :
    (GitHub ne peut pas lire directement les variables configurées sur LWS).
    Ajouter la variable de dépôt `NEWSLETTER_DIGEST_URL` contenant l’URL complète
    `https://votre-domaine.tld/api/newsletter/weekly-digest`. Le workflow
-   `.github/workflows/weekly-tech-digest.yml` appelle cette route avec le secret
-   Bearer le vendredi à 16 h UTC (17 h au Gabon). L’envoi utilise la configuration
-   SMTP et la base PostgreSQL du serveur, comme les autres newsletters. Depuis
-   l’onglet Actions, un lancement manuel utilise le même envoi hebdomadaire et
-   n’est accepté que le vendredi. Les envois sont dédoublonnés pour chaque
-   abonné et chaque semaine.
+   `.github/workflows/weekly-tech-digest.yml` tente l’envoi toutes les cinq
+   minutes le vendredi de 16 h à 16 h 55 UTC. Le serveur n’autorise l’envoi
+   qu’à 17 h, heure du Gabon (Africa/Libreville) ; une tâche retardée ne peut
+   donc pas expédier la revue à 22 h. L’envoi utilise la configuration SMTP et
+   la base PostgreSQL du serveur, comme les autres newsletters. Depuis l’onglet
+   Actions, un lancement manuel suit la même règle d’horaire. Les envois sont
+   dédoublonnés pour chaque abonné et chaque semaine.
    Pour simplement prévisualiser la revue dans un navigateur, ouvrir
    `https://votre-domaine.tld/api/newsletter/weekly-digest/preview` ; cet aperçu
    récupère les articles de la dernière semaine complète et n’envoie aucun e-mail.

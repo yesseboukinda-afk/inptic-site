@@ -21,9 +21,7 @@ export async function POST(request: NextRequest) {
     const result = await sendWeeklyTechDigest();
     const status = result.status === 'not_configured' || result.status === 'failed'
       ? 503
-      : result.status === 'not_friday'
-        ? 409
-        : 200;
+      : 200;
     return NextResponse.json(result, { status, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error(

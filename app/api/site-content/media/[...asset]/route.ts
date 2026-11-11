@@ -3,10 +3,11 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
-import { resolveStoredFilePath } from '@/lib/localStorage';
+import { getPublicStorageUrl, resolveStoredFilePath } from '@/lib/localStorage';
 import { SITE_IMAGE_SLOTS } from '@/lib/site-content';
 
 const BUCKET = 'site-media';
+const MEDIA_ALIAS_CACHE_CONTROL = 'public, max-age=60, s-maxage=60, stale-while-revalidate=300';
 
 export async function GET(
   request: NextRequest,
@@ -40,12 +41,13 @@ export async function GET(
         if (!mimeType) {
           return NextResponse.json({ error: 'Photo introuvable dans le stockage.' }, { status: 404 });
         }
-        const etag = createImageEtag(storagePath);
-        if (matchesIfNoneMatch(request.headers.get('if-none-match'), etag)) {
-          return notModifiedResponse(etag);
-        }
-        const contents = await readFile(resolveStoredFilePath(BUCKET, storagePath));
-        return imageResponse(contents, mimeType, etag);
+        const response = NextResponse.redirect(
+          new URL(getPublicStorageUrl(BUCKET, storagePath), request.url),
+          307,
+        );
+        response.headers.set('Cache-Control', MEDIA_ALIAS_CACHE_CONTROL);
+        response.headers.set('Content-Type', mimeType);
+        return response;
       }
     } catch (error) {
       const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
@@ -79,7 +81,7 @@ function imageResponse(contents: Buffer, mimeType: string, etag: string) {
     headers: {
       'Content-Type': mimeType,
       'Content-Length': String(contents.byteLength),
-      'Cache-Control': 'public, max-age=0, s-maxage=0, must-revalidate',
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
       ETag: etag,
       'X-Content-Type-Options': 'nosniff',
     },
@@ -90,7 +92,7 @@ function notModifiedResponse(etag: string) {
   return new NextResponse(null, {
     status: 304,
     headers: {
-      'Cache-Control': 'public, max-age=0, s-maxage=0, must-revalidate',
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
       ETag: etag,
     },
   });

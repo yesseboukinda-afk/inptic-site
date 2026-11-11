@@ -38,7 +38,7 @@ type NewsletterResult = {
 };
 
 export type WeeklyDigestResult = {
-  status: 'sent' | 'already_sent' | 'no_subscribers' | 'not_configured' | 'partial' | 'failed' | 'no_articles' | 'not_friday';
+  status: 'sent' | 'already_sent' | 'no_subscribers' | 'not_configured' | 'partial' | 'failed' | 'no_articles' | 'not_scheduled_time';
   sent: number;
   failed: number;
   articleCount: number;
@@ -137,6 +137,9 @@ function getLibrevilleWeek(now: Date, completedWeek = false) {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    hourCycle: 'h23',
   }).formatToParts(now);
   const part = (type: Intl.DateTimeFormatPartTypes) => dateParts.find((item) => item.type === type)?.value || '';
   const year = Number(part('year'));
@@ -145,10 +148,8 @@ function getLibrevilleWeek(now: Date, completedWeek = false) {
   const todayUtc = new Date(Date.UTC(year, month - 1, day));
   const daysSinceMonday = (todayUtc.getUTCDay() + 6) % 7;
   const mondayUtc = new Date(Date.UTC(year, month - 1, day - daysSinceMonday));
-  const isFriday = new Intl.DateTimeFormat('en-US', {
-    timeZone: NEWSLETTER_TIME_ZONE,
-    weekday: 'short',
-  }).format(now) === 'Fri';
+  const isFriday = part('weekday') === 'Fri';
+  const isScheduledTime = isFriday && Number(part('hour')) === 17;
   if (completedWeek && daysSinceMonday < 4) {
     mondayUtc.setUTCDate(mondayUtc.getUTCDate() - 7);
   }
@@ -165,6 +166,7 @@ function getLibrevilleWeek(now: Date, completedWeek = false) {
       ? new Date(mondayUtc.getTime() + 4 * 24 * 60 * 60 * 1000 + 23 * 60 * 60 * 1000 - 1)
       : now,
     isFriday,
+    isScheduledTime,
   };
 }
 
@@ -365,7 +367,7 @@ export async function sendWeeklyTechDigest(now = new Date()): Promise<WeeklyDige
     sourceFailures: 0,
     weekOf: week.weekOf,
   };
-  if (!week.isFriday) return { ...emptyResult, status: 'not_friday' };
+  if (!week.isScheduledTime) return { ...emptyResult, status: 'not_scheduled_time' };
   if (!isSmtpEmailConfigured() || !process.env.DATABASE_URL) {
     return { ...emptyResult, status: 'not_configured' };
   }
