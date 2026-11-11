@@ -57,7 +57,7 @@ export async function GET(
   }
 
   try {
-    const fallbackAsset = image.fallback ?? slot;
+    const fallbackAsset = 'fallback' in image ? image.fallback : slot;
     const filePath = path.join(process.cwd(), 'public', ...fallbackAsset.split('/'));
     const contents = await readFile(filePath);
     const etag = createImageEtag(contents);
