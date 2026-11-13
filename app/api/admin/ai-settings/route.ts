@@ -2,6 +2,7 @@ import { withSiteAudit } from '@/lib/site-audit';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
 import { isSuperAdminRole } from '@/lib/roles';
+import { safeClientErrorMessage, sanitizeSecrets } from '@/lib/security-sanitize';
 import {
   AI_PROVIDER_DEFAULTS,
   decodeApiKey,
@@ -146,9 +147,10 @@ async function siteAuditedPOST(request: NextRequest) {
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
-    console.error('[Admin AI settings POST] Configuration error:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    const rawMsg = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+    console.error('[Admin AI settings POST] Configuration error:', sanitizeSecrets(rawMsg));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Impossible d’enregistrer la configuration IA.' },
+      { error: safeClientErrorMessage(error, 'Impossible d’enregistrer la configuration IA.') },
       { status: 503 },
     );
   }

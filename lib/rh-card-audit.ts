@@ -1,3 +1,4 @@
+import 'server-only';
 import { getPostgresPool } from '@/lib/postgres';
 
 type RHCardScanProfile = {

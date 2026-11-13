@@ -8,6 +8,7 @@ import {
   listAIProviderModels,
 } from '@/lib/ai-provider-settings';
 import { NextRequest, NextResponse } from 'next/server';
+import { safeClientErrorMessage, sanitizeSecrets } from '@/lib/security-sanitize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       ? body.apiKey.trim()
       : decodeApiKey(saved.rows[0]?.api_key_encrypted || null) || getEnvironmentApiKey(provider);
   } catch (error) {
-    console.error('[Admin AI models] Configuration lookup failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    console.error('[Admin AI models] Configuration lookup failed:', error instanceof Error ? sanitizeSecrets(error.message) : 'UNKNOWN_ERROR');
     return NextResponse.json(
       { error: 'Impossible de lire la configuration du fournisseur. Vérifiez les permissions PostgreSQL.' },
       { status: 503 },
@@ -54,9 +55,9 @@ export async function POST(request: NextRequest) {
     const models = await listAIProviderModels(provider, apiKey);
     return NextResponse.json({ models }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
-    console.error('[Admin AI models] Model listing failed:', error instanceof Error ? error.message : 'UNKNOWN_ERROR');
+    console.error('[Admin AI models] Model listing failed:', error instanceof Error ? sanitizeSecrets(error.message) : 'UNKNOWN_ERROR');
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Impossible de charger la liste des modèles.' },
+      { error: safeClientErrorMessage(error, 'Impossible de charger la liste des modèles pour ce fournisseur.') },
       { status: 503 },
     );
   }

@@ -1,5 +1,6 @@
 import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
+import { safeClientErrorMessage, sanitizeSecrets } from '@/lib/security-sanitize';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { getPostgresPool } from '@/lib/postgres';
 import {
@@ -276,11 +277,11 @@ async function siteAuditedPOST(request: NextRequest) {
       message: (payload.message as string) || 'Paiement initié. Validez la demande sur votre téléphone.',
     });
   } catch (error) {
-    console.error('Singpay create payment error:', error);
+    console.error('Singpay create payment error:', error instanceof Error ? sanitizeSecrets(error.message) : error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Erreur de connexion avec le service de paiement. Veuillez réessayer.',
+        error: safeClientErrorMessage(error, 'Erreur de connexion avec le service de paiement. Veuillez réessayer.'),
       },
       { status: 502 }
     );

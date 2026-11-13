@@ -1,5 +1,6 @@
 import { withSiteAudit } from '@/lib/site-audit';
 import { NextRequest, NextResponse } from 'next/server';
+import { safeClientErrorMessage, sanitizeSecrets } from '@/lib/security-sanitize';
 import {
   saveDocument,
   saveGeneratedImage,
@@ -150,26 +151,26 @@ async function generateImage(
     try {
       if (provider.provider === 'openai') {
         const response = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: ['Bearer', provider.apiKey].join(' '),
-            },
-            body: JSON.stringify({
-              model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.6-flare',
-              prompt: prompt.slice(0, 4000),
-              size: '1024x1024',
-            }),
-            signal: AbortSignal.timeout(90_000),
-            cache: 'no-store',
-          });
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: ['Bearer', provider.apiKey].join(' '),
+          },
+          body: JSON.stringify({
+            model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.6-flare',
+            prompt: prompt.slice(0, 4000),
+            size: '1024x1024',
+          }),
+          signal: AbortSignal.timeout(90_000),
+          cache: 'no-store',
+        });
         const result = await response.json().catch(() => null);
         if (!response.ok) throw new Error(`OpenAI a répondu HTTP ${response.status}.`);
         const image = typeof result?.data?.[0]?.b64_json === 'string'
           ? {
-              mimeType: 'image/png',
-              imageData: Buffer.from(result.data[0].b64_json, 'base64'),
-            }
+            mimeType: 'image/png',
+            imageData: Buffer.from(result.data[0].b64_json, 'base64'),
+          }
           : null;
         if (!image || image.imageData.length === 0 || image.imageData.length > 20 * 1024 * 1024) {
           throw new Error('OpenAI n’a pas renvoyé une image valide.');
@@ -178,18 +179,18 @@ async function generateImage(
       }
 
       const interactionsResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': provider.apiKey,
-            },
-            body: JSON.stringify({
-              model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
-              input: prompt.slice(0, 4000),
-            }),
-            signal: AbortSignal.timeout(60_000),
-            cache: 'no-store',
-          });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': provider.apiKey,
+        },
+        body: JSON.stringify({
+          model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+          input: prompt.slice(0, 4000),
+        }),
+        signal: AbortSignal.timeout(60_000),
+        cache: 'no-store',
+      });
       const interactionsResult = await interactionsResponse.json().catch(() => null);
       const interactionsImage = interactionsResponse.ok ? extractGeneratedImage(interactionsResult) : null;
       if (interactionsImage) return interactionsImage;
@@ -222,7 +223,7 @@ async function generateImage(
       }
       return image;
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'Erreur inconnue';
+      const reason = error instanceof Error ? sanitizeSecrets(error.message) : 'Erreur inconnue';
       failures.push(`${provider.provider}: ${reason}`);
       console.warn(
         `[Sohane] Génération d’image échouée avec ${provider.provider}; tentative du fournisseur suivant.`,
@@ -234,7 +235,7 @@ async function generateImage(
   throw new Error(
     failures.length
       ? `La génération d’image a échoué. ${failures.join(' ')}`
-      : 'La génération d’image a échoué. Vérifiez le modèle, la clé API et le quota de vos fournisseurs OpenAI ou Gemini.',
+      : 'La génération d’image a échoué. Vérifiez la configuration du fournisseur d’images.',
   );
 }
 
@@ -265,25 +266,25 @@ async function siteAuditedPOST(req: NextRequest) {
     const rawMemory: unknown = body?.memory;
     const memories = Array.isArray(rawMemory)
       ? rawMemory
-          .filter((item): item is string => typeof item === 'string')
-          .map((item) => item.trim().slice(0, 200))
-          .filter(Boolean)
-          .slice(0, 20)
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim().slice(0, 200))
+        .filter(Boolean)
+        .slice(0, 20)
       : [];
     const messages: ChatMessage[] = Array.isArray(rawMessages)
       ? rawMessages
-          .filter(
-            (item): item is ChatMessage =>
-              item &&
-              (item.role === 'user' || item.role === 'assistant') &&
-              typeof item.content === 'string',
-          )
-          .map((item) => ({
-            role: item.role,
-            content: item.content.trim().slice(0, 2000),
-          }))
-          .filter((item) => item.content)
-          .slice(-12)
+        .filter(
+          (item): item is ChatMessage =>
+            item &&
+            (item.role === 'user' || item.role === 'assistant') &&
+            typeof item.content === 'string',
+        )
+        .map((item) => ({
+          role: item.role,
+          content: item.content.trim().slice(0, 2000),
+        }))
+        .filter((item) => item.content)
+        .slice(-12)
       : [];
 
     if (!messages.length || !messages.some((item) => item.role === 'user')) {
@@ -334,12 +335,13 @@ Contexte du site :\n${siteKnowledge}${memoryContext}`;
     const providerCascade = await getAIProviderCascadeSettings();
 
     if (!providerCascade.length && !geminiApiKey && !openAiKey && !openRouterKey && !fileFormatFollowUp) {
+      console.warn('[Sohane] Aucun fournisseur IA configuré.');
       return NextResponse.json(
         {
           success: false,
-          error: 'Aucun fournisseur IA n’est configuré. Ajoutez DATABASE_URL pour sélectionner un fournisseur dans /admin/ai-settings, ou configurez GEMINI_API_KEY, OPENAI_API_KEY ou OPENROUTER_API_KEY côté serveur.',
+          error: 'Le service d’assistance est momentanément indisponible. Veuillez réessayer plus tard.',
         },
-        { status: 500 }
+        { status: 503 }
       );
     }
 
@@ -354,8 +356,8 @@ Contexte du site :\n${siteKnowledge}${memoryContext}`;
     ) => {
       const documentContent = sources.length
         ? `${reply}\n\nSources consultées :\n${sources.map((source) =>
-            `- [${source.title || source.uri}](${source.uri})`,
-          ).join('\n')}`
+          `- [${source.title || source.uri}](${source.uri})`,
+        ).join('\n')}`
         : reply;
       let finalReply = documentContent;
       const documents: { id: string; title: string; format: ChatbotFileFormat; url: string }[] = [];
@@ -414,11 +416,11 @@ Contexte du site :\n${siteKnowledge}${memoryContext}`;
         saveChatMessage(chat.id, 'assistant', reply);
         return NextResponse.json({ chatId: chat.id, documents: [], reply, usedModel });
       } catch (error) {
-        console.error('[Sohane] La demande d’image n’a pas pu être réalisée:', error);
+        console.error('[Sohane] La demande d’image n’a pas pu être réalisée:', error instanceof Error ? sanitizeSecrets(error.message) : error);
         return NextResponse.json(
           {
             success: false,
-            error: error instanceof Error ? error.message : 'La génération de l’image a échoué. Vérifiez la configuration du fournisseur d’images.',
+            error: safeClientErrorMessage(error, 'La génération de l’image a échoué. Veuillez réessayer plus tard.'),
           },
           { status: 502 },
         );
@@ -481,17 +483,17 @@ Tu reçois ci-dessous une réponse issue d'une recherche Web et ses sources. Ré
           }
           return await finishReply(finalReply, usedModel, result.sources);
         } catch (error) {
-          const reason = error instanceof Error ? error.message : 'Erreur inconnue';
+          const reason = error instanceof Error ? sanitizeSecrets(error.message) : 'Erreur inconnue';
           failures.push(`${settings.provider}: ${reason}`);
           console.warn(`[Sohane] Recherche Web échouée avec ${settings.provider}; tentative du fournisseur suivant.`);
         }
       }
 
-      console.error('[Sohane] Tous les fournisseurs de recherche Web ont échoué:', failures);
+      console.error('[Sohane] Tous les fournisseurs de recherche Web ont échoué:', failures.map(sanitizeSecrets));
       return NextResponse.json(
         {
           success: false,
-          error: 'La recherche Web a échoué avec les fournisseurs configurés. Vérifiez les modèles, les clés API et les quotas, puis réessayez.',
+          error: 'La recherche d’informations est momentanément indisponible. Veuillez réessayer plus tard.',
         },
         { status: 502 },
       );
@@ -504,11 +506,11 @@ Tu reçois ci-dessous une réponse issue d'une recherche Web et ses sources. Ré
           const result = await generateAIProviderReply(settings, systemPrompt, messages, false, documentRequested ? 5000 : 700);
           return await finishReply(result.reply, result.usedModel, result.sources);
         } catch (error) {
-          failures.push(`${settings.provider}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+          failures.push(`${settings.provider}: ${error instanceof Error ? sanitizeSecrets(error.message) : 'Erreur inconnue'}`);
           console.warn(`[Sohane] Réponse échouée avec ${settings.provider}; tentative du fournisseur suivant.`);
         }
       }
-      console.error('[Sohane] Tous les fournisseurs configurés ont échoué:', failures);
+      console.error('[Sohane] Tous les fournisseurs configurés ont échoué:', failures.map(sanitizeSecrets));
     }
 
     if (geminiApiKey) {
@@ -549,10 +551,11 @@ Tu reçois ci-dessous une réponse issue d'une recherche Web et ses sources. Ré
 
       if (!response.ok) {
         const apiError = typeof data?.error?.message === 'string' ? data.error.message : '';
+        console.error('[Sohane Gemini API error]', response.status, sanitizeSecrets(apiError));
         return NextResponse.json(
           {
             success: false,
-            error: `Gemini n’a pas pu répondre (HTTP ${response.status}). ${apiError || 'Vérifiez la clé GEMINI_API_KEY, le modèle et le quota Google AI.'}`,
+            error: 'Le service d’assistance est momentanément indisponible. Veuillez réessayer plus tard.',
           },
           { status: 502 },
         );
@@ -607,26 +610,24 @@ Tu reçois ci-dessous une réponse issue d'une recherche Web et ses sources. Ré
           const reply = data.choices[0].message.content.trim();
           return await finishReply(reply, item.name);
         } else {
-          lastError = data?.error?.message || `Erreur HTTP ${response.status} avec le modèle ${item.name}`;
+          lastError = sanitizeSecrets(data?.error?.message || `Erreur HTTP ${response.status} avec le modèle ${item.name}`);
         }
       } catch (err: any) {
-        lastError = err?.message || `Échec du modèle ${item.name}`;
+        lastError = sanitizeSecrets(err?.message || `Échec du modèle ${item.name}`);
       }
     }
 
     if (!geminiApiKey) {
-      throw new Error(
-        `Aucun fournisseur IA de secours n’est joignable (${lastError || 'aucune réponse'}). Configurez un fournisseur dans /admin/ai-settings.`,
-      );
+      throw new Error('Aucun fournisseur IA de secours n’est joignable.');
     }
 
-    throw new Error(`Tous les modèles de la cascade ont échoué. Dernier échec : ${lastError}`);
+    throw new Error('Tous les modèles de la cascade ont échoué.');
   } catch (error) {
-    console.error('Chat API cascade error:', error);
+    console.error('Chat API cascade error:', error instanceof Error ? sanitizeSecrets(error.message) : error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Erreur interne de la cascade de modèles IA.',
+        error: 'Le service d’assistance est momentanément indisponible. Veuillez réessayer ultérieurement.',
       },
       { status: 500 }
     );

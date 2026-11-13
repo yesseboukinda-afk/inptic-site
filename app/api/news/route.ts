@@ -6,7 +6,8 @@ import { getPostgresPool } from '@/lib/postgres';
 import { getAuthenticatedUser } from '@/lib/postgres-auth';
 import { sendPublicationNewsletter } from '@/lib/newsletter';
 
-const STRAPI_BASE = (process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api').replace(/\/$/, '');
+// Utilise STRAPI_URL (privée) en priorité, NEXT_PUBLIC_STRAPI_URL seulement en fallback
+const STRAPI_BASE = (process.env.STRAPI_URL || process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337/api').replace(/\/$/, '');
 type PublicationTarget = 'actualites' | 'annonces';
 const DEFAULT_PUBLICATION_TARGETS: PublicationTarget[] = ['actualites', 'annonces'];
 
@@ -52,17 +53,12 @@ async function strapiManagementRequest(path: string, init: RequestInit = {}) {
     const payload = await response.json().catch(() => ({}));
     return { ok: response.ok, status: response.status, payload, error: null };
   } catch (error) {
-    const isAbort = error instanceof Error && error.name === 'AbortError';
-    const message = isAbort
-      ? `Délai d’attente dépassé (5s) vers Strapi (${STRAPI_BASE}).`
-      : error instanceof Error
-        ? error.message
-        : 'Impossible de joindre le serveur CMS Strapi.';
+    console.error('Erreur Strapi interne:', error instanceof Error ? error.message : error);
     return {
       ok: false,
       status: 502,
       payload: null,
-      error: `Erreur de connexion Strapi (${STRAPI_BASE}) : ${message}`,
+      error: 'Impossible de joindre le serveur CMS.',
     };
   }
 }
@@ -177,7 +173,7 @@ export async function GET(request: NextRequest) {
           : Array.isArray(item.socialLinks)
             ? item.socialLinks
             : [],
-          targetPages: normalizePublicationTargets(item.target_pages ?? item.targetPages),
+        targetPages: normalizePublicationTargets(item.target_pages ?? item.targetPages),
         publishedAt: item.published_at || null,
         createdAt: item.created_at || null,
       }));
@@ -190,14 +186,14 @@ export async function GET(request: NextRequest) {
       );
     }
   }
-    if (!process.env.DATABASE_URL) {
-      return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
-    }
-    const requestedTarget = request.nextUrl.searchParams.get('target');
-    if (requestedTarget && requestedTarget !== 'actualites' && requestedTarget !== 'annonces') {
-      return NextResponse.json({ error: 'Page cible invalide.' }, { status: 400 });
-    }
-    const targetPage = requestedTarget as PublicationTarget | null;
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'PostgreSQL n’est pas configuré.' }, { status: 503 });
+  }
+  const requestedTarget = request.nextUrl.searchParams.get('target');
+  if (requestedTarget && requestedTarget !== 'actualites' && requestedTarget !== 'annonces') {
+    return NextResponse.json({ error: 'Page cible invalide.' }, { status: 400 });
+  }
+  const targetPage = requestedTarget as PublicationTarget | null;
 
 
 
@@ -205,36 +201,36 @@ export async function GET(request: NextRequest) {
     try {
       const { rows } = targetPage
         ? await getPostgresPool().query(
-            `SELECT id, title, slug, excerpt, category, attachments, social_links,
+          `SELECT id, title, slug, excerpt, category, attachments, social_links,
                     target_pages, published_at, created_at
              FROM public.actualites
              WHERE status = 'published' AND target_pages @> ARRAY[$1]::TEXT[]
              ORDER BY published_at DESC NULLS LAST`,
-            [targetPage],
-          )
+          [targetPage],
+        )
         : await getPostgresPool().query(
-            `SELECT id, title, slug, excerpt, category, attachments, social_links,
+          `SELECT id, title, slug, excerpt, category, attachments, social_links,
                     target_pages, published_at, created_at
              FROM public.actualites
              WHERE status = 'published'
              ORDER BY published_at DESC NULLS LAST`,
-          );
+        );
       const entries = rows.map((item) => ({
-            id: String(item.id),
-            title: item.title,
-            slug: item.slug,
-            excerpt: item.excerpt,
-            category: item.category || 'Annonce',
-            attachments: Array.isArray(item.attachments) ? item.attachments : [],
-            socialLinks: Array.isArray(item.social_links)
-              ? item.social_links
-              : Array.isArray(item.socialLinks)
-                ? item.socialLinks
-                : [],
-            targetPages: normalizePublicationTargets(item.target_pages ?? item.targetPages),
-            publishedAt: item.published_at,
-            createdAt: item.created_at,
-          }));
+        id: String(item.id),
+        title: item.title,
+        slug: item.slug,
+        excerpt: item.excerpt,
+        category: item.category || 'Annonce',
+        attachments: Array.isArray(item.attachments) ? item.attachments : [],
+        socialLinks: Array.isArray(item.social_links)
+          ? item.social_links
+          : Array.isArray(item.socialLinks)
+            ? item.socialLinks
+            : [],
+        targetPages: normalizePublicationTargets(item.target_pages ?? item.targetPages),
+        publishedAt: item.published_at,
+        createdAt: item.created_at,
+      }));
       return NextResponse.json({
         data: targetPage ? entries.filter((item) => belongsToPublicTarget(item, targetPage)) : entries,
         source: 'postgres',
@@ -302,13 +298,13 @@ async function siteAuditedPOST(request: NextRequest) {
       const data = rows[0];
       const newsletter = status === 'published'
         ? await sendPublicationNewsletter({
-            id: String(data.id),
-            title: publicationData.title,
-            excerpt: publicationData.excerpt,
-            slug: String(data.slug || publicationData.slug),
-            targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS),
-            attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
-          })
+          id: String(data.id),
+          title: publicationData.title,
+          excerpt: publicationData.excerpt,
+          slug: String(data.slug || publicationData.slug),
+          targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS),
+          attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
+        })
         : undefined;
       return NextResponse.json(
         {
@@ -325,7 +321,7 @@ async function siteAuditedPOST(request: NextRequest) {
               : Array.isArray(data.socialLinks)
                 ? data.socialLinks
                 : publicationData.socialLinks,
-              targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages),
+            targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages),
             publishedAt: data.published_at,
             createdAt: data.created_at,
           },
@@ -355,13 +351,13 @@ async function siteAuditedPOST(request: NextRequest) {
     const created = parsePublication(payload?.data);
     const newsletter = status === 'published' && created
       ? await sendPublicationNewsletter({
-          id: created.id,
-          title: created.title,
-          excerpt: created.excerpt,
-          slug: created.slug,
-          targetPages: created.targetPages,
-          attachments: created.attachments,
-        })
+        id: created.id,
+        title: created.title,
+        excerpt: created.excerpt,
+        slug: created.slug,
+        targetPages: created.targetPages,
+        attachments: created.attachments,
+      })
       : undefined;
     return NextResponse.json({ data: created, ...(newsletter ? { newsletter } : {}) }, { status: 201 });
   }
@@ -416,13 +412,13 @@ async function siteAuditedPATCH(request: NextRequest) {
       const data = rows[0];
       const newsletter = status === 'published' && !existing?.published_at
         ? await sendPublicationNewsletter({
-            id: String(data.id),
-            title: publicationData.title,
-            excerpt: publicationData.excerpt,
-            slug: String(data.slug || finalSlug),
-            targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS),
-            attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
-          })
+          id: String(data.id),
+          title: publicationData.title,
+          excerpt: publicationData.excerpt,
+          slug: String(data.slug || finalSlug),
+          targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages ?? DEFAULT_PUBLICATION_TARGETS),
+          attachments: Array.isArray(data.attachments) ? data.attachments : publicationData.attachments,
+        })
         : undefined;
       return NextResponse.json({
         ...(newsletter ? { newsletter } : {}),
@@ -438,7 +434,7 @@ async function siteAuditedPATCH(request: NextRequest) {
             : Array.isArray(data.socialLinks)
               ? data.socialLinks
               : publicationData.socialLinks,
-              targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages),
+          targetPages: normalizePublicationTargets(data.target_pages ?? publicationData.targetPages),
           publishedAt: data.published_at,
           createdAt: data.created_at,
         },
@@ -479,13 +475,13 @@ async function siteAuditedPATCH(request: NextRequest) {
     const updated = parsePublication(payload?.data);
     const newsletter = shouldSendNewsletter && updated
       ? await sendPublicationNewsletter({
-          id: updated.id,
-          title: publicationData.title,
-          excerpt: publicationData.excerpt,
-          slug: updated.slug,
-          targetPages: updated.targetPages,
-          attachments: updated.attachments,
-        })
+        id: updated.id,
+        title: publicationData.title,
+        excerpt: publicationData.excerpt,
+        slug: updated.slug,
+        targetPages: updated.targetPages,
+        attachments: updated.attachments,
+      })
       : undefined;
     return NextResponse.json({ data: updated, ...(newsletter ? { newsletter } : {}) });
   }

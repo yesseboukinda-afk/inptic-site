@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { sanitizeSecrets } from '@/lib/security-sanitize';
 
 function readObject(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'La voix Gemini n’est pas configurée. Ajoutez GEMINI_API_KEY aux variables serveur.' },
+      { error: 'La synthèse vocale n’est pas configurée sur le serveur.' },
       { status: 503 },
     );
   }
@@ -88,12 +89,9 @@ export async function POST(request: Request) {
     const data: unknown = await response.json();
     if (!response.ok) {
       const apiError = readObject(readObject(data)?.error)?.message;
+      console.error('[Gemini TTS error]', response.status, typeof apiError === 'string' ? sanitizeSecrets(apiError) : 'UNKNOWN');
       return NextResponse.json(
-        {
-          error: `Gemini TTS n’a pas pu générer la voix (HTTP ${response.status}). ${
-            typeof apiError === 'string' ? apiError : 'Vérifiez le modèle TTS, la clé Gemini et le quota.'
-          }`,
-        },
+        { error: 'La synthèse vocale n’a pas pu être générée. Veuillez réessayer plus tard.' },
         { status: 502 },
       );
     }

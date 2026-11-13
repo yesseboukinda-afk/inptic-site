@@ -1,3 +1,4 @@
+import 'server-only';
 import { getPostgresPool } from '@/lib/postgres';
 import { isSmtpEmailConfigured, sendSmtpEmail } from '@/lib/smtp-email';
 import { RSS_SOURCES } from '@/lib/techVeilleSources';

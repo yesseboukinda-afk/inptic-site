@@ -1,3 +1,4 @@
+import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { canAccessStaffService, isSuperAdminRole, type StaffService } from '@/lib/roles';
 import { deleteStoredFile, getPublicStorageUrl, saveStoredFile } from '@/lib/localStorage';

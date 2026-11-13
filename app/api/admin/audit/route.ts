@@ -167,10 +167,11 @@ export async function GET(request: NextRequest) {
     console.error(
       '[Admin audit GET] PostgreSQL error:',
       code,
+      runtimeContext,
       error instanceof Error ? error.message : 'UNKNOWN_ERROR',
     );
     return NextResponse.json(
-      { error: `Impossible de charger le journal de traçabilité (PostgreSQL ${code}).${runtimeContext}` },
+      { error: `Impossible de charger le journal de traçabilité (PostgreSQL ${code}).` },
       { status: 503 },
     );
   }

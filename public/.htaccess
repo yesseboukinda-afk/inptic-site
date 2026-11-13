@@ -1,0 +1,20 @@
+# Désactiver le listing automatique des répertoires
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Bloquer l'accès à tous les fichiers cachés (commençant par .) dont .env*, .git*
+    RewriteRule "(^|/)\.(?!well-known)" - [F,L]
+
+    # Bloquer les extensions sensibles
+    RewriteRule "(?i)\.(env.*|sql|sh|bash|log|sqlite|sqlite3|db|bak|config|pem|key|crt|csr|swp|ts|tsx)$" - [F,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Permissions-Policy "camera=(), microphone=*, geolocation=()"
+</IfModule>

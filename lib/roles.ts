@@ -79,11 +79,7 @@ export function isCommunicationRole(value: unknown): boolean {
 export function isAdminAccountEmail(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase().replace(/,/g, '.');
-  const configured = (
-    process.env.ADMIN_EMAILS ||
-    process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
-    ''
-  )
+  const configured = (process.env.ADMIN_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
@@ -93,8 +89,6 @@ export function isAdminAccountEmail(email?: string | null): boolean {
     normalized.startsWith('admin@') ||
     normalized === 'rh@inptic.ga' ||
     normalized === 'drh@inptic.ga' ||
-    normalized === 'yesseboukinda@gmail.com' ||
-    normalized === 'yessemabicka@gmail.com' ||
     configured.includes(normalized)
   );
 }

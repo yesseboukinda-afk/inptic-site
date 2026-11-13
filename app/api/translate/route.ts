@@ -1,4 +1,6 @@
+import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
+import { sanitizeSecrets } from '@/lib/security-sanitize';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +21,8 @@ export async function POST(req: NextRequest) {
 
     const langName =
       targetLang === 'en' ? 'English' :
-      targetLang === 'zh' ? 'Chinese (Simplified)' :
-      targetLang === 'ar' ? 'Arabic' : 'English';
+        targetLang === 'zh' ? 'Chinese (Simplified)' :
+          targetLang === 'ar' ? 'Arabic' : 'English';
 
     const systemPrompt = `You are a professional translator for the INPTIC university website. Translate the following French text into ${langName}. Preserve formatting, links, and line breaks. Return ONLY the translated text without commentary or quotes.`;
 
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ translatedText });
   } catch (error) {
-    console.error('Translation API error:', error);
+    console.error('Translation API error:', error instanceof Error ? sanitizeSecrets(error.message) : 'UNKNOWN_ERROR');
     return NextResponse.json({ translatedText: '' });
   }
 }
