@@ -181,8 +181,8 @@ export default function Header() {
   const currentLanguage = ['fr', 'en', 'zh', 'ar'].includes(i18n.resolvedLanguage || i18n.language) ? (i18n.resolvedLanguage || i18n.language) : 'fr';
   const currentLangFlag =
     currentLanguage === 'en' ? '🇬🇧' :
-    currentLanguage === 'zh' ? '🇨🇳' :
-    currentLanguage === 'ar' ? '🇸🇦' : '🇫🇷';
+      currentLanguage === 'zh' ? '🇨🇳' :
+        currentLanguage === 'ar' ? '🇸🇦' : '🇫🇷';
 
   const canManageRH = isSuperAdmin || canAccessStaffService(accountRole, 'human_resources', assignedService);
   const canManageScolarite = isSuperAdmin || canAccessStaffService(accountRole, 'candidate_profiles', assignedService);
@@ -198,9 +198,9 @@ export default function Header() {
           ? '/veille'
           : canManageClubs
             ? '/clubs'
-          : canAccessStaffService(accountRole, 'concours', assignedService)
-            ? '/concours'
-            : '';
+            : canAccessStaffService(accountRole, 'concours', assignedService)
+              ? '/concours'
+              : '';
   const dashboardLabel = isSuperAdmin
     ? 'Super admin'
     : canManageRH
@@ -322,102 +322,102 @@ export default function Header() {
               WebkitBackdropFilter: 'blur(4px) saturate(160%)',
             }}
           >
-          <h3 className="header-desktop-nav-tree-root text-sm font-bold">{item.label}</h3>
-          <ul
-            className="header-desktop-nav-tree"
-            style={{
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              margin: '8px 0 0 7px',
-              padding: '0 0 0 16px',
-              listStyle: 'none',
-            }}
-          >
-            <li
-              aria-hidden="true"
+            <h3 className="header-desktop-nav-tree-root text-sm font-bold">{item.label}</h3>
+            <ul
+              className="header-desktop-nav-tree"
               style={{
-                position: 'absolute',
-                top: '17px',
-                right: 'auto',
-                bottom: '17px',
-                left: 0,
-                width: '2px',
-                borderRadius: '2px',
-                backgroundColor: '#94a3b8',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                margin: '8px 0 0 7px',
+                padding: '0 0 0 16px',
                 listStyle: 'none',
-                pointerEvents: 'none',
               }}
-            />
-            {item.submenu?.map((subitem) => (
+            >
               <li
-                key={subitem.id}
-                className="header-desktop-nav-tree-item"
-                style={{ position: 'relative', minHeight: '34px', listStyle: 'none' }}
-              >
-                <span
-                  className="header-desktop-nav-tree-branch"
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    top: '16px',
-                    left: '-16px',
-                    width: '16px',
-                    height: '2px',
-                    borderRadius: '2px',
-                    backgroundColor: '#94a3b8',
-                  }}
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  top: '17px',
+                  right: 'auto',
+                  bottom: '17px',
+                  left: 0,
+                  width: '2px',
+                  borderRadius: '2px',
+                  backgroundColor: '#94a3b8',
+                  listStyle: 'none',
+                  pointerEvents: 'none',
+                }}
+              />
+              {item.submenu?.map((subitem) => (
+                <li
+                  key={subitem.id}
+                  className="header-desktop-nav-tree-item"
+                  style={{ position: 'relative', minHeight: '34px', listStyle: 'none' }}
                 >
                   <span
+                    className="header-desktop-nav-tree-branch"
                     aria-hidden="true"
                     style={{
                       position: 'absolute',
-                      top: '50%',
-                      right: '-2px',
-                      width: '6px',
-                      height: '6px',
-                      border: '1px solid #fff',
-                      borderRadius: '50%',
-                      backgroundColor: '#64748b',
-                      transform: 'translateY(-50%)',
+                      top: '16px',
+                      left: '-16px',
+                      width: '16px',
+                      height: '2px',
+                      borderRadius: '2px',
+                      backgroundColor: '#94a3b8',
                     }}
-                  />
-                </span>
-                <Link
-                  href={subitem.href}
-                  prefetch={true}
-                  onMouseEnter={() => {
-                    setHoveredDropdownItem(subitem.id);
-                    void router.prefetch(subitem.href);
-                  }}
-                  className="header-desktop-nav-tree-link text-white"
-                  onMouseLeave={() => setHoveredDropdownItem(null)}
-                  onFocus={() => {
-                    setHoveredDropdownItem(subitem.id);
-                    void router.prefetch(subitem.href);
-                  }}
-                  onBlur={() => setHoveredDropdownItem(null)}
-                  style={{
-                    display: 'flex',
-                    minHeight: '34px',
-                    alignItems: 'center',
-                    padding: '4px 10px',
-                    borderRadius: '7px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    textDecoration: 'none',
-                    transform: hoveredDropdownItem === subitem.id ? 'scale(1.04)' : 'scale(1)',
-                    transformOrigin: 'left center',
-                    transition: 'transform 180ms ease, background-color 160ms ease',
-                    backgroundColor: hoveredDropdownItem === subitem.id ? 'rgba(255, 255, 255, 0.14)' : 'transparent',
-                  }}
-                >
-                  {subitem.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        right: '-2px',
+                        width: '6px',
+                        height: '6px',
+                        border: '1px solid #fff',
+                        borderRadius: '50%',
+                        backgroundColor: '#64748b',
+                        transform: 'translateY(-50%)',
+                      }}
+                    />
+                  </span>
+                  <Link
+                    href={subitem.href}
+                    prefetch={true}
+                    onMouseEnter={() => {
+                      setHoveredDropdownItem(subitem.id);
+                      void router.prefetch(subitem.href);
+                    }}
+                    className="header-desktop-nav-tree-link text-white"
+                    onMouseLeave={() => setHoveredDropdownItem(null)}
+                    onFocus={() => {
+                      setHoveredDropdownItem(subitem.id);
+                      void router.prefetch(subitem.href);
+                    }}
+                    onBlur={() => setHoveredDropdownItem(null)}
+                    style={{
+                      display: 'flex',
+                      minHeight: '34px',
+                      alignItems: 'center',
+                      padding: '4px 10px',
+                      borderRadius: '7px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      textDecoration: 'none',
+                      transform: hoveredDropdownItem === subitem.id ? 'scale(1.04)' : 'scale(1)',
+                      transformOrigin: 'left center',
+                      transition: 'transform 180ms ease, background-color 160ms ease',
+                      backgroundColor: hoveredDropdownItem === subitem.id ? 'rgba(255, 255, 255, 0.14)' : 'transparent',
+                    }}
+                  >
+                    {subitem.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>,
@@ -713,9 +713,8 @@ export default function Header() {
                 onMouseEnter={() => setSelectedSuggestion(index)}
                 onClick={() => selectSearchSuggestion(suggestion)}
                 id={`${id}-option-${index}`}
-                className={`block w-full px-4 py-2.5 text-left transition ${
-                  selectedSuggestion === index ? 'bg-blue-50' : 'hover:bg-slate-50'
-                }`}
+                className={`block w-full px-4 py-2.5 text-left transition ${selectedSuggestion === index ? 'bg-blue-50' : 'hover:bg-slate-50'
+                  }`}
               >
                 <span className="block truncate text-sm font-semibold">{suggestion.title}</span>
                 <span className="mt-0.5 block text-xs text-slate-500">{suggestion.category}</span>
@@ -776,15 +775,14 @@ export default function Header() {
   return (
     <>
       <header
-        className="site-header-glass sticky top-0 z-[70] flex h-16 items-center border-b shadow-sm transition-shadow duration-300 md:h-18 lg:z-50"
+        className="site-header-glass sticky top-0 z-[70] flex h-16 items-center transition-all duration-300 md:h-18 lg:z-50"
         style={{
-          backgroundColor: isDarkTheme ? 'rgba(51, 65, 85, 0.15)' : 'rgba(255, 255, 255, 0.25)',
-          borderColor: isDarkTheme ? 'rgba(203, 213, 225, 0.4)' : 'rgba(148, 163, 184, 0.32)',
-          boxShadow: isDarkTheme
-            ? '0 8px 24px rgba(140, 157, 233, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
-            : '0 8px 24px rgba(2, 12, 27, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(5px) saturate(155%)',
-          WebkitBackdropFilter: 'blur(5px) saturate(155%)',
+          background: 'transparent',
+          backgroundColor: 'transparent',
+          borderBottom: isDarkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.08)',
+          backdropFilter: 'blur(16px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
         }}
         role="banner"
       >

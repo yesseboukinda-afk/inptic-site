@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 .library-pdf-page-canvas {
-  box-shadow: 0 12px 30px rgb(0 0 0 / 35%);
+  box-shadow: 0 12px 30px #00000059;
 }
 
 :root {
@@ -32,6 +32,7 @@
     opacity: 0;
     transform: translateX(8px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -91,6 +92,7 @@ html {
 }
 
 @keyframes catalogue-download-pulse {
+
   0%,
   100% {
     box-shadow: 0 0 0 0 rgba(13, 116, 112, 0.24);
@@ -276,21 +278,21 @@ html {
     animation: none;
   }
 
-    .student-panel {
-      animation: none;
-    }
+  .student-panel {
+    animation: none;
+  }
 
-    .director-panel {
-      animation: none;
-    }
+  .director-panel {
+    animation: none;
+  }
 
-    .catalogue-download-button {
-      animation: none;
-    }
+  .catalogue-download-button {
+    animation: none;
+  }
 
-    .share-platform-popover {
-      animation: none;
-    }
+  .share-platform-popover {
+    animation: none;
+  }
 }
 
 body {
@@ -411,7 +413,8 @@ html.dark .hover\:bg-slate-50:hover {
   background-color: #334155 !important;
 }
 
-img, svg {
+img,
+svg {
   display: block;
   max-width: 100%;
 }
@@ -434,7 +437,10 @@ img, svg {
   }
 }
 
-a, button, input, select {
+a,
+button,
+input,
+select {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -482,18 +488,39 @@ a, button, input, select {
 }
 
 @keyframes formation-finder-slide-out {
-  from { opacity: 1; transform: translateX(0); }
-  to { opacity: 0; transform: translateX(-100%); }
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
 }
 
 @keyframes formation-results-slide-in {
-  from { opacity: 0; transform: translateX(100%); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes formation-finder-zoom-in {
-  from { opacity: 0; transform: scale(0.88); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Slides the image in without changing the hero section's layout height. */
@@ -510,6 +537,7 @@ a, button, input, select {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   /* Respect users who disable non-essential motion in their system settings. */
   .hero-image-reveal {
     animation: none;
@@ -575,13 +603,12 @@ a, button, input, select {
 .site-header-desktop-nav .site-primary-nav-glass {
   gap: 4px;
   padding: 4px 6px;
-  border: 1px solid rgb(255 255 255 / 16%);
-  background-color: rgb(255 255 255 / 7%);
-  box-shadow:
-    0 4px 16px rgb(2 12 27 / 18%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 10%) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 .site-header-desktop-nav .header-desktop-nav-link {
@@ -671,13 +698,13 @@ html:not(.dark) .site-header-desktop-nav .header-desktop-nav-link[aria-current="
 }
 
 header.site-header-glass {
-  border-color: rgb(148 163 184 / 45%);
-  background-color: rgb(255 255 255 / 68%) !important;
-  box-shadow:
-    0 8px 24px rgb(2 12 27 / 14%),
-    inset 0 1px 0 rgb(255 255 255 / 70%);
-  -webkit-backdrop-filter: blur(5px) saturate(155%);
-  backdrop-filter: blur(5px) saturate(155%);
+  border: none !important;
+  border-bottom: 1px solid rgb(255 255 255 / 10%) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+  box-shadow: 0 4px 30px rgb(0 0 0 / 8%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
 }
 
 .dark .site-header-desktop-nav .header-desktop-nav-dropdown-surface {
@@ -689,11 +716,13 @@ header.site-header-glass {
 }
 
 html.dark header.site-header-glass {
-  border-color: rgb(203 213 225 / 40%);
-  background-color: rgb(51 65 85 / 76%) !important;
-  box-shadow:
-    0 8px 24px rgb(2 6 23 / 35%),
-    inset 0 1px 0 rgb(255 255 255 / 8%);
+  border: none !important;
+  border-bottom: 1px solid rgb(255 255 255 / 8%) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+  box-shadow: 0 4px 30px rgb(0 0 0 / 20%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
 }
 
 .site-header-desktop-nav .header-desktop-nav-tree-root {
@@ -742,13 +771,12 @@ html.dark header.site-header-glass {
 }
 
 .site-primary-nav-glass {
-  border: 1px solid rgb(255 255 255 / 16%);
-  background-color: rgb(255 255 255 / 7%);
-  box-shadow:
-    0 4px 16px rgb(2 12 27 / 18%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 10%) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 @media (max-width: 767px) {
@@ -767,7 +795,7 @@ html.dark header.site-header-glass {
     margin-inline: 0;
   }
 
-  .navbar-icon-only + .navbar-icon-only {
+  .navbar-icon-only+.navbar-icon-only {
     margin-left: 0.75rem;
   }
 
@@ -775,8 +803,8 @@ html.dark header.site-header-glass {
     display: none;
   }
 
-  .navbar-icon-only > svg,
-  .navbar-icon-only > img,
+  .navbar-icon-only>svg,
+  .navbar-icon-only>img,
   .navbar-icon-only .icon-slot {
     width: 18px;
     height: 18px;
@@ -919,7 +947,7 @@ html.dark header.site-header-glass {
   line-height: 1.35;
 }
 
-.cookie-consent-content > div:first-child > a {
+.cookie-consent-content>div:first-child>a {
   display: inline-block;
   margin-top: 0.35rem;
   color: #1d4ed8;
@@ -1050,6 +1078,7 @@ html.dark header.site-header-glass {
 
 
 @keyframes heroSlideLoop {
+
   0%,
   8.89% {
     transform: translateX(0);
@@ -1144,7 +1173,9 @@ html.dark header.site-header-glass {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fly-letter { animation: none; }
+  .fly-letter {
+    animation: none;
+  }
 
   .site-header-desktop-nav .header-desktop-nav-link,
   .site-header-desktop-nav .header-desktop-nav-dropdown {

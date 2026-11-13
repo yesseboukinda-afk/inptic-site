@@ -76,6 +76,16 @@ export default function LibraryPdfViewer({
       })
       .catch((loadError: unknown) => {
         if (!active) return;
+        const msg = loadError instanceof Error ? loadError.message : String(loadError);
+        // Si un ancien chunk JS a expiré suite à un déploiement, rafraîchir automatiquement pour charger la dernière version
+        if (msg.includes('Loading chunk') || msg.includes('ChunkLoadError')) {
+          const retryKey = `chunk_retry_${src}`;
+          if (typeof window !== 'undefined' && !sessionStorage.getItem(retryKey)) {
+            sessionStorage.setItem(retryKey, '1');
+            window.location.reload();
+            return;
+          }
+        }
         setError(loadError instanceof Error ? loadError.message : 'Impossible d’ouvrir ce document.');
         setLoading(false);
       });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "inptic-pwa-v4";
+const CACHE_NAME = "inptic-pwa-v5";
 
 const STATIC_ASSETS = [
   "/",
